@@ -5,5 +5,9 @@ container: julia:1.4-buster
 
 steps:
   - script: |
+      pwd
+      ls -l
+      ls -l ..
+      ls -l *
       julia -e 'using Pkg; Pkg.add("https://github.com/eschnett/DDF.jl"); Pkg.test()'
     displayName: Install, build, and test package
