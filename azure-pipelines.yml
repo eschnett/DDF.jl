@@ -1,0 +1,9 @@
+pool:
+  vmImage: 'ubuntu-16.04'
+
+container: julia:1.4-buster
+
+steps:
+  - script: |
+      julia -e 'using Pkg; Pkg.add("https://github.com/eschnett/DDF.jl"); Pkg.test()'
+    displayName: Install, build, and test package
