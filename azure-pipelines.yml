@@ -5,5 +5,5 @@ container: julia:1.4-buster
 
 steps:
   - script: |
-      julia --project=@. -e 'pkg"test"'
+      julia --project=@. -e 'using Pkg; pkg"test"'
     displayName: Install, build, and test package
