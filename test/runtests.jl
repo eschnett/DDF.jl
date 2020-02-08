@@ -1,47 +1,47 @@
 using Test
 using DDF
 
-@testset "Domain D=$D" for D in 0:2
-    dom0 = empty_domain(Val(D))
+@testset "Manifold D=$D" for D in 0:2
+    mf0 = empty_manifold(Val(D))
     for R in 0:D
-        @test dim(Val(R), dom0) == 0
+        @test dim(Val(R), mf0) == 0
     end
 
-    dom1 = cell_domain(Tuple(1:D+1))
+    mf1 = cell_manifold(Tuple(1:D+1))
     if D == 0
-        @test dim(Val(0), dom1) == 1
+        @test dim(Val(0), mf1) == 1
     elseif D == 1
-        @test dim(Val(0), dom1) == 2
-        @test dim(Val(1), dom1) == 1
+        @test dim(Val(0), mf1) == 2
+        @test dim(Val(1), mf1) == 1
     elseif D == 2
-        @test dim(Val(0), dom1) == 3
-        @test dim(Val(1), dom1) == 3
-        @test dim(Val(2), dom1) == 1
+        @test dim(Val(0), mf1) == 3
+        @test dim(Val(1), mf1) == 3
+        @test dim(Val(2), mf1) == 1
     else
         @assert false
     end
 end
 
-# Random rationals
+# Ranmf rationals
 Base.rand(::Type{Rational{T}}) where {T} =
     Rational{T}(rand(-T(1000):T(1000))) / T(1000)
 Base.rand(::Type{Rational{T}}, n::Int) where {T} =
     Rational{T}[rand(Rational{T}) for i in 1:n]
 
-# Random functions
-Base.rand(::Type{Fun{D, R, T}}, dom::Domain{D}) where {D, R, T} =
-    Fun{D, R, T}(dom, rand(T, dim(Val(R), dom)))
+# Ranmf functions
+Base.rand(::Type{Fun{D, R, T}}, mf::Manifold{D}) where {D, R, T} =
+    Fun{D, R, T}(mf, rand(T, dim(Val(R), mf)))
 
 @testset "Fun D=$D R=$R" for D in 0:2, R in 0:D
-    dom = cell_domain(Tuple(1:D+1))
+    mf = cell_manifold(Tuple(1:D+1))
 
     T = Rational{Int64}
-    z = zero(Fun{D, R, T}, dom)
-    e = one(Fun{D, R, T}, dom)
-    i = id(Fun{D, R, T}, dom)
-    f = rand(Fun{D, R, T}, dom)
-    g = rand(Fun{D, R, T}, dom)
-    h = rand(Fun{D, R, T}, dom)
+    z = zero(Fun{D, R, T}, mf)
+    e = one(Fun{D, R, T}, mf)
+    i = id(Fun{D, R, T}, mf)
+    f = rand(Fun{D, R, T}, mf)
+    g = rand(Fun{D, R, T}, mf)
+    h = rand(Fun{D, R, T}, mf)
     a = rand(T)
     b = rand(T)
 
