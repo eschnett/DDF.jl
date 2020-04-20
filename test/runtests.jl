@@ -125,7 +125,7 @@ Base.rand(::Type{Rational{T}}, n::Int) where {T} =
 Base.rand(::Type{Fun{D, R, T}}, mf::Manifold{D}) where {D, R, T} =
     Fun{D, R, T}(mf, rand(T, dim(Val(R), mf)))
 
-@testset "Fun D=$D R=$R" for D in 0:2, R in 0:D
+@testset "Fun D=$D R=$R" for D in 0:4, R in 0:D
     mf = Manifold(Simplex(Tuple(1:D+1)))
 
     T = Rational{Int64}
