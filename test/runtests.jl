@@ -1,13 +1,14 @@
-using Test
+using ComputedFieldTypes
 using DDF
+using Test
 
 @testset "Manifold D=$D" for D in 0:2
-    mf0 = empty_manifold(Val(D))
+    mf0 = Manifold(Val(D))
     for R in 0:D
         @test dim(Val(R), mf0) == 0
     end
 
-    mf1 = cell_manifold(Tuple(1:D+1))
+    mf1 = Manifold(Simplex(Tuple(1:D+1)))
     if D == 0
         @test dim(Val(0), mf1) == 1
     elseif D == 1
@@ -23,12 +24,12 @@ using DDF
 
     if D == 2
         # a Möbius strip
-        mf2 = simplicial_manifold([(1, 2, 4),
-                                   (1, 4, 6),
-                                   (4, 3, 6),
-                                   (6, 3, 5),
-                                   (3, 1, 5),
-                                   (1, 2, 5)])
+        mf2 = Manifold([(1, 2, 4),
+                        (1, 4, 6),
+                        (4, 3, 6),
+                        (6, 3, 5),
+                        (3, 1, 5),
+                        (1, 2, 5)])
         @test dim(Val(0), mf2) == 6
         @test dim(Val(1), mf2) == 12
         @test dim(Val(2), mf2) == 6
@@ -46,7 +47,7 @@ Base.rand(::Type{Fun{D, R, T}}, mf::Manifold{D}) where {D, R, T} =
     Fun{D, R, T}(mf, rand(T, dim(Val(R), mf)))
 
 @testset "Fun D=$D R=$R" for D in 0:2, R in 0:D
-    mf = cell_manifold(Tuple(1:D+1))
+    mf = Manifold(Simplex(Tuple(1:D+1)))
 
     T = Rational{Int64}
     z = zero(Fun{D, R, T}, mf)

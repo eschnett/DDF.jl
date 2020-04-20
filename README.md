@@ -15,3 +15,10 @@ https://fenicsproject.org/documentation/
 Nathan Bell, Anil N. Hirani, PyDEC: Software and Algorithms for
 Discretization of Exterior Calculus, arXiv:1103.3076,
 <https://github.com/hirani/pydec>
+
+Sharif Elcott, Peter Schröder, Building your own DEC at home
+
+Glitter: https://en.wikipedia.org/wiki/Glitter
+
+... and Glitterati: https://songmeanings.com/songs/view/2890/
+

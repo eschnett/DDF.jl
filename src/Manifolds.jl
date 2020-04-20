@@ -1,48 +1,123 @@
+using ComputedFieldTypes
+
+
+
+bitsign(b::Bool) = b ? -1 : 1
+bitsign(i::Integer) = bitsign(isodd(i))
+
+
+
+function sort_perm(xs::Vector{T})::Tuple{Vector{T}, Bool} where {T}
+    n = length(xs)
+    ys = copy(xs)
+    s = false
+    for i in 1:n
+        imin = argmin(@view ys[i:n]) + i - 1
+        t = ys[i]
+        ys[i] = ys[imin]
+        ys[imin] = t
+        s = xor(s, isodd(i - imin))
+    end
+    @assert issorted(ys)
+    ys, s
+end
+
+function sort_perm(xs::NTuple{D, T})::Tuple{NTuple{D, T}, Bool} where {D, T}
+    # TODO: Make this efficient
+    ys, s = sort_perm(collect(xs))
+    tuple(ys...), s
+end
+
+
+
+export Simplex
+@computed struct Simplex{D}
+    vertices::NTuple{D+1, Int}
+    signbit::Bool
+
+    function Simplex{D}(vertices::NTuple{D1, Int},
+                        signbit::Bool=false) where {D, D1}
+        @assert D1 == D+1
+        v, s = sort_perm(vertices)
+        new{D}(v, xor(signbit, s))
+    end
+    function Simplex(vertices::NTuple{D1, Int}, signbit::Bool=false) where {D1}
+        D = D1-1
+        Simplex{D}(vertices, signbit)
+    end
+end
+
+export invariant
+function invariant(s::Simplex)::Bool
+    issorted(s.vertices)
+end
+
+Base.:(==)(s::S, t::S) where {S<:Simplex} =
+    s.vertices == t.vertices && s.signbit == t.signbit
+function Base.isless(s::S, t::S) where {S<:Simplex}
+    isless(s.vertices, t.vertices) && return true
+    isless(t.vertices, s.vertices) && return false
+    isless(s.signbit, t.signbit)
+end
+
+export dim
+dim(::Type{S}) where {S<:Simplex} = length(S) - 1
+dim(::S) where {S<:Simplex} = dim(S)
+
+Base.getindex(s::Simplex, i) = s.vertices[i]
+Base.length(::Type{<:Simplex{D}}) where {D} = D + 1
+Base.length(::S) where {S<:Simplex} = length(S)
+
+
+
+function simplices_type(D::Int)::Type
+    Tuple{(Vector{fulltype(Simplex{d})} for d in 1:D)...}
+end
+
 export Manifold
-"""
-Manifold (aka Chain)
-"""
-struct Manifold{D}
+# """
+# Manifold (aka Chain)
+# """
+@computed struct Manifold{D}
     nvertices::Int
-    # vertices are always numbered 1:nvertices and are not stored (or
-    # should they?)
-    # TODO: Store these as matrices instead? Or a tuples of vectors?
-    # As sparse matrices?
-    edges::Vector{NTuple{2, Int}}
-    faces::Vector{NTuple{3, Int}}
+    # vertices are always numbered 1:nvertices and are not stored
+    simplices::simplices_type(D)
 
     function Manifold{D}(nvertices::Int,
-                         edges::Vector{NTuple{2, Int}},
-                         faces::Vector{NTuple{3, Int}}) where {D}
-        mf = new{D}(nvertices, edges, faces)
+                         simplices::NTuple{D, Vector{<:Simplex}}) where {D}
+        simplices::simplices_type(D)
+        mf = new{D}(nvertices, simplices)
         @assert invariant(mf)
         mf
+    end
+    function Manifold(nvertices::Int,
+                      simplices::NTuple{D, Vector{<:Simplex}}) where {D}
+        Manifold{D}(nvertices, simplices)
     end
 end
 # TODO: Implement also the "cube complex" representation
 
 export invariant
 function invariant(mf::Manifold{D})::Bool where {D}
-    D >= 0 || return false
+    D >= 0 || (@assert false; return false)
 
     mf.nvertices >= 0 || (@assert false; return false)
 
-    (D >= 1 || isempty(mf.edges)) || (@assert false; return false)
-    all(1 <= e[1] <= mf.nvertices for e in mf.edges) || (@assert false; return false)
-    all(1 <= e[2] <= mf.nvertices for e in mf.edges) || (@assert false; return false)
-    all(e[1] < e[2] for e in mf.edges) || (@assert false; return false)
-    all(mf.edges[i] < mf.edges[i+1]
-        for i in 1:length(mf.edges)-1) || (@assert false; return false)
-
-    (D >= 2 || isempty(mf.faces)) || (@assert false; return false)
-    all(1 <= f[1] <= mf.nvertices for f in mf.faces) || (@assert false; return false)
-    all(1 <= f[2] <= mf.nvertices for f in mf.faces) || (@assert false; return false)
-    all(1 <= f[3] <= mf.nvertices for f in mf.faces) || (@assert false; return false)
-    all(f[1] < f[2] < f[3] for f in mf.faces) || (@assert false; return false)
-    all(mf.faces[i] < mf.faces[i+1]
-        for i in 1:length(mf.faces)-1) || (@assert false; return false)
-
-    D <= 2 || (@assert false; return false)
+    for R in 1:D
+        simplices = mf.simplices[R]
+        for i in 1:length(simplices)
+            s = simplices[i]
+            for d in 1:R+1
+                1 <= s[d] <= mf.nvertices || (@assert false; return false)
+            end
+            for d in 2:R+1
+                s[d] > s[d-1] || (@assert false; return false)
+            end
+            if i > 1
+                s > simplices[i-1] || (@assert false; return false)
+            end
+        end
+    end
 
     return true
 end
@@ -51,135 +126,91 @@ end
 
 function Base.:(==)(mf1::Manifold{D}, mf2::Manifold{D})::Bool where {D}
     mf1.nvertices == mf2.nvertices || return false
-    mf1.edges == mf2.edges || return false
-    mf1.faces == mf2.faces || return false
-    return true
+    mf1.simplices == mf2.simplices
 end
 
-export dim
-function dim(::Val{0}, mf::Manifold{D})::Int where {D}
-    @assert 0 <= D
-    mf.nvertices
-end
-function dim(::Val{1}, mf::Manifold{D})::Int where {D}
-    @assert 1 <= D
-    length(mf.edges)
-end
-function dim(::Val{2}, mf::Manifold{D})::Int where {D}
-    @assert 2 <= D
-    length(mf.faces)
+Base.ndims(::Manifold{D}) where {D} = D
+
+function dim(::Val{R}, mf::Manifold{D})::Int where {R, D}
+    R == 0 && return mf.nvertices
+    length(mf.simplices[R])
 end
 
-# Simple constructors
+# Convenience constructors
 
-export empty_manifold
-function empty_manifold(::Val{D})::Manifold{D} where {D}
-    Manifold{D}(0, NTuple{2, Int}[], NTuple{3, Int}[])
-end
-
-export cell_manifold
-function cell_manifold(cell::NTuple{D1, Int})::Manifold{D1-1} where {D1}
-    D = D1 - 1
-    @assert 0 <= D
-    if D == 0
-        nvertices = D + 1
-        Manifold{D}(nvertices, NTuple{2, Int}[], NTuple{3, Int}[])
-    elseif D == 1
-        nvertices = D + 1
-        edges = [cell]
-        Manifold{D}(nvertices, edges, NTuple{3, Int}[])
-    elseif D == 2
-        nvertices = D + 1
-        faces = [cell]
-        edges = ([(cell[1], cell[2]), (cell[1], cell[3]), (cell[2], cell[3])])
-        Manifold{D}(nvertices, edges, faces)
-    else
-        @assert false
-    end
-end
-
-function tuplesort(xs::NTuple{D, T})::NTuple{D, T} where {D, T}
-    # TODO: Make this efficient
-    tuple(sort(collect(xs))...)
-end
-
-export simplicial_manifold
-function simplicial_manifold(cells::Vector{NTuple{D1, Int}}
-                             )::Manifold{D1-1} where {D1}
-    D = D1 - 1
-    @assert 0 <= D
-    # # Ensure cells are sorted
-    # for i in 2:length(cells)
-    #     @assert cells[i] > cells[i-1]
-    # end
-    # # Ensure cell vertices are sorted
-    # for c in cells
-    #     for d in 2:D+1
-    #         @assert c[d] > c[d-1]
+function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
+    # # Ensure simplex vertices are sorted
+    # for s in simplices
+    #     for a in 2:D+1
+    #         @assert s[a] > s[a-1]
     #     end
+    # end
+    # # Ensure simplices are sorted
+    # for i in 2:length(simplices)
+    #     @assert simplices[i] > simplices[i-1]
     # end
     # Count vertices
     nvertices = 0
-    for c in cells
-        for d in 1:D+1
-            nvertices = max(nvertices, c[d])
+    for s in simplices
+        for a in 1:D+1
+            nvertices = max(nvertices, s[a])
         end
     end
-    # Ensure all vertices are mentioned (we could omit this check)
-    vertices = falses(nvertices)
-    for c in cells
-        for d in 1:D+1
-            vertices[c[d]] = true
-        end
-    end
-    @assert all(vertices)
-    # Determine edges
-    if D < 1
-        edges = NTuple{2, Int}[]
+    # # Ensure all vertices are mentioned (we could omit this check)
+    # vertices = falses(nvertices)
+    # for s in simplices
+    #     for a in 1:D+1
+    #         vertices[s[s]] = true
+    #     end
+    # end
+    # @assert all(vertices)
+
+    simplices = copy(simplices)
+    sort!(simplices)
+    unique!(simplices)
+    if D == 0
+        return Manifold{D}(nvertices, ())
     elseif D == 1
-        edges = cells
-    elseif D > 1
-        edges = NTuple{2, Int}[]
-        for c in cells
-            for d1 in 1:D+1, d2 in d1+1:D+1
-                push!(edges, (c[d1], c[d2]))
-            end
+        return Manifold{D}(nvertices, (simplices,))
+    end
+
+    # Calculate lower-dimensional simplices
+    faces = fulltype(Simplex{D-1})[]
+    for s in simplices
+        for a in 1:D+1
+            # Leave out vertex a
+            v1 = ntuple(b -> s[b + (b>=a)], D)
+            s1 = xor(s.signbit, isodd(a-1))
+            face = Simplex{D-1}(v1)
+            push!(faces, face)
         end
-    end
-    for i in 1:length(edges)
-        edges[i] = tuplesort(edges[i])
-    end
-    sort!(edges)
-    unique!(edges)
-    # Determine faces
-    if D < 2
-        faces = NTuple{3, Int}[]
-    elseif D == 2
-        faces = cells
-    elseif D > 2
-        faces = NTuple{3, Int}[]
-        for c in cells
-            for d1 in 1:D+1, d2 in d1+1:D+1, d3 in d2+1:D+1
-                push!(faces, (c[d1], c[d2], c[d3]))
-            end
-        end
-    end
-    for i in 1:length(faces)
-        faces[i] = tuplesort(faces[i])
     end
     sort!(faces)
     unique!(faces)
-    # if D < 3
-    #     cells = NTuple{4, Int}[]
-    # elseif D == 3
-    #     sort!(cells)
-    #     unique!(cells)
-    # elseif D > 3
-    #     @assert false
-    # end
-    # Create manifold
-    Manifold{D}(nvertices, edges, faces)
+    mf1 = Manifold(faces)
+
+    Manifold{D}(nvertices, tuple(mf1.simplices..., simplices))
 end
 
-# Boundaries and derivatives
+function Manifold(simplices::Vector{NTuple{D1, Int}})::Manifold{D1-1} where {D1}
+    D = D1-1
+    Manifold(fulltype(Simplex{D})[Simplex{D}(s) for s in simplices])
+end
 
+function Manifold(::Val{D})::Manifold{D} where {D}
+    Manifold(fulltype(Simplex{D})[])
+end
+
+function Manifold(simplex::Simplex{D})::Manifold{D} where {D}
+    Manifold([simplex])
+end
+
+# Boundary and derivative
+
+export boundary
+function boundary()
+end
+
+export deriv
+function deriv()
+end
