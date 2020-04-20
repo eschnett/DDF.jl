@@ -203,6 +203,7 @@ function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
             v1 = ntuple(b -> s[b + (b>=a)], D)
             s1 = xor(s.signbit, isodd(a-1))
             face = Simplex{D-1}(v1)
+            # face = Simplex{D-1}(face.vertices, false)
             coderiv1 = (Simplex{D-1}(v1, s1), i)
             push!(faces, face)
             push!(coderivs1, coderiv1)

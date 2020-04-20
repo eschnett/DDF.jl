@@ -4,12 +4,11 @@ using LinearAlgebra
 using SparseArrays
 using Test
 
-@testset "Manifold D=$D" for D in 0:2
+@testset "Manifold D=$D" for D in 0:4
 
     function checkderiv2(mf::Manifold{D}) where {D}
         for R in 2:D
-            coderiv2 = mf.coderivs[R-1] * mf.coderivs[R]
-            dropzeros!(coderiv2)
+            coderiv2 = dropzeros(mf.coderivs[R-1] * mf.coderivs[R])
             @test nnz(coderiv2) == 0
         end
     end
@@ -30,6 +29,17 @@ using Test
         @test dim(Val(0), mf1) == 3
         @test dim(Val(1), mf1) == 3
         @test dim(Val(2), mf1) == 1
+    elseif D == 3
+        @test dim(Val(0), mf1) == 4
+        @test dim(Val(1), mf1) == 6
+        @test dim(Val(2), mf1) == 4
+        @test dim(Val(3), mf1) == 1
+    elseif D == 4
+        @test dim(Val(0), mf1) == 5
+        @test dim(Val(1), mf1) == 10
+        @test dim(Val(2), mf1) == 10
+        @test dim(Val(3), mf1) == 5
+        @test dim(Val(4), mf1) == 1
     else
         @assert false
     end
@@ -43,11 +53,65 @@ using Test
                         (6, 3, 5),
                         (3, 1, 5),
                         (1, 2, 5)])
+        @test ndims(mf2) == D
         @test dim(Val(0), mf2) == 6
         @test dim(Val(1), mf2) == 12
         @test dim(Val(2), mf2) == 6
 
         checkderiv2(mf2)
+    end
+
+    if D == 1
+        # a line
+        p0, p2, p1 = 1:3
+        mf3 = Manifold([(p0, p1), (p2, p1)])
+        @test ndims(mf3) == D
+        checkderiv2(mf3)
+    end
+
+    if D == 2
+        # a square
+        p00, p02, p20, p22,
+        p11 = 1:5
+        mf4 = Manifold([(p00, p02, p11),
+                        (p02, p22, p11),
+                        (p22, p20, p11),
+                        (p20, p00, p11)])
+        @test ndims(mf4) == D
+        checkderiv2(mf4)
+    end
+
+    if D == 3
+        # a cube
+        p000, p002, p020, p022, p200, p202, p220, p222, 
+        p110, p112, p101, p121, p011, p211, 
+        p111 = 1:15
+        mf5 = Manifold([(p000, p020, p110, p111),
+                        (p020, p220, p110, p111),
+                        (p220, p200, p110, p111),
+                        (p200, p000, p110, p111),
+                        (p002, p022, p112, p111),
+                        (p022, p222, p112, p111),
+                        (p222, p202, p112, p111),
+                        (p202, p002, p112, p111),
+                        (p000, p002, p101, p111),
+                        (p002, p202, p101, p111),
+                        (p202, p200, p101, p111),
+                        (p200, p000, p101, p111),
+                        (p020, p022, p121, p111),
+                        (p022, p222, p121, p111),
+                        (p222, p220, p121, p111),
+                        (p220, p020, p121, p111),
+                        (p000, p002, p011, p111),
+                        (p002, p022, p011, p111),
+                        (p022, p020, p011, p111),
+                        (p020, p000, p011, p111),
+                        (p200, p202, p211, p111),
+                        (p202, p222, p211, p111),
+                        (p222, p220, p211, p111),
+                        (p220, p200, p211, p111)])
+        @test ndims(mf5) == D
+        checkderiv2(mf5)
     end
 end
 
