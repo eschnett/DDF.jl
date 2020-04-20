@@ -7,3 +7,11 @@ A Julia package.
   Pipelines](https://dev.azure.com/schnetter/DDF.jl/_build):
   Build Status [![Build
   Status](https://dev.azure.com/schnetter/DDF/_apis/build/status/eschnett.DDF.jl?branchName=master)](https://dev.azure.com/schnetter/DDF/_build?branchName=master)
+
+Based on FEEC, the Finite Element Exterior Calculus.
+
+https://fenicsproject.org/documentation/
+
+Nathan Bell, Anil N. Hirani, PyDEC: Software and Algorithms for
+Discretization of Exterior Calculus, arXiv:1103.3076,
+<https://github.com/hirani/pydec>
