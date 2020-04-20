@@ -1,4 +1,5 @@
 using ComputedFieldTypes
+using SparseArrays
 
 
 
@@ -52,6 +53,10 @@ function invariant(s::Simplex)::Bool
     issorted(s.vertices)
 end
 
+function Base.show(io::IO, s::Simplex)
+    print(io, "($(s.vertices); $(bitsign(s.signbit)))")
+end
+
 Base.:(==)(s::S, t::S) where {S<:Simplex} =
     s.vertices == t.vertices && s.signbit == t.signbit
 function Base.isless(s::S, t::S) where {S<:Simplex}
@@ -80,19 +85,25 @@ export Manifold
 # """
 @computed struct Manifold{D}
     nvertices::Int
-    # vertices are always numbered 1:nvertices and are not stored
+    # vertices (i.e. 0-simplices) are always numbered 1:nvertices and
+    # are not stored
     simplices::simplices_type(D)
+    # The coderivative δ of 0-forms vanishes and is not stored
+    coderivs::NTuple{D, SparseMatrixCSC{Int8, Int}}
 
     function Manifold{D}(nvertices::Int,
-                         simplices::NTuple{D, Vector{<:Simplex}}) where {D}
+                         simplices::NTuple{D, Vector{<:Simplex}},
+                         coderivs::NTuple{D, SparseMatrixCSC{Int8, Int}}
+                         ) where {D}
         simplices::simplices_type(D)
-        mf = new{D}(nvertices, simplices)
+        mf = new{D}(nvertices, simplices, coderivs)
         @assert invariant(mf)
         mf
     end
     function Manifold(nvertices::Int,
-                      simplices::NTuple{D, Vector{<:Simplex}}) where {D}
-        Manifold{D}(nvertices, simplices)
+                      simplices::NTuple{D, Vector{<:Simplex}},
+                      coderivs::NTuple{D, SparseMatrixCSC{Int8, Int}}) where {D}
+        Manifold{D}(nvertices, simplices, coderivs)
     end
 end
 # TODO: Implement also the "cube complex" representation
@@ -119,6 +130,12 @@ function invariant(mf::Manifold{D})::Bool where {D}
         end
     end
 
+    for R in 1:D
+        coderivs = mf.coderivs[R]
+        size(coderivs) == (dim(R-1, mf), dim(R, mf)) ||
+            (@assert false; return false)
+    end
+
     return true
 end
 
@@ -132,6 +149,10 @@ end
 Base.ndims(::Manifold{D}) where {D} = D
 
 function dim(::Val{R}, mf::Manifold{D})::Int where {R, D}
+    R == 0 && return mf.nvertices
+    length(mf.simplices[R])
+end
+function dim(R, mf::Manifold)::Int
     R == 0 && return mf.nvertices
     length(mf.simplices[R])
 end
@@ -169,27 +190,50 @@ function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
     sort!(simplices)
     unique!(simplices)
     if D == 0
-        return Manifold{D}(nvertices, ())
-    elseif D == 1
-        return Manifold{D}(nvertices, (simplices,))
+        return Manifold{D}(nvertices, (), ())
     end
 
     # Calculate lower-dimensional simplices
+    # See arXiv:1103.3076, section 7
     faces = fulltype(Simplex{D-1})[]
-    for s in simplices
+    coderivs1 = Tuple{fulltype(Simplex{D-1}), Int}[]
+    for (i,s) in enumerate(simplices)
         for a in 1:D+1
             # Leave out vertex a
             v1 = ntuple(b -> s[b + (b>=a)], D)
             s1 = xor(s.signbit, isodd(a-1))
             face = Simplex{D-1}(v1)
+            coderiv1 = (Simplex{D-1}(v1, s1), i)
             push!(faces, face)
+            push!(coderivs1, coderiv1)
         end
     end
     sort!(faces)
     unique!(faces)
     mf1 = Manifold(faces)
 
-    Manifold{D}(nvertices, tuple(mf1.simplices..., simplices))
+    sort!(coderivs1)
+    @assert allunique(coderivs1)
+    I = Int[]
+    J = Int[]
+    V = Int8[]
+    i = 0
+    lastv = nothing
+    for (s,j) in coderivs1
+        if s.vertices != lastv
+            i += 1
+            lastv = s.vertices
+        end
+        push!(I, i)
+        push!(J, j)
+        push!(V, bitsign(s.signbit))
+    end
+    @assert i == length(faces)
+    coderivs = sparse(I, J, V)
+
+    Manifold{D}(nvertices,
+                tuple(mf1.simplices..., simplices),
+                tuple(mf1.coderivs..., coderivs))
 end
 
 function Manifold(simplices::Vector{NTuple{D1, Int}})::Manifold{D1-1} where {D1}

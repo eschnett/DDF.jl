@@ -1,12 +1,24 @@
 using ComputedFieldTypes
 using DDF
+using LinearAlgebra
+using SparseArrays
 using Test
 
 @testset "Manifold D=$D" for D in 0:2
+
+    function checkderiv2(mf::Manifold{D}) where {D}
+        for R in 2:D
+            coderiv2 = mf.coderivs[R-1] * mf.coderivs[R]
+            dropzeros!(coderiv2)
+            @test nnz(coderiv2) == 0
+        end
+    end
+
     mf0 = Manifold(Val(D))
     for R in 0:D
         @test dim(Val(R), mf0) == 0
     end
+    checkderiv2(mf0)
 
     mf1 = Manifold(Simplex(Tuple(1:D+1)))
     if D == 0
@@ -21,6 +33,7 @@ using Test
     else
         @assert false
     end
+    checkderiv2(mf1)
 
     if D == 2
         # a Möbius strip
@@ -33,6 +46,8 @@ using Test
         @test dim(Val(0), mf2) == 6
         @test dim(Val(1), mf2) == 12
         @test dim(Val(2), mf2) == 6
+
+        checkderiv2(mf2)
     end
 end
 
