@@ -20,15 +20,28 @@ using DDF
     else
         @assert false
     end
+
+    if D == 2
+        # a Möbius strip
+        mf2 = simplicial_manifold([(1, 2, 4),
+                                   (1, 4, 6),
+                                   (4, 3, 6),
+                                   (6, 3, 5),
+                                   (3, 1, 5),
+                                   (1, 2, 5)])
+        @test dim(Val(0), mf2) == 6
+        @test dim(Val(1), mf2) == 12
+        @test dim(Val(2), mf2) == 6
+    end
 end
 
-# Ranmf rationals
+# Random rationals
 Base.rand(::Type{Rational{T}}) where {T} =
     Rational{T}(rand(-T(1000):T(1000))) / T(1000)
 Base.rand(::Type{Rational{T}}, n::Int) where {T} =
     Rational{T}[rand(Rational{T}) for i in 1:n]
 
-# Ranmf functions
+# Random functions
 Base.rand(::Type{Fun{D, R, T}}, mf::Manifold{D}) where {D, R, T} =
     Fun{D, R, T}(mf, rand(T, dim(Val(R), mf)))
 

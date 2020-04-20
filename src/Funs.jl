@@ -1,4 +1,7 @@
 export Fun
+"""
+Function (aka Cochain)
+"""
 struct Fun{D, R, T}             # <: AbstractVector{T}
     mf::Manifold{D}
     values::Vector{T}
@@ -69,6 +72,13 @@ export id
 function id(::Type{Fun{D, R, T}},
             mf::Manifold{D})::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(mf, T[T(i) for i in 1:dim(Val(R), mf)])
+end
+
+export unit
+function unit(::Type{Fun{D, R, T}},
+              mf::Manifold{D}, n::Int)::Fun{D, R, T} where {D, R, T}
+    @assert 1 <= n <= dim(Val(R), mf)
+    Fun{D, R, T}(mf, T[T(i == n) for i in 1:dim(Val(R), mf)])
 end
 
 function Base.:+(f::Fun{D, R}) where {D, R}

@@ -5,6 +5,8 @@ end
 
 
 
+# TODO: Coordinates are functions on the manifold; represent them as
+# Fun
 struct Coords{D, T}
     mf::Manifold{D}
     dom::Domain{D}
@@ -13,12 +15,12 @@ end
 
 
 
-struct Tree{D, T}
+@computed struct Tree{D, T}
     dom::Domain{D}
     mf::Manifold{D}
 
     pivot::NTuple{D, T}
-    tree::Union{Vector{Tree{D, T}}, # 2^D elements
+    tree::Union{NTuple{2^D, fulltype(Tree{D, T})},
                 Vector{Int}}
 end
 
