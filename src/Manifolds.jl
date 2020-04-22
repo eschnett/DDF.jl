@@ -88,22 +88,22 @@ export Manifold
     # vertices (i.e. 0-simplices) are always numbered 1:nvertices and
     # are not stored
     simplices::simplices_type(D)
-    # The coderivative δ of 0-forms vanishes and is not stored
-    coderivs::NTuple{D, SparseMatrixCSC{Int8, Int}}
+    # The boundary ∂ of 0-forms vanishes and is not stored
+    boundarys::NTuple{D, SparseMatrixCSC{Int8, Int}}
 
     function Manifold{D}(nvertices::Int,
                          simplices::NTuple{D, Vector{<:Simplex}},
-                         coderivs::NTuple{D, SparseMatrixCSC{Int8, Int}}
+                         boundarys::NTuple{D, SparseMatrixCSC{Int8, Int}}
                          ) where {D}
         simplices::simplices_type(D)
-        mf = new{D}(nvertices, simplices, coderivs)
+        mf = new{D}(nvertices, simplices, boundarys)
         @assert invariant(mf)
         mf
     end
     function Manifold(nvertices::Int,
                       simplices::NTuple{D, Vector{<:Simplex}},
-                      coderivs::NTuple{D, SparseMatrixCSC{Int8, Int}}) where {D}
-        Manifold{D}(nvertices, simplices, coderivs)
+                      boundarys::NTuple{D, SparseMatrixCSC{Int8, Int}}) where {D}
+        Manifold{D}(nvertices, simplices, boundarys)
     end
 end
 # TODO: Implement also the "cube complex" representation
@@ -131,8 +131,8 @@ function invariant(mf::Manifold{D})::Bool where {D}
     end
 
     for R in 1:D
-        coderivs = mf.coderivs[R]
-        size(coderivs) == (dim(R-1, mf), dim(R, mf)) ||
+        boundarys = mf.boundarys[R]
+        size(boundarys) == (dim(R-1, mf), dim(R, mf)) ||
             (@assert false; return false)
     end
 
@@ -196,7 +196,7 @@ function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076, section 7
     faces = fulltype(Simplex{D-1})[]
-    coderivs1 = Tuple{fulltype(Simplex{D-1}), Int}[]
+    boundarys1 = Tuple{fulltype(Simplex{D-1}), Int}[]
     for (i,s) in enumerate(simplices)
         for a in 1:D+1
             # Leave out vertex a
@@ -204,23 +204,23 @@ function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
             s1 = xor(s.signbit, isodd(a-1))
             face = Simplex{D-1}(v1)
             # face = Simplex{D-1}(face.vertices, false)
-            coderiv1 = (Simplex{D-1}(v1, s1), i)
+            boundary1 = (Simplex{D-1}(v1, s1), i)
             push!(faces, face)
-            push!(coderivs1, coderiv1)
+            push!(boundarys1, boundary1)
         end
     end
     sort!(faces)
     unique!(faces)
     mf1 = Manifold(faces)
 
-    sort!(coderivs1)
-    @assert allunique(coderivs1)
+    sort!(boundarys1)
+    @assert allunique(boundarys1)
     I = Int[]
     J = Int[]
     V = Int8[]
     i = 0
     lastv = nothing
-    for (s,j) in coderivs1
+    for (s,j) in boundarys1
         if s.vertices != lastv
             i += 1
             lastv = s.vertices
@@ -230,11 +230,11 @@ function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
         push!(V, bitsign(s.signbit))
     end
     @assert i == length(faces)
-    coderivs = sparse(I, J, V)
+    boundarys = sparse(I, J, V)
 
     Manifold{D}(nvertices,
                 tuple(mf1.simplices..., simplices),
-                tuple(mf1.coderivs..., coderivs))
+                tuple(mf1.boundarys..., boundarys))
 end
 
 function Manifold(simplices::Vector{NTuple{D1, Int}})::Manifold{D1-1} where {D1}
@@ -250,12 +250,10 @@ function Manifold(simplex::Simplex{D})::Manifold{D} where {D}
     Manifold([simplex])
 end
 
-# Boundary and derivative
+# Boundary
 
 export boundary
-function boundary()
-end
-
-export deriv
-function deriv()
+function boundary(::Val{R}, mf::Manifold{D}) where {R, D}
+    @assert 0 < R <= D
+    return mf.boundary[R]
 end

@@ -4,12 +4,14 @@ using LinearAlgebra
 using SparseArrays
 using Test
 
+
+
 @testset "Manifold D=$D" for D in 0:4
 
-    function checkderiv2(mf::Manifold{D}) where {D}
+    function checkboundary2(mf::Manifold{D}) where {D}
         for R in 2:D
-            coderiv2 = dropzeros(mf.coderivs[R-1] * mf.coderivs[R])
-            @test nnz(coderiv2) == 0
+            boundary2 = dropzeros(mf.boundarys[R-1] * mf.boundarys[R])
+            @test nnz(boundary2) == 0
         end
     end
 
@@ -17,7 +19,7 @@ using Test
     for R in 0:D
         @test dim(Val(R), mf0) == 0
     end
-    checkderiv2(mf0)
+    checkboundary2(mf0)
 
     mf1 = Manifold(Simplex(Tuple(1:D+1)))
     if D == 0
@@ -43,7 +45,7 @@ using Test
     else
         @assert false
     end
-    checkderiv2(mf1)
+    checkboundary2(mf1)
 
     if D == 2
         # a Möbius strip
@@ -58,7 +60,7 @@ using Test
         @test dim(Val(1), mf2) == 12
         @test dim(Val(2), mf2) == 6
 
-        checkderiv2(mf2)
+        checkboundary2(mf2)
     end
 
     if D == 1
@@ -66,7 +68,7 @@ using Test
         p0, p2, p1 = 1:3
         mf3 = Manifold([(p0, p1), (p2, p1)])
         @test ndims(mf3) == D
-        checkderiv2(mf3)
+        checkboundary2(mf3)
     end
 
     if D == 2
@@ -78,7 +80,7 @@ using Test
                         (p22, p20, p11),
                         (p20, p00, p11)])
         @test ndims(mf4) == D
-        checkderiv2(mf4)
+        checkboundary2(mf4)
     end
 
     if D == 3
@@ -111,9 +113,11 @@ using Test
                         (p222, p220, p211, p111),
                         (p220, p200, p211, p111)])
         @test ndims(mf5) == D
-        checkderiv2(mf5)
+        checkboundary2(mf5)
     end
 end
+
+
 
 # Random rationals
 Base.rand(::Type{Rational{T}}) where {T} =
@@ -183,4 +187,24 @@ Base.rand(::Type{Fun{D, R, T}}, mf::Manifold{D}) where {D, R, T} =
     @test [x^2 for x in i] == [x for x in i2]
 
     @test map(+, f, g) == f + g
+end
+
+
+
+@testset "Geometry D=$D" for D in 0:4
+    T = Rational{Int64}
+    mf = Manifold(Simplex(Tuple(1:D+1)))
+    dom = Domain{D, T}(ntuple(d -> T(0), D), ntuple(d -> T(1), D))
+    xs = ntuple(d -> Fun{D, 0, T}(mf, T[d+1 == i for i in 1:D+1]), D)
+    cs = Coords{D, T}(mf, dom, xs)
+    ccs = circumcentres(cs)
+end
+
+@testset "Geometry D=$D" for D in 0:4
+    T = Float64
+    mf = Manifold(Simplex(Tuple(1:D+1)))
+    dom = Domain{D, T}(ntuple(d -> T(0), D), ntuple(d -> T(1), D))
+    xs = ntuple(d -> Fun{D, 0, T}(mf, T[d+1 == i for i in 1:D+1]), D)
+    cs = Coords{D, T}(mf, dom, xs)
+    hodges = hodge(cs)
 end
