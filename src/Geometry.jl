@@ -63,14 +63,11 @@ function circumcentres(coords::Coords{D, T}) where {D, T}
         # N-simplex,
         # <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
         # April 2013.
-        CM = Array{T}(undef, D+2, D+2)
-        for a in 1:D+2, b in 1:D+2
-            if a == 1 || b == 1
-                CM[a,b] = a != b
-            else
-                CM[a,b] = sum((cs[a-1][c] - cs[b-1][c])^2 for c in 1:D)
-            end
-        end
+        CM = sarray(T, (a,b) -> 
+                    a == 1 || b == 1 ?
+                    a != b :
+                    sum(T, c -> (cs[a-1][c] - cs[b-1][c])^2, Val(D)),
+                    Val(D+2), Val(D+2))
         CM1 = inv(CM)
         r2 = CM1[1,1] / -2
         α = sarray(T, j -> CM1[j+1,1], Val(D+1))
