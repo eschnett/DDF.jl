@@ -195,8 +195,8 @@ end
 @testset "Geometry D=$D" for D in 0:4
     T = Rational{Int64}
     mf = Manifold(MSimplex(SVector{D+1}(1:D+1)))
-    dom = Domain{D, T}(sarray(T, d -> T(0), Val(1:D)),
-                       sarray(T, d -> T(1), Val(1:D)))
+    dom = Domain{D, T}(sarray(T, d -> T(0), Val(D)),
+                       sarray(T, d -> T(1), Val(D)))
     xs = ntuple(d -> Fun{D, 0, T}(mf, T[d+1 == i for i in 1:D+1]), D)
     cs = Coords{D, T}(mf, dom, xs)
     ccs = circumcentres(cs)
@@ -205,8 +205,8 @@ end
 @testset "Geometry D=$D" for D in 0:4
     T = Float64
     mf = Manifold(MSimplex(SVector{D+1}(1:D+1)))
-    dom = Domain{D, T}(sarray(T, d -> T(0), Val(1:D)),
-                       sarray(T, d -> T(1), Val(1:D)))
+    dom = Domain{D, T}(sarray(T, d -> T(0), Val(D)),
+                       sarray(T, d -> T(1), Val(D)))
     xs = ntuple(d -> Fun{D, 0, T}(mf, T[d+1 == i for i in 1:D+1]), D)
     cs = Coords{D, T}(mf, dom, xs)
     hodges = hodge(cs)

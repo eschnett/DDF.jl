@@ -19,35 +19,6 @@ end
 
 
 
-export sarray
-@generated function sarray(::Type{T}, f::F, ::Val{R}) where {T, F, R}
-    quote
-        SArray{Tuple{$(length(R))}, $T}($([:(f($i)) for i in R]...))
-    end
-end
-@generated function sarray(::Type{T}, f::F, ::Val{R1}, ::Val{R2}
-                           ) where {T, F, R1, R2}
-    quote
-        SArray{Tuple{$(length(R1)), $(length(R2))}, $T}(
-            $([:(f($i, $j)) for i in R1, j in R2]...))
-    end
-end
-
-function Base.sum(::Type{T}, f::F, range::R) where {T, F, R}
-    s = T(0)
-    for i in range
-        s += f(i)::T
-    end
-    s
-end
-function Base.sum(::Type{T}, f::F, range1::R1, range2::R2) where {T, F, R1, R2}
-    s = T(0)
-    for i in range1, j in range2
-        s += f(i, j)::T
-    end
-    s
-end
-
 export circumcentre
 function circumcentre(xs::SVector{R, <:SVector{D, T}}
                       )::SVector{D, T} where {R, D, T}
@@ -58,15 +29,15 @@ function circumcentre(xs::SVector{R, <:SVector{D, T}}
                 (i, j) -> (
                     (i == 1 || j == 1) ?
                     i != j :
-                    sum(T, c -> (xs[i-1][c] - xs[j-1][c])^2, 1:D)),
-                Val(1:R+1), Val(1:R+1))
+                    sum(T, c -> (xs[i-1][c] - xs[j-1][c])^2, Val(D))),
+                Val(R+1), Val(R+1))
     CM1 = inv(CM)
     r2 = CM1[1,1] / -2
-    α = sarray(T, i -> CM1[i+1,1], Val(1:R))
-    cc = sarray(T, b -> sum(T, j -> α[j] * xs[j][b], 1:R), Val(1:D))
+    α = sarray(T, i -> CM1[i+1,1], Val(R))
+    cc = sarray(T, b -> sum(T, j -> α[j] * xs[j][b], Val(R)), Val(D))
     # Check radii
     for j in 1:R
-        rj2 = sum(T, b -> (xs[j][b] - cc[b])^2, 1:D)
+        rj2 = sum(T, b -> (xs[j][b] - cc[b])^2, Val(D))
         @assert abs(r2 - rj2) <= T(1.0e-12) * r2
     end
     cc
@@ -86,8 +57,8 @@ function circumcentres(coords::Coords{D, T}) where {D, T}
     for (i,s) in enumerate(simplices)
         # cs[a][b] = coords of vertex a of this simplex
         cs = sarray(fulltype(SVector{D, T}),
-                    j -> sarray(T, b -> coords.coords[b][s[j]], Val(1:D)),
-                    Val(1:D+1))
+                    j -> sarray(T, b -> coords.coords[b][s[j]], Val(D)),
+                    Val(D+1))
         # G. Westendorp, A formula for the N-circumsphere of an
         # N-simplex,
         # <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
@@ -102,12 +73,12 @@ function circumcentres(coords::Coords{D, T}) where {D, T}
         end
         CM1 = inv(CM)
         r2 = CM1[1,1] / -2
-        α = sarray(T, j -> CM1[j+1,1], Val(1:D+1))
-        cc = sarray(T, b -> sum(α[j] * cs[j][b] for j in 1:D+1), Val(1:D))
+        α = sarray(T, j -> CM1[j+1,1], Val(D+1))
+        cc = sarray(T, b -> sum(T, j -> α[j] * cs[j][b], Val(D+1)), Val(D))
         # Check radii
         # TODO: Turn this into a test case
         for j in 1:D+1
-            rj2 = sum((cs[j][b] - cc[b])^2 for b in 1:D)
+            rj2 = sum(T, b -> (cs[j][b] - cc[b])^2, Val(D))
             @assert abs(r2 - rj2) <= 1.0e-12 * r2
         end
         # TODO: Check Delauney condition
@@ -137,8 +108,8 @@ function hodge(coords::Coords{D, T}
         for (i,si) in enumerate(mf.simplices[R])
             @assert length(si) == R+1
             xis = sarray(fulltype(SVector{D,T}),
-                         k -> sarray(T, a -> coords.coords[a][si[k]], Val(1:D)),
-                         Val(1:R+1))
+                         k -> sarray(T, a -> coords.coords[a][si[k]], Val(D)),
+                         Val(R+1))
             cci = circumcentre(xis)
             V = T(0)
             for (j,sj) in enumerate(mf.simplices[R1])
@@ -147,10 +118,10 @@ function hodge(coords::Coords{D, T}
                     @assert length(sj) == R1+1
                     xjs = sarray(
                         fulltype(SVector{D,T}),
-                        k -> sarray(T, a -> coords.coords[a][sj[k]], Val(1:D)),
-                        Val(1:R1+1))
+                        k -> sarray(T, a -> coords.coords[a][sj[k]], Val(D)),
+                        Val(R1+1))
                     ccj = circumcentre(xjs)
-                    h = sqrt(sum(T, a -> (cci[a] - ccj[a])^2, 1:D))
+                    h = sqrt(sum(T, a -> (cci[a] - ccj[a])^2, Val(D)))
                     V += b * h / (D - R)
                 end
             end
