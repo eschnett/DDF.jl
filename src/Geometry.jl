@@ -2,18 +2,18 @@ using ComputedFieldTypes
 using StaticArrays
 
 export Domain
-struct Domain{D, T}
-    xmin::NTuple{D, T}
-    xmax::NTuple{D, T}
+@computed struct Domain{D, T}
+    xmin::fulltype(SVector{D, T})
+    xmax::fulltype(SVector{D, T})
 end
 
 
 
 export Coords
-struct Coords{D, T}
+@computed struct Coords{D, T}
     mf::Manifold{D}
     dom::Domain{D}
-    coords::NTuple{D, Fun{D, 0, T}}
+    coords::fulltype(SVector{D, Fun{D, 0, T}})
     # TODO: Store hodge star here
 end
 
@@ -49,7 +49,7 @@ function Base.sum(::Type{T}, f::F, range1::R1, range2::R2) where {T, F, R1, R2}
 end
 
 export circumcentre
-function circumcentre(xs::SVector{R, SVector{D, T}}
+function circumcentre(xs::SVector{R, <:SVector{D, T}}
                       )::SVector{D, T} where {R, D, T}
     # G. Westendorp, A formula for the N-circumsphere of an N-simplex,
     # <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
@@ -75,17 +75,19 @@ end
 
 
 export circumcentres
-function circumcentres(coords::Coords{D, T})::Vector{NTuple{D, T}} where {D, T}
+function circumcentres(coords::Coords{D, T}) where {D, T}
     mf = coords.mf
     n = dim(Val(D), mf)
-    ccs = Array{NTuple{D, T}}(undef, n)
+    ccs = Array{fulltype(SVector{D, T})}(undef, n)
     if D == 0
         return ccs
     end
     simplices = mf.simplices[D]
     for (i,s) in enumerate(simplices)
         # cs[a][b] = coords of vertex a of this simplex
-        cs = ntuple(j -> ntuple(b -> coords.coords[b][s[j]], D), D+1)
+        cs = sarray(fulltype(SVector{D, T}),
+                    j -> sarray(T, b -> coords.coords[b][s[j]], Val(1:D)),
+                    Val(1:D+1))
         # G. Westendorp, A formula for the N-circumsphere of an
         # N-simplex,
         # <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
@@ -100,8 +102,8 @@ function circumcentres(coords::Coords{D, T})::Vector{NTuple{D, T}} where {D, T}
         end
         CM1 = inv(CM)
         r2 = CM1[1,1] / -2
-        α = T[CM1[a+1,1] for a in 1:D+1]
-        cc = ntuple(b -> sum(α[j] * cs[j][b] for j in 1:D+1), D)
+        α = sarray(T, j -> CM1[j+1,1], Val(1:D+1))
+        cc = sarray(T, b -> sum(α[j] * cs[j][b] for j in 1:D+1), Val(1:D))
         # Check radii
         # TODO: Turn this into a test case
         for j in 1:D+1
@@ -111,7 +113,7 @@ function circumcentres(coords::Coords{D, T})::Vector{NTuple{D, T}} where {D, T}
         # TODO: Check Delauney condition
         ccs[i] = cc
     end
-    ccs
+    ccs::Vector{fulltype(SVector{D, T})}
 end
 
 
