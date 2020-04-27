@@ -1,5 +1,6 @@
 using ComputedFieldTypes
 using SparseArrays
+using StaticArrays
 
 
 
@@ -31,52 +32,55 @@ end
 
 
 
-export Simplex
-@computed struct Simplex{D}
-    vertices::NTuple{D+1, Int}
+# The name "Simplex" is taken by Grassmann; we thus use "Geometric
+# Simplex (GSimplex)" instead
+export GSimplex
+@computed struct GSimplex{D, T}
+    vertices::NTuple{D+1, T}
     signbit::Bool
 
-    function Simplex{D}(vertices::NTuple{D1, Int},
-                        signbit::Bool=false) where {D, D1}
+    function GSimplex{D, T}(vertices::NTuple{D1, T},
+                            signbit::Bool=false) where {D, T, D1}
         @assert D1 == D+1
         v, s = sort_perm(vertices)
-        new{D}(v, xor(signbit, s))
+        new{D, T}(v, xor(signbit, s))
     end
-    function Simplex(vertices::NTuple{D1, Int}, signbit::Bool=false) where {D1}
+    function GSimplex(vertices::NTuple{D1, T},
+                      signbit::Bool=false) where {D1, T}
         D = D1-1
-        Simplex{D}(vertices, signbit)
+        GSimplex{D, T}(vertices, signbit)
     end
 end
 
 export invariant
-function invariant(s::Simplex)::Bool
+function invariant(s::GSimplex)::Bool
     issorted(s.vertices)
 end
 
-function Base.show(io::IO, s::Simplex)
+function Base.show(io::IO, s::GSimplex)
     print(io, "($(s.vertices); $(bitsign(s.signbit)))")
 end
 
-Base.:(==)(s::S, t::S) where {S<:Simplex} =
+Base.:(==)(s::S, t::S) where {S<:GSimplex} =
     s.vertices == t.vertices && s.signbit == t.signbit
-function Base.isless(s::S, t::S) where {S<:Simplex}
+function Base.isless(s::S, t::S) where {S<:GSimplex}
     isless(s.vertices, t.vertices) && return true
     isless(t.vertices, s.vertices) && return false
     isless(s.signbit, t.signbit)
 end
 
 export dim
-dim(::Type{S}) where {S<:Simplex} = length(S) - 1
-dim(::S) where {S<:Simplex} = dim(S)
+dim(::Type{S}) where {S<:GSimplex} = length(S) - 1
+dim(::S) where {S<:GSimplex} = dim(S)
 
-Base.getindex(s::Simplex, i) = s.vertices[i]
-Base.length(::Type{<:Simplex{D}}) where {D} = D + 1
-Base.length(::S) where {S<:Simplex} = length(S)
+Base.getindex(s::GSimplex, i) = s.vertices[i]
+Base.length(::Type{<:GSimplex{D}}) where {D} = D + 1
+Base.length(::S) where {S<:GSimplex} = length(S)
 
 
 
-function simplices_type(D::Int)::Type
-    Tuple{(Vector{fulltype(Simplex{d})} for d in 1:D)...}
+function simplices_type(D::Int, ::Type{T})::Type where {T}
+    Tuple{(Vector{fulltype(GSimplex{d, T})} for d in 1:D)...}
 end
 
 export Manifold
@@ -87,21 +91,21 @@ export Manifold
     nvertices::Int
     # vertices (i.e. 0-simplices) are always numbered 1:nvertices and
     # are not stored
-    simplices::simplices_type(D)
+    simplices::simplices_type(D, Int)
     # The boundary ∂ of 0-forms vanishes and is not stored
     boundarys::NTuple{D, SparseMatrixCSC{Int8, Int}}
 
     function Manifold{D}(nvertices::Int,
-                         simplices::NTuple{D, Vector{<:Simplex}},
+                         simplices::NTuple{D, Vector{<:GSimplex}},
                          boundarys::NTuple{D, SparseMatrixCSC{Int8, Int}}
                          ) where {D}
-        simplices::simplices_type(D)
+        simplices::simplices_type(D, Int)
         mf = new{D}(nvertices, simplices, boundarys)
         @assert invariant(mf)
         mf
     end
     function Manifold(nvertices::Int,
-                      simplices::NTuple{D, Vector{<:Simplex}},
+                      simplices::NTuple{D, Vector{<:GSimplex}},
                       boundarys::NTuple{D, SparseMatrixCSC{Int8, Int}}) where {D}
         Manifold{D}(nvertices, simplices, boundarys)
     end
@@ -159,7 +163,8 @@ end
 
 # Convenience constructors
 
-function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
+function Manifold(simplices::Vector{GSimplex{D, Int, X}}
+                  )::Manifold{D} where {D, X}
     # # Ensure simplex vertices are sorted
     # for s in simplices
     #     for a in 2:D+1
@@ -195,16 +200,16 @@ function Manifold(simplices::Vector{Simplex{D, X}})::Manifold{D} where {D, X}
 
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076, section 7
-    faces = fulltype(Simplex{D-1})[]
-    boundarys1 = Tuple{fulltype(Simplex{D-1}), Int}[]
+    faces = fulltype(GSimplex{D-1, Int})[]
+    boundarys1 = Tuple{fulltype(GSimplex{D-1}), Int}[]
     for (i,s) in enumerate(simplices)
         for a in 1:D+1
             # Leave out vertex a
             v1 = ntuple(b -> s[b + (b>=a)], D)
             s1 = xor(s.signbit, isodd(a-1))
-            face = Simplex{D-1}(v1)
-            # face = Simplex{D-1}(face.vertices, false)
-            boundary1 = (Simplex{D-1}(v1, s1), i)
+            face = GSimplex{D-1, Int}(v1)
+            # face = GSimplex{D-1, Int}(face.vertices, false)
+            boundary1 = (GSimplex{D-1, Int}(v1, s1), i)
             push!(faces, face)
             push!(boundarys1, boundary1)
         end
@@ -239,14 +244,14 @@ end
 
 function Manifold(simplices::Vector{NTuple{D1, Int}})::Manifold{D1-1} where {D1}
     D = D1-1
-    Manifold(fulltype(Simplex{D})[Simplex{D}(s) for s in simplices])
+    Manifold(fulltype(GSimplex{D, Int})[GSimplex{D, Int}(s) for s in simplices])
 end
 
 function Manifold(::Val{D})::Manifold{D} where {D}
-    Manifold(fulltype(Simplex{D})[])
+    Manifold(fulltype(GSimplex{D, Int})[])
 end
 
-function Manifold(simplex::Simplex{D})::Manifold{D} where {D}
+function Manifold(simplex::GSimplex{D, Int})::Manifold{D} where {D}
     Manifold([simplex])
 end
 

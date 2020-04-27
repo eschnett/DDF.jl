@@ -21,7 +21,7 @@ using Test
     end
     checkboundary2(mf0)
 
-    mf1 = Manifold(Simplex(Tuple(1:D+1)))
+    mf1 = Manifold(GSimplex(Tuple(1:D+1)))
     if D == 0
         @test dim(Val(0), mf1) == 1
     elseif D == 1
@@ -130,7 +130,7 @@ Base.rand(::Type{Fun{D, R, T}}, mf::Manifold{D}) where {D, R, T} =
     Fun{D, R, T}(mf, rand(T, dim(Val(R), mf)))
 
 @testset "Fun D=$D R=$R" for D in 0:4, R in 0:D
-    mf = Manifold(Simplex(Tuple(1:D+1)))
+    mf = Manifold(GSimplex(Tuple(1:D+1)))
 
     T = Rational{Int64}
     z = zero(Fun{D, R, T}, mf)
@@ -193,7 +193,7 @@ end
 
 @testset "Geometry D=$D" for D in 0:4
     T = Rational{Int64}
-    mf = Manifold(Simplex(Tuple(1:D+1)))
+    mf = Manifold(GSimplex(Tuple(1:D+1)))
     dom = Domain{D, T}(ntuple(d -> T(0), D), ntuple(d -> T(1), D))
     xs = ntuple(d -> Fun{D, 0, T}(mf, T[d+1 == i for i in 1:D+1]), D)
     cs = Coords{D, T}(mf, dom, xs)
@@ -202,7 +202,7 @@ end
 
 @testset "Geometry D=$D" for D in 0:4
     T = Float64
-    mf = Manifold(Simplex(Tuple(1:D+1)))
+    mf = Manifold(GSimplex(Tuple(1:D+1)))
     dom = Domain{D, T}(ntuple(d -> T(0), D), ntuple(d -> T(1), D))
     xs = ntuple(d -> Fun{D, 0, T}(mf, T[d+1 == i for i in 1:D+1]), D)
     cs = Coords{D, T}(mf, dom, xs)
