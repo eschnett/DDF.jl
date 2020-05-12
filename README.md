@@ -7,6 +7,7 @@ A Julia package.
   Pipelines](https://dev.azure.com/schnetter/DDF.jl/_build):
   Build Status [![Build
   Status](https://dev.azure.com/schnetter/DDF/_apis/build/status/eschnett.DDF.jl?branchName=master)](https://dev.azure.com/schnetter/DDF/_build?branchName=master)
+* [![GitHub CI](https://github.com/eschnett/DDF.jl/workflows/CI/badge.svg)](https://github.com/eschnett/DDF.jl/actions)
 
 Based on FEEC, the Finite Element Exterior Calculus.
 

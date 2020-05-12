@@ -32,10 +32,10 @@ deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [[DirectSum]]
-deps = ["AbstractTensors", "Combinatorics", "ComputedFieldTypes", "LinearAlgebra", "StaticArrays"]
-git-tree-sha1 = "6bcec1b15109635241054f6c143f307a3c6a7c0c"
+deps = ["AbstractTensors", "Combinatorics", "ComputedFieldTypes", "LinearAlgebra", "Random", "StaticArrays"]
+git-tree-sha1 = "711759ac9ba8d41300c99f34935dd319faa97898"
 uuid = "22fd7b30-a8c0-5bf2-aabe-97783860d07c"
-version = "0.5.6"
+version = "0.5.9"
 
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -53,10 +53,10 @@ uuid = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
 version = "1.1.0"
 
 [[Grassmann]]
-deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "eeba72f7b032d79d3efc9885869f92623e2805e8"
+deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "LinearAlgebra", "Random", "Requires", "SparseArrays", "StaticArrays"]
+path = "/Users/eschnett/.julia/dev/Grassmann"
 uuid = "4df31cd9-4c27-5bea-88d0-e6a7146666d8"
-version = "0.5.8"
+version = "0.5.10"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
@@ -131,6 +131,12 @@ git-tree-sha1 = "54f8ceb165a0f6d083f0d12cb4996f5367c6edbc"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 version = "1.0.1"
 
+[[Reexport]]
+deps = ["Pkg"]
+git-tree-sha1 = "7b1d07f411bc8ddb7977ec7f377b97b158514fe0"
+uuid = "189a3867-3050-52da-a836-e630ba90ab69"
+version = "0.2.0"
+
 [[Requires]]
 deps = ["UUIDs"]
 git-tree-sha1 = "d37400976e98018ee840e0ca4f9d20baa231dc6b"
@@ -152,9 +158,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "4118cba3529e99af61aea9a83f7bfd3cff5ffb28"
+git-tree-sha1 = "5c06c0aeb81bef54aed4b3f446847905eb6cbda0"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "0.12.2"
+version = "0.12.3"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]

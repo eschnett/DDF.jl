@@ -1,93 +1,71 @@
+module Manifolds
+
 using ComputedFieldTypes
 using SparseArrays
 using StaticArrays
 
-
-
-bitsign(b::Bool) = b ? -1 : 1
-bitsign(i::Integer) = bitsign(isodd(i))
+using ..Defs
 
 
 
-"""
-    sort_perm
-
-Sort and count permutations.
-"""
-function sort_perm(xs::SVector{D, T}) where {D, T}
-    rs = xs
-    s = false
-    for i in 1:D
-        imin = i
-        for j in i+1:D
-            xs[j] < xs[imin] && (imin = j)
-        end
-        rs = setindex(rs, xs[imin], i)
-        xs = setindex(xs, xs[i], imin)
-        s = xor(s, isodd(i - imin))
-    end
-    @assert issorted(rs)
-    rs, s
-end
-
-
-
-# The name "Simplex" is taken by Grassmann; we thus use "Manifold
-# Simplex (MSimplex)" instead
-export MSimplex
-@computed struct MSimplex{D, T}
-    vertices::fulltype(SVector{D+1, T})
+# The name "Simplex" is taken by Grassmann; we thus use "DSimplex"
+# instead
+export DSimplex
+@computed struct DSimplex{D, T}
+    vertices::SVector{D+1, T}
     signbit::Bool
 
-    function MSimplex{D, T}(vertices::SVector{D1, T},
+    function DSimplex{D, T}(vertices::SVector{D1, T},
                             signbit::Bool=false) where {D, T, D1}
+        D::Int
+        T::Type
         @assert D1 == D+1
         v, s = sort_perm(vertices)
         new{D, T}(v, xor(signbit, s))
     end
-    function MSimplex(vertices::SVector{D1, T},
+    function DSimplex(vertices::SVector{D1, T},
                       signbit::Bool=false) where {D1, T}
         D = D1-1
-        MSimplex{D, T}(vertices, signbit)
+        DSimplex{D, T}(vertices, signbit)
     end
 end
 
-export invariant
-function invariant(s::MSimplex)::Bool
+function Defs.invariant(s::DSimplex)::Bool
     issorted(s.vertices)
 end
 
-function Base.show(io::IO, s::MSimplex)
+function Base.show(io::IO, s::DSimplex)
     print(io, "($(s.vertices); $(bitsign(s.signbit)))")
 end
 
-Base.:(==)(s::S, t::S) where {S<:MSimplex} =
+Base.:(==)(s::S, t::S) where {S<:DSimplex} =
     s.vertices == t.vertices && s.signbit == t.signbit
-function Base.isless(s::S, t::S) where {S<:MSimplex}
+function Base.isless(s::S, t::S) where {S<:DSimplex}
     isless(s.vertices, t.vertices) && return true
     isless(t.vertices, s.vertices) && return false
     isless(s.signbit, t.signbit)
 end
 
-export dim
-dim(::Type{S}) where {S<:MSimplex} = length(S) - 1
-dim(::S) where {S<:MSimplex} = dim(S)
+Base.ndims(::Type{S}) where {S<:DSimplex} = length(S) - 1
+Base.ndims(::S) where {S<:DSimplex} = ndims(S)
 
-Base.getindex(s::MSimplex, i) = s.vertices[i]
-Base.length(::Type{<:MSimplex{D}}) where {D} = D + 1
-Base.length(::S) where {S<:MSimplex} = length(S)
+Base.getindex(s::DSimplex, i) = s.vertices[i]
+Base.length(::Type{<:DSimplex{D}}) where {D} = D + 1
+Base.length(::S) where {S<:DSimplex} = length(S)
 
 
 
 function simplices_type(D::Int, ::Type{T})::Type where {T}
-    Tuple{(Vector{fulltype(MSimplex{d, T})} for d in 1:D)...}
+    Tuple{(Vector{fulltype(DSimplex{R, T})} for R in 1:D)...}
 end
 
-export Manifold
+# The name "Manifold" is taken by Grassmann; we thus use "DManifold"
+# instead
+export DManifold
 # """
-# Manifold (aka Chain)
+# DManifold (aka Chain)
 # """
-@computed struct Manifold{D}
+@computed struct DManifold{D}
     nvertices::Int
     # vertices (i.e. 0-simplices) are always numbered 1:nvertices and
     # are not stored
@@ -95,26 +73,26 @@ export Manifold
     # The boundary ∂ of 0-forms vanishes and is not stored
     boundaries::NTuple{D, SparseMatrixCSC{Int8, Int}}
 
-    function Manifold{D}(nvertices::Int,
-                         simplices::NTuple{D, Vector{<:MSimplex}},
-                         boundaries::NTuple{D, SparseMatrixCSC{Int8, Int}}
-                         ) where {D}
+    function DManifold{D}(nvertices::Int,
+                          simplices::NTuple{D, Vector{<:DSimplex}},
+                          boundaries::NTuple{D, SparseMatrixCSC{Int8, Int}}
+                          ) where {D}
+        D::Int
         simplices::simplices_type(D, Int)
         mf = new{D}(nvertices, simplices, boundaries)
         @assert invariant(mf)
         mf
     end
-    function Manifold(nvertices::Int,
-                      simplices::NTuple{D, Vector{<:MSimplex}},
-                      boundaries::NTuple{D, SparseMatrixCSC{Int8, Int}}
-                      ) where {D}
-        Manifold{D}(nvertices, simplices, boundaries)
+    function DManifold(nvertices::Int,
+                       simplices::NTuple{D, Vector{<:DSimplex}},
+                       boundaries::NTuple{D, SparseMatrixCSC{Int8, Int}}
+                       ) where {D}
+        DManifold{D}(nvertices, simplices, boundaries)
     end
 end
 # TODO: Implement also the "cube complex" representation
 
-export invariant
-function invariant(mf::Manifold{D})::Bool where {D}
+function Defs.invariant(mf::DManifold{D})::Bool where {D}
     D >= 0 || (@assert false; return false)
 
     mf.nvertices >= 0 || (@assert false; return false)
@@ -137,7 +115,7 @@ function invariant(mf::Manifold{D})::Bool where {D}
 
     for R in 1:D
         boundaries = mf.boundaries[R]
-        size(boundaries) == (dim(R-1, mf), dim(R, mf)) ||
+        size(boundaries) == (size(R-1, mf), size(R, mf)) ||
             (@assert false; return false)
     end
 
@@ -146,26 +124,23 @@ end
 
 # Comparison
 
-function Base.:(==)(mf1::Manifold{D}, mf2::Manifold{D})::Bool where {D}
+function Base.:(==)(mf1::DManifold{D}, mf2::DManifold{D})::Bool where {D}
     mf1.nvertices == mf2.nvertices || return false
     mf1.simplices == mf2.simplices
 end
 
-Base.ndims(::Manifold{D}) where {D} = D
+Base.ndims(::DManifold{D}) where {D} = D
 
-function dim(::Val{R}, mf::Manifold{D})::Int where {R, D}
+Base.size(::Val{R}, mf::DManifold{D}) where {R, D} = size(R, mf)
+function Base.size(R::Integer, mf::DManifold)::Int
     R == 0 && return mf.nvertices
     length(mf.simplices[R])
 end
-function dim(R, mf::Manifold)::Int
-    R == 0 && return mf.nvertices
-    length(mf.simplices[R])
-end
 
-# Convenience constructors
+# Constructors
 
-function Manifold(simplices::Vector{MSimplex{D, Int, X}}
-                  )::Manifold{D} where {D, X}
+function DManifold(simplices::Vector{<:DSimplex{D, Int}}
+                   )::DManifold{D} where {D}
     # # Ensure simplex vertices are sorted
     # for s in simplices
     #     for a in 2:D+1
@@ -196,28 +171,28 @@ function Manifold(simplices::Vector{MSimplex{D, Int, X}}
     sort!(simplices)
     unique!(simplices)
     if D == 0
-        return Manifold{D}(nvertices, (), ())
+        return DManifold{D}(nvertices, (), ())
     end
 
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076, section 7
-    faces = fulltype(MSimplex{D-1, Int})[]
-    boundaries1 = Tuple{fulltype(MSimplex{D-1}), Int}[]
+    faces = fulltype(DSimplex{D-1, Int})[]
+    boundaries1 = Tuple{fulltype(DSimplex{D-1}), Int}[]
     for (i,s) in enumerate(simplices)
         for a in 1:D+1
             # Leave out vertex a
             v1 = SVector{D}(ntuple(b -> s[b + (b>=a)], D))
             s1 = xor(s.signbit, isodd(a-1))
-            face = MSimplex{D-1, Int}(v1)
-            # face = MSimplex{D-1, Int}(face.vertices, false)
-            boundary1 = (MSimplex{D-1, Int}(v1, s1), i)
+            face = DSimplex{D-1, Int}(v1)
+            # face = DSimplex{D-1, Int}(face.vertices, false)
+            boundary1 = (DSimplex{D-1, Int}(v1, s1), i)
             push!(faces, face)
             push!(boundaries1, boundary1)
         end
     end
     sort!(faces)
     unique!(faces)
-    mf1 = Manifold(faces)
+    mf1 = DManifold(faces)
 
     sort!(boundaries1)
     @assert allunique(boundaries1)
@@ -238,29 +213,69 @@ function Manifold(simplices::Vector{MSimplex{D, Int, X}}
     @assert i == length(faces)
     boundaries = sparse(I, J, V)
 
-    Manifold{D}(nvertices,
-                tuple(mf1.simplices..., simplices),
-                tuple(mf1.boundaries..., boundaries))
+    DManifold{D}(nvertices,
+                 tuple(mf1.simplices..., simplices),
+                 tuple(mf1.boundaries..., boundaries))
 end
 
-function Manifold(simplices::Vector{<:SVector{D1, Int}}
-                  )::Manifold{D1-1} where {D1}
+function DManifold(simplices::Vector{<:SVector{D1, Int}}
+                   )::DManifold{D1-1} where {D1}
     D = D1-1
-    Manifold(fulltype(MSimplex{D, Int})[MSimplex{D, Int}(s) for s in simplices])
+    DManifold(fulltype(DSimplex{D, Int})[
+        DSimplex{D, Int}(s) for s in simplices])
 end
 
-function Manifold(::Val{D})::Manifold{D} where {D}
-    Manifold(fulltype(MSimplex{D, Int})[])
+function DManifold(::Val{D})::DManifold{D} where {D}
+    DManifold(fulltype(DSimplex{D, Int})[])
 end
 
-function Manifold(simplex::MSimplex{D, Int})::Manifold{D} where {D}
-    Manifold([simplex])
+function DManifold(simplex::DSimplex{D, Int})::DManifold{D} where {D}
+    DManifold(fulltype(DSimplex{D, Int})[simplex])
+end
+
+
+
+function corner2vertex(c::SVector{D,Bool})::Int where {D}
+    1 + sum(Int, d -> c[d] << (d-1), Val(D))
+end
+
+function next_corner!(simplices::Vector{DSimplex{D, Int, X}},
+                      vertices::SVector{N, Int},
+                      corner::SVector{D, Bool})::Nothing where {D, N, X}
+    @assert sum(Int, d->corner[d], Val(D)) == N - 1
+    if N == D+1
+        # We have all vertices; build the simplex
+        push!(simplices, DSimplex(vertices))
+        return
+    end
+    # Loop over all neighbouring corners
+    for d in 1:D
+        if !corner[d]
+            new_corner = setindex(corner, true, d)
+            new_vertex = corner2vertex(new_corner)
+            new_vertices = SVector{N+1,Int}(vertices..., new_vertex)
+            next_corner!(simplices, new_vertices, new_corner)
+        end
+    end
+    nothing
+end
+
+export hypercube_manifold
+function hypercube_manifold(::Val{D}) where {D}
+    simplices = fulltype(DSimplex{D,Int})[]
+    corner = sarray(Bool, d->false, Val(D))
+    vertex = corner2vertex(corner)
+    next_corner!(simplices, SVector{1,Int}(vertex), corner)
+    @assert length(simplices) == factorial(D)
+    DManifold(simplices)
 end
 
 # Boundary
 
 export boundary
-function boundary(::Val{R}, mf::Manifold{D}) where {R, D}
+function boundary(::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 < R <= D
     return mf.boundary[R]
+end
+
 end
