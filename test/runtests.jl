@@ -1,5 +1,6 @@
 using Test
 
+using Random
 using SparseArrays
 
 
@@ -9,10 +10,8 @@ const Dmax = 5
 
 
 # Random rationals
-Base.rand(::Type{Rational{T}}) where {T} =
-    Rational{T}(T(rand(Int16)) // 1000)
-Base.rand(::Type{Rational{T}}, n::Int) where {T} =
-    Rational{T}[rand(Rational{T}) for i in 1:n]
+Base.rand(rng::AbstractRNG, ::Random.SamplerType{Rational{T}}) where {T} =
+    Rational{T}(T(rand(rng, Int16)) // 1000)
 
 
 
