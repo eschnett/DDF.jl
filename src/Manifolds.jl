@@ -55,9 +55,8 @@ Base.length(::S) where {S<:DSimplex} = length(S)
 
 
 
-function simplices_type(D::Int, ::Type{T})::Type where {T}
+simplices_type(D::Int, ::Type{T}) where {T} =
     Tuple{(Vector{fulltype(DSimplex{R, T})} for R in 1:D)...}
-end
 
 # The name "Manifold" is taken by Grassmann; we thus use "DManifold"
 # instead

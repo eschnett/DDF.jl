@@ -9,8 +9,7 @@ using Test
 
 
 
-#TODO @testset "Geometry D=$D" for D in 1:Dmax
-@testset "Geometry D=$D" for D in 1:2
+@testset "Geometry D=$D" for D in 1:Dmax
     S = Signature(D)
     V = SubManifold(S)
     T = Float64
@@ -20,20 +19,26 @@ using Test
     xs = Fun{D, 0, fulltype(Chain{V,1,T})}(
         mf,
         fulltype(Chain{V,1,T})[
-            Chain{V,1}(sarray(T, d -> d+1 == n, Val(D)))
-            for n in 1:D+1])
+            Chain{V,1}(sarray(T, d -> d+1 == n, Val(D))) for n in 1:D+1])
     geom = Geometry(mf, dom, xs)
-    if D==2
+    if D==2 || D==3
         @show geom.mf.nvertices
         @show geom.mf.simplices
-        @show geom.mf.boundaries[1]
-        @show geom.mf.boundaries[2]
+        for d in 1:D
+            @show d geom.mf.boundaries[d]
+        end
         @show geom.dom
         @show geom.coords.values
-        @show geom.volumes[1].values
-        @show geom.volumes[2].values
+        for d in 1:D
+            @show d geom.volumes[d].values
+        end
+        @show geom.dualcoords.values
     end
-    # ccs = circumcentres(geom)
+    for R in 1:D
+        @test length(geom.volumes[R].values) == binomial(D+1, R+1)
+    end
+    @test length(geom.volumes[D].values) == 1
+    @test geom.volumes[D].values[1] ≈ one(T)/factorial(D)
 end
 
 # @testset "Geometry D=$D" for D in 1:Dmax
