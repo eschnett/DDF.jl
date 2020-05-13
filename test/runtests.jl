@@ -11,7 +11,7 @@ const Dmax = 5
 
 # Random rationals
 Base.rand(rng::AbstractRNG, ::Random.SamplerType{Rational{T}}) where {T} =
-    Rational{T}(T(rand(rng, Int16)) // 10000)
+    Rational{T}(T(rand(rng, -1000:1000)) // 1000)
 
 
 
