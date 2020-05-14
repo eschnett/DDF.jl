@@ -27,6 +27,21 @@ using Test
     end
     checkboundary2(mf1)
 
+    # if D > 0x
+    if D > 1
+        # boundary of the simplex
+        if D == 1
+            # TODO: Provide a constructor for manifolds with
+            # disconnected vertices
+            mf2 = DManifold([DSimplex{D-1,Int}(SVector(i))
+                             for i in 1:mf1.nvertices])
+        else
+            mf2 = DManifold(mf1.simplices[D-1])
+        end
+        @test ndims(mf2) == D-1
+        checkboundary2(mf2)
+    end
+
     if D == 2
         # a Möbius strip (arXiv:1103.3076v2 [cs.NA], figure 7)
         mf2 = DManifold(SVector{D+1}.([(1, 2, 4),
@@ -39,6 +54,20 @@ using Test
         @test size(Val(0), mf2) == 6
         @test size(Val(1), mf2) == 12
         @test size(Val(2), mf2) == 6
+
+        checkboundary2(mf2)
+    end
+
+    if D == 2
+        # a topological sphere (surface of a tetrahedron)
+        mf2 = DManifold(SVector{D+1}.([(1, 2, 3),
+                                       (1, 3, 4),
+                                       (1, 4, 2),
+                                       (2, 3, 4)]))
+        @test ndims(mf2) == D
+        @test size(Val(0), mf2) == 4
+        @test size(Val(1), mf2) == 6
+        @test size(Val(2), mf2) == 4
 
         checkboundary2(mf2)
     end
@@ -100,4 +129,14 @@ using Test
     mf6 = hypercube_manifold(Val(D))
     @test ndims(mf6) == D
     checkboundary2(mf6)
+
+    # TODO: Provide a constructor for manifolds with
+    # disconnected vertices
+    # if D > 0
+    if D > 1
+        # "boundary" of the hypercube (this is not a manifold)
+        mf7 = DManifold(mf6.simplices[D-1])
+        @test ndims(mf7) == D-1
+        checkboundary2(mf7)
+    end
 end
