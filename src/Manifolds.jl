@@ -11,22 +11,20 @@ using ..Defs
 # The name "Simplex" is taken by Grassmann; we thus use "DSimplex"
 # instead
 export DSimplex
-@computed struct DSimplex{D, T}
-    vertices::SVector{D+1, T}
+struct DSimplex{R, T}
+    vertices::SVector{R, T}
     signbit::Bool
 
-    function DSimplex{D, T}(vertices::SVector{D1, T},
-                            signbit::Bool=false) where {D, T, D1}
-        D::Int
+    function DSimplex{R, T}(vertices::SVector{R, T},
+                            signbit::Bool=false) where {R, T}
+        R::Int
         T::Type
-        @assert D1 == D+1
         v, s = sort_perm(vertices)
-        new{D, T}(v, xor(signbit, s))
+        new{R, T}(v, xor(signbit, s))
     end
-    function DSimplex(vertices::SVector{D1, T},
-                      signbit::Bool=false) where {D1, T}
-        D = D1-1
-        DSimplex{D, T}(vertices, signbit)
+    function DSimplex(vertices::SVector{R, T},
+                      signbit::Bool=false) where {R, T}
+        DSimplex{R, T}(vertices, signbit)
     end
 end
 
@@ -50,13 +48,13 @@ Base.ndims(::Type{S}) where {S<:DSimplex} = length(S) - 1
 Base.ndims(::S) where {S<:DSimplex} = ndims(S)
 
 Base.getindex(s::DSimplex, i) = s.vertices[i]
-Base.length(::Type{<:DSimplex{D}}) where {D} = D + 1
+Base.length(::Type{<:DSimplex{R}}) where {R} = R
 Base.length(::S) where {S<:DSimplex} = length(S)
 
 
 
 simplices_type(D::Int, ::Type{T}) where {T} =
-    Tuple{(Vector{fulltype(DSimplex{R, T})} for R in 1:D)...}
+    Tuple{(Vector{DSimplex{R+1, T}} for R in 1:D)...}
 
 # The name "Manifold" is taken by Grassmann; we thus use "DManifold"
 # instead
@@ -138,11 +136,12 @@ end
 
 # Constructors
 
-function DManifold(simplices::Vector{<:DSimplex{D, Int}}
-                   )::DManifold{D} where {D}
+function DManifold(simplices::Vector{<:DSimplex{R, Int}}
+                   )::DManifold{R-1} where {R}
+    D = R-1
     # # Ensure simplex vertices are sorted
     # for s in simplices
-    #     for a in 2:D+1
+    #     for a in 2:R
     #         @assert s[a] > s[a-1]
     #     end
     # end
@@ -153,14 +152,14 @@ function DManifold(simplices::Vector{<:DSimplex{D, Int}}
     # Count vertices
     nvertices = 0
     for s in simplices
-        for a in 1:D+1
+        for a in 1:R
             nvertices = max(nvertices, s[a])
         end
     end
     # # Ensure all vertices are mentioned (we could omit this check)
     # vertices = falses(nvertices)
     # for s in simplices
-    #     for a in 1:D+1
+    #     for a in 1:R
     #         vertices[s[s]] = true
     #     end
     # end
@@ -169,22 +168,22 @@ function DManifold(simplices::Vector{<:DSimplex{D, Int}}
     simplices = copy(simplices)
     sort!(simplices)
     unique!(simplices)
-    if D == 0
+    if R == 1
         return DManifold{D}(nvertices, (), ())
     end
 
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076v2 [cs.NA], section 7
-    faces = fulltype(DSimplex{D-1, Int})[]
-    boundaries1 = Tuple{fulltype(DSimplex{D-1}), Int}[]
+    faces = DSimplex{R-1, Int}[]
+    boundaries1 = Tuple{DSimplex{R-1}, Int}[]
     for (i,s) in enumerate(simplices)
-        for a in 1:D+1
+        for a in 1:R
             # Leave out vertex a
-            v1 = SVector{D}(ntuple(b -> s[b + (b>=a)], D))
+            v1 = SVector{R-1}(ntuple(b -> s[b + (b>=a)], R-1))
             s1 = xor(s.signbit, isodd(a-1))
-            face = DSimplex{D-1, Int}(v1)
-            # face = DSimplex{D-1, Int}(face.vertices, false)
-            boundary1 = (DSimplex{D-1, Int}(v1, s1), i)
+            face = DSimplex{R-1, Int}(v1)
+            # face = DSimplex{R-1, Int}(face.vertices, false)
+            boundary1 = (DSimplex{R-1, Int}(v1, s1), i)
             push!(faces, face)
             push!(boundaries1, boundary1)
         end
@@ -217,19 +216,18 @@ function DManifold(simplices::Vector{<:DSimplex{D, Int}}
                  tuple(mf1.boundaries..., boundaries))
 end
 
-function DManifold(simplices::Vector{<:SVector{D1, Int}}
-                   )::DManifold{D1-1} where {D1}
-    D = D1-1
-    DManifold(fulltype(DSimplex{D, Int})[
-        DSimplex{D, Int}(s) for s in simplices])
+function DManifold(simplices::Vector{<:SVector{R, Int}}
+                   )::DManifold{R-1} where {R}
+    DManifold(DSimplex{R, Int}[
+        DSimplex{R, Int}(s) for s in simplices])
 end
 
 function DManifold(::Val{D})::DManifold{D} where {D}
-    DManifold(fulltype(DSimplex{D, Int})[])
+    DManifold(DSimplex{D+1, Int}[])
 end
 
-function DManifold(simplex::DSimplex{D, Int})::DManifold{D} where {D}
-    DManifold(fulltype(DSimplex{D, Int})[simplex])
+function DManifold(simplex::DSimplex{R, Int})::DManifold{R-1} where {R}
+    DManifold(DSimplex{R, Int}[simplex])
 end
 
 
@@ -238,9 +236,10 @@ function corner2vertex(c::SVector{D,Bool})::Int where {D}
     1 + sum(Int, d -> c[d] << (d-1), Val(D))
 end
 
-function next_corner!(simplices::Vector{DSimplex{D, Int, X}},
+function next_corner!(simplices::Vector{DSimplex{R, Int}},
                       vertices::SVector{N, Int},
-                      corner::SVector{D, Bool})::Nothing where {D, N, X}
+                      corner::SVector{D, Bool})::Nothing where {R, D, N}
+    @assert R == D+1
     @assert sum(Int, d->Int(corner[d]), Val(D)) == N - 1
     if N == D+1
         # We have all vertices; build the simplex
@@ -261,7 +260,7 @@ end
 
 export hypercube_manifold
 function hypercube_manifold(::Val{D}) where {D}
-    simplices = fulltype(DSimplex{D,Int})[]
+    simplices = DSimplex{D+1,Int}[]
     corner = sarray(Bool, d->false, Val(D))
     vertex = corner2vertex(corner)
     next_corner!(simplices, SVector{1,Int}(vertex), corner)
