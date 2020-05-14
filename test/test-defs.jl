@@ -1,5 +1,6 @@
 using DDF
 
+using ComputedFieldTypes
 using Grassmann
 using Test
 
@@ -33,6 +34,7 @@ end
         px::Chain
         @test isprojective(px)
         @test euclidean(px) == x
+        # TODO: add more checks
     end
 end
 
@@ -51,5 +53,31 @@ end
         cx::Chain
         @test isconformal(cx)
         @test euclidean(cx) == x
+        # TODO: add more checks
+    end
+end
+
+
+
+@testset "Circumcentre D=$D" for D in 1:Dmax
+    S = Signature(D)
+    V = SubManifold(S)
+    # T = Rational{Int128}
+    T = Rational{BigInt}
+    for R in 1:D+1
+        xs = sarray(fulltype(Chain{V,1,T}), r -> rand(Chain{V,1,T}), Val(R))
+        cc = circumcentre(xs)
+        cc::Chain{V,1,T}
+        # Check that circumcentre has same distance from all vertices
+        r2 = scalar(abs2(xs[1] - cc)).v
+        @test all(==(r2), scalar(abs2(xs[i] - cc)).v for i in 1:R)
+        # Check that circumcentre lies in hyperplane spanned by
+        # vertices
+        if length(xs)==1
+            subspace = xs[1]
+        else
+            subspace = ∧(xs)
+        end
+        @test cc ∧ subspace == 0
     end
 end

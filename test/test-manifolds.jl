@@ -28,7 +28,7 @@ using Test
     checkboundary2(mf1)
 
     if D == 2
-        # a Möbius strip
+        # a Möbius strip (arXiv:1103.3076v2 [cs.NA], figure 7)
         mf2 = DManifold(SVector{D+1}.([(1, 2, 4),
                                        (1, 4, 6),
                                        (4, 3, 6),

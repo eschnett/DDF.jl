@@ -174,7 +174,7 @@ function DManifold(simplices::Vector{<:DSimplex{D, Int}}
     end
 
     # Calculate lower-dimensional simplices
-    # See arXiv:1103.3076, section 7
+    # See arXiv:1103.3076v2 [cs.NA], section 7
     faces = fulltype(DSimplex{D-1, Int})[]
     boundaries1 = Tuple{fulltype(DSimplex{D-1}), Int}[]
     for (i,s) in enumerate(simplices)
