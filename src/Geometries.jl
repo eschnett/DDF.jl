@@ -2,6 +2,7 @@ module Geometries
 
 using ComputedFieldTypes
 using Grassmann
+using SparseArrays
 using StaticArrays
 
 using ..Defs
@@ -38,18 +39,22 @@ end
 
 volumes_type(D::Int, ::Type{T}) where {T} =
     Tuple{(fulltype(Fun{D, R, T}) for R in 1:D)...}
-circumvolumes_type(D::Int, ::Type{T}) where {T} =
+dualvolumes_type(D::Int, ::Type{T}) where {T} =
     Tuple{(fulltype(Fun{D, R, T}) for R in 0:D-1)...}
 
 export Geometry
 @computed struct Geometry{V, T}
     mf::DManifold{ndims(V)}
     dom::Domain{V, T}
+    # Coordinates of vertices
     coords::Fun{ndims(V), 0, fulltype(Chain{V, 1, T})}
     # Volumes of 0-forms are always 1 and are not stored
     volumes::volumes_type(ndims(V), T)
-    # Coordinates of dual grid, i.e. circumcentres of top simplices
+    # Coordinates of vertices of dual grid, i.e. circumcentres of top
+    # simplices
     dualcoords::Fun{ndims(V), ndims(V), fulltype(Chain{V, 1, T})}
+    # Dual volumes of dual 0-forms are always 1 and are not stored
+    dualvolumes::dualvolumes_type(ndims(V), T)
 end
 
 
@@ -64,6 +69,8 @@ function Geometry(mf::DManifold{D},
 
     S = Signature(V)
     B = Λ(S)
+
+    # TODO: Check Delauney criterion
 
     # Calculate volumes
     volumes = (Fun{D,R,T} where {R})[]
@@ -102,37 +109,80 @@ function Geometry(mf::DManifold{D},
     end
     circumcentres = Fun{D, D, fulltype(Chain{V,1,T})}(mf, values)
 
-    Geometry{V, T}(mf, dom, coords, tuple(volumes...), circumcentres)
-end
+    # # Calculate dual mesh
+    # # TODO: Move this to "DManifold"
+    # dualcells = Vector{Vector{T}}[] # dualcells[DR][icell][ivertex] = vertex
+    # ndualvertices = size(D, mf)
+    # for DR in 1:D
+    #     # For each primal R-simplex, find all neighbours
+    #     bnds = mf.boundaries[DR]
+    #     dss = Array{Vector{T}(undef, size(DR,mf))
+    #     for (i,si) in enumerate(mf.simplices[DR])
+    #         # Find all neighbours (which share a boundary) of this
+    #         # simplex i
+    #         # TODO: Use SVector
+    #         neighbours = Int[]
+    #         for b in findnz(bnds[:,i])[1]
+    #             # Loop over all simplices that share this boundary,
+    #             # excluding i
+    #             # TODO: This is probably slow?
+    #             js = findnz(bnds[b,:])[1]
+    #             @show i b js
+    #             @assert length(js) ∈ 1:2 # 1 at boundary, 2 in interior
+    #             @assert i ∈ js
+    #             for j in js
+    #                 if j != i
+    #                     sj = mf.simplices[DR][j]
+    # 
+    #                     # Check vertex sets for conssitency
+    #                     vimj = setdiff(si.vertices, sj.vertices)
+    #                     vjmi = setdiff(sj.vertices, si.vertices)
+    #                     @assert length(vimj) == 1
+    #                     @assert length(vjmi) == 1
+    #                     @assert vimj[1] != vjmi[1]
+    # 
+    #                     push!(neighbours, j)
+    #                 end
+    #             end
+    #         end
+    # 
+    #         @show DR i neighbours
+    #         @error "this does not hold at boundaries -- what to do?"
+    #         @error "the dual of a simplicial complex is a cell complex!"
+    #         @assert length(neighbours) == DR+1
+    #         dvs = SVector{DR+1}(neighbours)
+    #         # TODO: calculate sign by looking at circumcentre
+    #         # (see arXiv:1103.3076v2 [cs.NA], section 10)
+    #         ds = DSimplex(dvs, true)
+    #         dss[i] = ds
+    #     end
+    #     push!(dualsimplices, dss)
+    # end
 
-
-
-function circumcentre(xs::SVector{R, <:Chain{V, 1, T}}) where {R, V, T}
-    # G. Westendorp, A formula for the N-circumsphere of an N-simplex,
-    # <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
-    # April 2013.
-    @assert iseuclidean(V)
-    D = ndims(V)
-    @assert R == D + 1
-
-    # Convert Euclidean to conformal basis
-    cxs = map(conformal, xs)
-    # Circumsphere (this formula is why we are using conformal GA)
-    X = ∧(cxs)
-    # Hodge dual
-    sX = ⋆X
-    # Euclidean part is centre
-    cc = euclidean(sX)
-
-    # Calculate radius
-    r2 = scalar(abs2(cc)).v - 2 * sX.v[1]
-    # Check radii
-    for i in 1:R
-        ri2 = scalar(abs2(xs[i] - cc)).v
-        @assert abs(ri2 - r2) <= T(1.0e-12) * r2
+    # Calculate dual volumes
+    # [1198555.1198667, page 5]
+    dualvolumes = Array{Fun{D,R,T} where {R}}(undef, D)
+    for R in D-1:-1:0
+        values = zeros(T, size(R, mf))
+        #TODO for (i,si) in enumerate(mf.simplices[R])
+        #TODO     # TODO: This is expensive
+        #TODO     js = findnz(mf.boundary[R+1][i,:])[1]
+        #TODO     for j in js
+        #TODO         sj = mf.simplices[R+1][j]
+        #TODO         b = R+1 == D ? one(T) : dualvolumes[R+1+1][j]
+        #TODO         # TODO: Calculate lower-rank circumcentres as
+        #TODO         # intersection between boundary and the line
+        #TODO         # connecting two simplices?
+        #TODO         h = abs(circumcentre(si.vertices) - circumcentre(sj.vertices))
+        #TODO         values[j] += b * h / factorial(D-R)
+        #TODO     end
+        #TODO end
+        vols = Fun{D, R, T}(mf, values)
+        dualvolumes[R+1] = vols
     end
 
-    cc::Chain{V, 1, T}
+    Geometry{V, T}(mf, dom, coords, tuple(volumes...), circumcentres,
+                   tuple(dualvolumes...))
 end
 
 

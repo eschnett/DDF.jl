@@ -241,7 +241,7 @@ end
 function next_corner!(simplices::Vector{DSimplex{D, Int, X}},
                       vertices::SVector{N, Int},
                       corner::SVector{D, Bool})::Nothing where {D, N, X}
-    @assert sum(Int, d->corner[d], Val(D)) == N - 1
+    @assert sum(Int, d->Int(corner[d]), Val(D)) == N - 1
     if N == D+1
         # We have all vertices; build the simplex
         push!(simplices, DSimplex(vertices))

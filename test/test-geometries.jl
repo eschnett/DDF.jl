@@ -19,7 +19,7 @@ using Test
     xs = Fun{D, 0, fulltype(Chain{V,1,T})}(
         mf,
         fulltype(Chain{V,1,T})[
-            Chain{V,1}(sarray(T, d -> d+1 == n, Val(D))) for n in 1:D+1])
+            Chain{V,1}(sarray(T, d -> T(d+1 == n), Val(D))) for n in 1:D+1])
     geom = Geometry(mf, dom, xs)
     if D==2 || D==3
         @show geom.mf.nvertices
