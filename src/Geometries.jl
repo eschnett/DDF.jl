@@ -2,6 +2,7 @@ module Geometries
 
 using ComputedFieldTypes
 using Grassmann
+using LinearAlgebra
 using SparseArrays
 using StaticArrays
 
@@ -53,14 +54,31 @@ export Geometry
     dom::fulltype(Domain{D, T})
     # Coordinates of vertices
     coords::Fun{D, 0, DVector(D, T)}
-    # Volumes of 0-forms are always 1 and are not stored
+    # Volumes of 0-forms are always 1 and don't need to be stored
     volumes::Dict{Int, Fun{D, R, T} where R}
     # Coordinates of vertices of dual grid, i.e. circumcentres of top
     # simplices
     dualcoords::Fun{D, D, DVector(D, T)}
-    # Dual volumes of dual top-forms are always 1 and are not stored
+    # Dual volumes of dual top-forms are always 1 and don't need to be stored
     # dualvolumes[R = D-DR]
     dualvolumes::Dict{Int, Fun{D, R, T} where R}
+
+    function Geometry{D, T}(mf::DManifold{D},
+                            dom::Domain{D, T},
+                            coords::Fun{D, 0, Chain{V, 1, T, X1}},
+                            volumes::Dict{Int, Fun{D, R, T} where R},
+                            dualcoords::Fun{D, D, Chain{V, 1, T, X1}},
+                            dualvolumes::Dict{Int, Fun{D, R, T} where R}
+                            ) where {D, T, V, X1}
+        D::Int
+        T::Type
+        @assert D >= 0
+        @assert isempty(symdiff(keys(volumes), 0:D))
+        @assert isempty(symdiff(keys(dualvolumes), 0:D))
+        geom = new(mf, dom, coords, volumes, dualcoords, dualvolumes)
+        @assert invariant(geom)
+        geom
+    end
 end
 
 
@@ -68,8 +86,8 @@ end
 function Defs.invariant(geom::Geometry{D})::Bool where {D}
     invariant(geom.mf) || return false
     invariant(geom.dom) || return false
-    isempty(symdiff(keys(geom.volumes), 1:D)) || return false
-    isempty(symdiff(keys(geom.dualvolumes), 0:D-1)) || return false
+    isempty(symdiff(keys(geom.volumes), 0:D)) || return false
+    isempty(symdiff(keys(geom.dualvolumes), 0:D)) || return false
     return true
 end
 
@@ -88,21 +106,21 @@ function Geometry(mf::DManifold{D},
 
     # Calculate volumes
     volumes = Dict{Int, Fun{D,R,T} where {R}}()
-    for R in 1:D
+    for R in 0:D
         values = Array{T}(undef, size(R, mf))
         for (i,s) in enumerate(mf.simplices[R])
             cs = sarray(fulltype(Chain{V, 1, T}),
                         n -> coords.values[s.vertices[n]],
                         Val(R+1))
             xs = sarray(fulltype(Chain{V, 1, T}), n -> cs[n+1] - cs[1], Val(R))
-            if length(xs) == 1
-                vol = abs(xs[1])
+            if length(xs) == 0
+                vol = one(T)
+            elseif length(xs) == 1
+                vol = scalar(abs(xs[1])).v
             else
-                vol = abs(∧(xs...))
+                vol = scalar(abs(∧(xs...))).v
             end
             vol /= factorial(R)
-            @assert isscalar(vol)
-            vol = scalar(vol).v::T
             vol *= bitsign(s.signbit)
             values[i] = vol
         end
@@ -126,42 +144,46 @@ function Geometry(mf::DManifold{D},
     # Calculate dual volumes
     # [1198555.1198667, page 5]
     dualvolumes = Dict{Int, Fun{D,R,T} where {R}}()
-    for DR in 1:D
+    for DR in 0:D
         R = D - DR
-        bnds = mf.boundaries[R+1]
-        values = zeros(T, size(R, mf))
-        if R == 0
-            sis = (DSimplex{1,Int}(SVector(i)) for i in 1:mf.nvertices)
+        if R == D
+            values = ones(T, size(R, mf))
         else
-            sis = mf.simplices[R]::Vector{DSimplex{R+1, Int}}
-        end
-        sjs = mf.simplices[R+1]::Vector{DSimplex{R+2, Int}}
-        for (i,si) in enumerate(sis)
-            # TODO: This is expensive
-            js = findnz(bnds[i,:])[1]
-            for j in js
-                sj = sjs[j]
-                b = R+1 == D ? one(T) : dualvolumes[R+1+1][j]
-                # TODO: Calculate lower-rank circumcentres as
-                # intersection between boundary and the line
-                # connecting two simplices?
-                # TODO: Cache circumcentres ahead of time
-                @assert length(si.vertices) == R+1
-                @assert length(sj.vertices) == R+2
-                xsi = sarray(fulltype(Chain{V, 1, T}),
-                             n -> coords[si.vertices[n]],
-                             Val(R+1))
-                cci = circumcentre(xsi)
-                xsj = sarray(fulltype(Chain{V, 1, T}),
-                             n -> coords[sj.vertices[n]],
-                             Val(R+2))
-                ccj = circumcentre(xsj)
-                h = scalar(abs(cci - ccj)).v
-                values[i] += b * h / factorial(DR)
+            bnds = mf.boundaries[R+1]
+            values = zeros(T, size(R, mf))
+            if R == 0
+                sis = (DSimplex{1,Int}(SVector(i)) for i in 1:mf.nvertices)
+            else
+                sis = mf.simplices[R]::Vector{DSimplex{R+1, Int}}
+            end
+            sjs = mf.simplices[R+1]::Vector{DSimplex{R+2, Int}}
+            for (i,si) in enumerate(sis)
+                # TODO: This is expensive
+                js = findnz(bnds[i,:])[1]
+                for j in js
+                    sj = sjs[j]
+                    b = dualvolumes[R+1][j]
+                    # TODO: Calculate lower-rank circumcentres as
+                    # intersection between boundary and the line
+                    # connecting two simplices?
+                    # TODO: Cache circumcentres ahead of time
+                    @assert length(si.vertices) == R+1
+                    @assert length(sj.vertices) == R+2
+                    xsi = sarray(fulltype(Chain{V, 1, T}),
+                                 n -> coords[si.vertices[n]],
+                                 Val(R+1))
+                    cci = circumcentre(xsi)
+                    xsj = sarray(fulltype(Chain{V, 1, T}),
+                                 n -> coords[sj.vertices[n]],
+                                 Val(R+2))
+                    ccj = circumcentre(xsj)
+                    h = scalar(abs(cci - ccj)).v
+                    values[i] += b * h / factorial(DR)
+                end
             end
         end
         vols = Fun{D, R, T}(mf, values)
-        dualvolumes[R+1] = vols
+        dualvolumes[R] = vols
     end
 
     Geometry{D, T}(mf, dom, coords, volumes, circumcentres, dualvolumes)
@@ -170,61 +192,45 @@ end
 
 
 export hodge
-function hodge(geom::Geometry{D, T}) where {D, T}
+function hodge(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
+    @assert 0 <= R <= D
     S = Signature(D)
     V = SubManifold(S)
 
-    nothing
+    vol = geom.volumes[R]
+    dualvol = geom.dualvolumes[R]
+    @assert length(vol) == size(R, geom.mf)
+    @assert length(dualvol) == size(R, geom.mf)
+    
+    # TODO: Add primal/dual tag to Fun and Op types
+    Op{D, R, R, T}(geom.mf,
+                   diagm([vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
+end
 
-#     # @show "hodge" geometry
-#     S = Signature(V)
-#     D = ndims(V)
-#     mf = geometry.mf
-# 
-#     # ccs = circumcentres(geometry)
-# 
-#     dualVols = Array{Vector{T}}(undef, max(0, D-1))
-# 
-#     for R in D-1:-1:1
-#         # @show R
-#         R1 = R + 1
-#     
-#         dualVol1 = R1 == D ? nothing : dualVols[R1]
-#         dualVol = Array{T}(undef, dim(Val(R), mf))
-#     
-#         # TODO: use boundary operator to find connectivity
-#         for (i,si) in enumerate(mf.simplices[R])
-#             # @show i si
-#             @assert length(si) == R+1
-#             xis = sarray(SVector{D,T},
-#                          k -> sarray(T, a -> geometry.geometry[a][si[k]], Val(D)),
-#                          Val(R+1))
-#             # @show xis
-#             cci = circumcentre(xis)
-#             Vol = T(0)
-#             for (j,sj) in enumerate(mf.simplices[R1])
-#                 # @show j sj
-#                 if any(sj[k] ==i for k in 1:length(sj))
-#                     b = R1 == D ? T(1) : dualVol1[j]
-#                     @assert length(sj) == R1+1
-#                     xjs = sarray(
-#                         SVector{D,T},
-#                         k -> sarray(T, a -> geometry.geometry[a][sj[k]], Val(D)),
-#                         Val(R1+1))
-#                     ccj = circumcentre(xjs)
-#                     h = sqrt(sum(T, a -> (cci[a] - ccj[a])^2, Val(D)))
-#                     Vol += b * h / (D - R)
-#                 end
-#             end
-#             dualVol[i] = Vol
-#         end
-#     
-#         dualVols[R] = dualVol
-#     end
-# 
-#     tuple(dualVols...)::NTuple{max(0, D-1), Vector{T}}
+export coderiv
+function coderiv(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
+    D::Int
+    T::Type
+    @assert 0 < R <= D
+    op = hodge(Val(R), geom) \ dualderiv(Val(R), geom.mf) * hodge(Val(R), geom)
+    op::Op{D, R-1, R, T}
+end
+
+export laplace
+function laplace(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
+    D::Int
+    T::Type
+    @assert 0 <= R <= D
+    op = zero(Op{D, R, R, T}, geom.mf)
+    if R > 0
+        op += deriv(Val(R-1), geom) * coderiv(Val(R), geom)
+    end
+    if R < D
+        op += coderiv(Val(R+1), geom) * deriv(Val(R), geom)
+    end
+    op::Op{D, R, R, T}
 end
 
 

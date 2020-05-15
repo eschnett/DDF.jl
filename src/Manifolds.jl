@@ -66,7 +66,7 @@ DManifold (a set of directed graphs)
 struct DManifold{D}
     nvertices::Int
     # vertices (i.e. 0-simplices) are always numbered 1:nvertices and
-    # are not stored
+    # don't need to be stored
     # simplices[R]::Vector{DSimplex{R+1, Int}}
     simplices::Dict{Int, Simplices}
     # The boundary ∂ of 0-forms vanishes and is not stored
@@ -78,7 +78,7 @@ struct DManifold{D}
                           ) where {D}
         D::Int
         @assert D >= 0
-        @assert isempty(symdiff(keys(simplices), 1:D))
+        @assert isempty(symdiff(keys(simplices), 0:D))
         @assert isempty(symdiff(keys(boundaries), 1:D))
         mf = new{D}(nvertices, simplices, boundaries)
         @assert invariant(mf)
@@ -98,7 +98,10 @@ function Defs.invariant(mf::DManifold{D})::Bool where {D}
 
     mf.nvertices >= 0 || (@assert false; return false)
 
-    for R in 1:D
+    isempty(symdiff(keys(mf.simplices), 0:D)) || (@assert false; return false)
+    length(mf.simplices[0]) == mf.nvertices || (@assert false; return false)
+
+    for R in 0:D
         simplices = mf.simplices[R]
         for i in 1:length(simplices)
             s = simplices[i]
@@ -134,7 +137,7 @@ Base.ndims(::DManifold{D}) where {D} = D
 
 Base.size(::Val{R}, mf::DManifold{D}) where {R, D} = size(R, mf)
 function Base.size(R::Integer, mf::DManifold)::Int
-    R == 0 && return mf.nvertices
+    @assert 0 <= R <= ndims(mf)
     length(mf.simplices[R])
 end
 
@@ -174,7 +177,7 @@ function DManifold(simplices::Vector{DSimplex{N, Int}}
     unique!(simplices)
     if D == 0
         return DManifold{D}(nvertices,
-                            Dict{Int, Simplices}(),
+                            Dict{Int, Simplices}(0 => simplices),
                             Dict{Int, SparseMatrixCSC{Int8, Int}}())
     end
 
@@ -280,11 +283,35 @@ end
 # TODO: Define these in Ops (or Funs?)
 # TODO: Test them (similar to Funs)
 
+# Drop non-structural zeros if we can do that without losing accuracy
+const ExactType = Union{Integer, Rational}
+condense(A) = A
+condense(A::AbstractSparseMatrix{<:ExactType}) = dropzeros(A)
+condense(A::AbstractSparseMatrix{Complex{<:ExactType}}) = dropzeros(A)
+condense(A::Adjoint) = adjoint(condense(adjoint(A)))
+condense(A::Transpose) = transpose(condense(transposes(value)))
+# condense(A::Union{LowerTriangular, UpperTriangular}) =
+#     typeof(A)(condense(A.data))
+
 export Op
 struct Op{D, R1, R2, T}         # <: AbstractMatrix{T}
     mf::DManifold{D}
     values::Union{AbstractMatrix{T}, UniformScaling{T}}
     # TODO: Check invariant
+
+    function Op{D, R1, R2, T}(mf::DManifold{D},
+                              values::Union{AbstractMatrix{T},
+                                            UniformScaling{T}}
+                              ) where {D, R1, R2, T}
+        op = new{D, R1, R2, T}(mf, condense(values))
+        @assert invariant(op)
+        op
+    end
+    function Op{D, R1, R2}(mf::DManifold{D},
+                           values::Union{AbstractMatrix{T}, UniformScaling{T}}
+                           ) where {D, R1, R2, T}
+        Op{D, R1, R2, T}(mf, values)
+    end
 end
 
 function Defs.invariant(op::Op{D, R1, R2})::Bool where {D, R1, R2}
@@ -294,7 +321,9 @@ function Defs.invariant(op::Op{D, R1, R2})::Bool where {D, R1, R2}
     @assert 0 <= R1 <= D
     R2::Int
     @assert 0 <= R2 <= D
-    @assert size(mf.boundary[R]) == (size(R1, mf), size(R2, mf))
+    if !(op.values isa UniformScaling)
+        @assert size(op.values) == (size(R1, op.mf), size(R2, op.mf))
+    end
     true
 end
 
@@ -302,70 +331,69 @@ end
 
 function Base.zero(::Type{Op{D, R1, R2, T}}, mf::DManifold{D}
                    ) where {D, R1, R2, T}
-    Op{D, R1, R2, T}(mf, zero(T)*I)
+    Op{D, R1, R2}(mf, zero(T)*I)
 end
 
 function Base.:+(A::Op{D, R1, R2, T}) where {D, R1, R2, T}
-    Op{D, R1, R2, T}(A.mf, +A.values)
+    Op{D, R1, R2}(A.mf, +A.values)
 end
 
 function Base.:-(A::Op{D, R1, R2, T}) where {D, R1, R2, T}
-    Op{D, R1, R2, T}(A.mf, -A.values)
+    Op{D, R1, R2}(A.mf, -A.values)
 end
 
 function Base.:+(A::Op{D, R1, R2, T1}, B::Op{D, R1, R2, T2}
                  ) where {D, R1, R2, T1, T2}
     @assert A.mf == B.mf
-    T = typeof(zero(T1) + zero(T2))
-    Op{D, R1, R2, T}(A.mf, A.values + B.values)
+    Op{D, R1, R2}(A.mf, A.values + B.values)
 end
 
 function Base.:-(A::Op{D, R1, R2, T1}, B::Op{D, R1, R2, T2}
                  ) where {D, R1, R2, T1, T2}
     @assert A.mf == B.mf
     T = typeof(zero(T1) + zero(T2))
-    Op{D, R1, R2, T}(A.mf, A.values - B.values)
+    Op{D, R1, R2}(A.mf, A.values - B.values)
 end
 
 # Operators are a ring
 
 function Base.one(::Type{Op{D, R1, R1, T}}, mf::DManifold{D}
                    ) where {D, R1, T}
-    Op{D, R1, R1, T}(mf, one(T)*I)
+    Op{D, R1, R1}(mf, one(T)*I)
 end
 
 function Base.:*(A::Op{D, R1, R2, T1}, B::Op{D, R2, R3, T2}
                  ) where {D, R1, R2, R3, T1, T2}
     @assert A.mf == B.mf
     T = typeof(one(T1) * one(T2))
-    Op{D, R1, R3, T}(A.mf, A.values * B.values)
+    Op{D, R1, R3}(A.mf, A.values * B.values)
 end
 
 # Operators are a group
 
 function Base.inv(A::Op{D, R1, R2, T1}) where {D, R1, R2, T1}
     T = typeof(inv(one(T1)))
-    Op{D, R2, R1, T}(A.mf, inv(A.values))
+    Op{D, R2, R1}(A.mf, inv(A.values))
 end
 
 function Base.:/(A::Op{D, R1, R2, T1}, B::Op{D, R3, R2, T2}
                  ) where {D, R1, R2, R3, T1, T2}
     @assert A.mf == B.mf
     T = typeof(one(T1) / one(T2))
-    Op{D, R1, R3, T}(A.mf, A.values / B.values)
+    Op{D, R1, R3}(A.mf, A.values / B.values)
 end
 
 function Base.:\(A::Op{D, R2, R1, T1}, B::Op{D, R2, R3, T2}
                  ) where {D, R1, R2, R3, T1, T2}
     @assert A.mf == B.mf
     T = typeof(one(T1) \ one(T2))
-    Op{D, R1, R3, T}(A.mf, A.values \ B.values)
+    Op{D, R1, R3}(A.mf, A.values \ B.values)
 end
 
 # There is an adjoint
 
 function Base.adjoint(A::Op{D, R2, R1, T}) where {D, R1, R2, R3, T}
-    Op{D, R1, R2, T}(A.mf, adjoint(A.values))
+    Op{D, R1, R2}(A.mf, adjoint(A.values))
 end
 
 

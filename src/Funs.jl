@@ -127,8 +127,13 @@ end
 
 # Functions have a pointwise product
 
-function Base.oneunit(::Type{Fun{D, R, T}},
-                      mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
+function Base.zeros(::Type{Fun{D, R, T}},
+                    mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
+    Fun{D, R, T}(mf, zeros(T, size(Val(R), mf)))
+end
+
+function Base.ones(::Type{Fun{D, R, T}},
+                   mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(mf, ones(T, size(Val(R), mf)))
 end
 

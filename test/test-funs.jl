@@ -1,10 +1,6 @@
 using DDF
 
-# using ComputedFieldTypes
-# using Grassmann
-# using LinearAlgebra
-# using SparseArrays
-# using StaticArrays
+using StaticArrays
 using Test
 
 
@@ -77,17 +73,28 @@ end
     mf0 = DManifold(Val(D))
     mf1 = DManifold(DSimplex(SVector{D+1}(1:D+1)))
     mf2 = hypercube_manifold(Val(D))
+    mfs = [mf0, mf1, mf2]
 
-    for mf in [mf0, mf1, mf2]
+    for mf in mfs
         for R in 0:D
-            b = R==0 ? nothing : boundary(Val(R), mf)
-            d = R==D ? nothing : deriv(Val(R), mf)
-
             f0 = one(Fun{D, R, T}, mf)
             f1 = id(Fun{D, R, T}, mf)
-            for f in [f0, f1]
-                bf = b isa Nothing ? nothing : b*f
-                df = d isa Nothing ? nothing : d*f
+            fs = [f0, f1]
+
+            if R > 0
+                b = boundary(Val(R), mf)
+                for f in fs
+                    bf = b*f
+                    bf::Fun{D, R-1, T}
+                end
+            end
+
+            if R < D
+                d = deriv(Val(R), mf)
+                for f in fs
+                    df = d*f
+                    df::Fun{D, R+1, T}
+                end
             end
         end
     end
