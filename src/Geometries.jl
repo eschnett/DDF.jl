@@ -25,55 +25,70 @@ using ..Manifolds
 
 
 
+DVector() = Chain{D, 1} where D
+DVector(D) = Chain{SubManifold(Signature(D)), 1}
+DVector(D, T) = fulltype(Chain{SubManifold(Signature(D)), 1, T})
+
 export Domain
-@computed struct Domain{V, T}
-    xmin::fulltype(Chain{V, 1, T})
-    xmax::fulltype(Chain{V, 1, T})
-    Domain{V,T}(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {V,T} =
-        new{V,T}(xmin, xmax)
+@computed struct Domain{D, T}
+    xmin::DVector(D, T)
+    xmax::DVector(D, T)
+    function Domain{D,T}(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {D,V,T}
+        V::SubManifold
+        T::Type
+        @assert D == ndims(V)
+        new{D,T}(xmin, xmax)
+    end
     Domain(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {V,T} =
-        Domain{V,T}(xmin, xmax)
+        Domain{ndims(V),T}(xmin, xmax)
+end
+
+Defs.invariant(dom::Domain) = true
+
+
+
+export Geometry
+@computed struct Geometry{D, T}
+    mf::DManifold{D}
+    dom::fulltype(Domain{D, T})
+    # Coordinates of vertices
+    coords::Fun{D, 0, DVector(D, T)}
+    # Volumes of 0-forms are always 1 and are not stored
+    volumes::Dict{Int, Fun{D, R, T} where R}
+    # Coordinates of vertices of dual grid, i.e. circumcentres of top
+    # simplices
+    dualcoords::Fun{D, D, DVector(D, T)}
+    # Dual volumes of dual top-forms are always 1 and are not stored
+    dualvolumes::Dict{Int, Fun{D, R, T} where R}
 end
 
 
 
-volumes_type(D::Int, ::Type{T}) where {T} =
-    Tuple{(fulltype(Fun{D, R, T}) for R in 1:D)...}
-dualvolumes_type(D::Int, ::Type{T}) where {T} =
-    Tuple{(fulltype(Fun{D, R, T}) for R in 0:D-1)...}
-
-export Geometry
-@computed struct Geometry{V, T}
-    mf::DManifold{ndims(V)}
-    dom::Domain{V, T}
-    # Coordinates of vertices
-    coords::Fun{ndims(V), 0, fulltype(Chain{V, 1, T})}
-    # Volumes of 0-forms are always 1 and are not stored
-    volumes::volumes_type(ndims(V), T)
-    # Coordinates of vertices of dual grid, i.e. circumcentres of top
-    # simplices
-    dualcoords::Fun{ndims(V), ndims(V), fulltype(Chain{V, 1, T})}
-    # Dual volumes of dual 0-forms are always 1 and are not stored
-    dualvolumes::dualvolumes_type(ndims(V), T)
+function Defs.invariant(geom::Geometry{D})::Bool where {D}
+    invariant(geom.mf) || return false
+    invariant(geom.dom) || return false
+    isempty(symdiff(keys(geom.volumes), 1:D)) || return false
+    isempty(symdiff(keys(geom.dualvolumes), 0:D-1)) || return false
+    return true
 end
 
 
 
 function Geometry(mf::DManifold{D},
-                  dom::Domain{V, T},
-                  coords::Fun{D, 0, <:Chain{V, 1, T}}) where {D, V, T}
+                  dom::Domain{D, T},
+                  coords::Fun{D, 0, Chain{V, 1, T, X1}}
+                  ) where {D, T, V, X1}
     D::Int
-    V::SubManifold
-    @assert D == ndims(V)
     T::Type
-
-    S = Signature(V)
+    V::SubManifold
+    @assert ndims(V) == D
+    S = Signature(D)
     B = Λ(S)
 
     # TODO: Check Delauney criterion
 
     # Calculate volumes
-    volumes = (Fun{D,R,T} where {R})[]
+    volumes = Dict{Int, Fun{D,R,T} where {R}}()
     for R in 1:D
         values = Array{T}(undef, size(R, mf))
         for (i,s) in enumerate(mf.simplices[R])
@@ -93,7 +108,7 @@ function Geometry(mf::DManifold{D},
             values[i] = vol
         end
         vols = Fun{D, R, T}(mf, values)
-        push!(volumes, vols)
+        volumes[R] = vols
     end
 
     # Calculate circumcentres
@@ -161,7 +176,7 @@ function Geometry(mf::DManifold{D},
 
     # Calculate dual volumes
     # [1198555.1198667, page 5]
-    dualvolumes = Array{Fun{D,R,T} where {R}}(undef, D)
+    dualvolumes = Dict{Int, Fun{D,R,T} where {R}}()
     for R in D-1:-1:0
         values = zeros(T, size(R, mf))
         #TODO for (i,si) in enumerate(mf.simplices[R])
@@ -181,14 +196,13 @@ function Geometry(mf::DManifold{D},
         dualvolumes[R+1] = vols
     end
 
-    Geometry{V, T}(mf, dom, coords, tuple(volumes...), circumcentres,
-                   tuple(dualvolumes...))
+    Geometry{D, T}(mf, dom, coords, volumes, circumcentres, dualvolumes)
 end
 
 
 
 # export hodge
-# function hodge(geom::Geometry{V, T}) where {V, T}
+# function hodge(geom::Geometry{D, T}) where {V, T}
 #     # @show "hodge" geometry
 #     S = Signature(V)
 #     D = ndims(V)

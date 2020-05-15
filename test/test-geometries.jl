@@ -47,7 +47,7 @@ end
 #     T = Float64
 #     @show D S V T
 #     mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
-#     dom = Domain{V, T}(Chain{V, 1}(sarray(T, d -> T(0), Val(D))),
+#     dom = Domain{D, T}(Chain{V, 1}(sarray(T, d -> T(0), Val(D))),
 #                        Chain{V, 1}(sarray(T, d -> T(1), Val(D))))
 #     xs = ntuple(d -> Fun{D, 0, T}(mf, T[d == i for i in 0:D]), D)
 #     cs = Coords{V, T}(mf, dom, xs)
