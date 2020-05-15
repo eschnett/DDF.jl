@@ -83,8 +83,6 @@ function Geometry(mf::DManifold{D},
     T::Type
     V::SubManifold
     @assert ndims(V) == D
-    S = Signature(D)
-    B = Λ(S)
 
     # TODO: Check Delauney criterion
 
@@ -171,8 +169,15 @@ end
 
 
 
-# export hodge
-# function hodge(geom::Geometry{D, T}) where {V, T}
+export hodge
+function hodge(geom::Geometry{D, T}) where {D, T}
+    D::Int
+    T::Type
+    S = Signature(D)
+    V = SubManifold(S)
+
+    nothing
+
 #     # @show "hodge" geometry
 #     S = Signature(V)
 #     D = ndims(V)
@@ -220,7 +225,7 @@ end
 #     end
 # 
 #     tuple(dualVols...)::NTuple{max(0, D-1), Vector{T}}
-# end
+end
 
 
 

@@ -1,5 +1,6 @@
 module Manifolds
 
+using LinearAlgebra
 using SparseArrays
 using StaticArrays
 
@@ -53,6 +54,8 @@ Base.length(::S) where {S<:DSimplex} = length(S)
 
 
 const Simplices{N} = Vector{DSimplex{N,Int}}
+
+# TODO: Introduce type for operators
 
 # The name "Manifold" is taken by Grassmann; we thus use "DManifold"
 # instead
@@ -270,12 +273,117 @@ function hypercube_manifold(::Val{D}) where {D}
     DManifold(simplices)
 end
 
+
+
+# Operators
+
+# TODO: Define these in Ops (or Funs?)
+# TODO: Test them (similar to Funs)
+
+export Op
+struct Op{D, R1, R2, T}         # <: AbstractMatrix{T}
+    mf::DManifold{D}
+    values::Union{AbstractMatrix{T}, UniformScaling{T}}
+    # TODO: Check invariant
+end
+
+function Defs.invariant(op::Op{D, R1, R2})::Bool where {D, R1, R2}
+    D::Int
+    @assert D >= 0
+    R1::Int
+    @assert 0 <= R1 <= D
+    R2::Int
+    @assert 0 <= R2 <= D
+    @assert size(mf.boundary[R]) == (size(R1, mf), size(R2, mf))
+    true
+end
+
+# Operators are a vector space
+
+function Base.zero(::Type{Op{D, R1, R2, T}}, mf::DManifold{D}
+                   ) where {D, R1, R2, T}
+    Op{D, R1, R2, T}(mf, zero(T)*I)
+end
+
+function Base.:+(A::Op{D, R1, R2, T}) where {D, R1, R2, T}
+    Op{D, R1, R2, T}(A.mf, +A.values)
+end
+
+function Base.:-(A::Op{D, R1, R2, T}) where {D, R1, R2, T}
+    Op{D, R1, R2, T}(A.mf, -A.values)
+end
+
+function Base.:+(A::Op{D, R1, R2, T1}, B::Op{D, R1, R2, T2}
+                 ) where {D, R1, R2, T1, T2}
+    @assert A.mf == B.mf
+    T = typeof(zero(T1) + zero(T2))
+    Op{D, R1, R2, T}(A.mf, A.values + B.values)
+end
+
+function Base.:-(A::Op{D, R1, R2, T1}, B::Op{D, R1, R2, T2}
+                 ) where {D, R1, R2, T1, T2}
+    @assert A.mf == B.mf
+    T = typeof(zero(T1) + zero(T2))
+    Op{D, R1, R2, T}(A.mf, A.values - B.values)
+end
+
+# Operators are a ring
+
+function Base.one(::Type{Op{D, R1, R1, T}}, mf::DManifold{D}
+                   ) where {D, R1, T}
+    Op{D, R1, R1, T}(mf, one(T)*I)
+end
+
+function Base.:*(A::Op{D, R1, R2, T1}, B::Op{D, R2, R3, T2}
+                 ) where {D, R1, R2, R3, T1, T2}
+    @assert A.mf == B.mf
+    T = typeof(one(T1) * one(T2))
+    Op{D, R1, R3, T}(A.mf, A.values * B.values)
+end
+
+# Operators are a group
+
+function Base.inv(A::Op{D, R1, R2, T1}) where {D, R1, R2, T1}
+    T = typeof(inv(one(T1)))
+    Op{D, R2, R1, T}(A.mf, inv(A.values))
+end
+
+function Base.:/(A::Op{D, R1, R2, T1}, B::Op{D, R3, R2, T2}
+                 ) where {D, R1, R2, R3, T1, T2}
+    @assert A.mf == B.mf
+    T = typeof(one(T1) / one(T2))
+    Op{D, R1, R3, T}(A.mf, A.values / B.values)
+end
+
+function Base.:\(A::Op{D, R2, R1, T1}, B::Op{D, R2, R3, T2}
+                 ) where {D, R1, R2, R3, T1, T2}
+    @assert A.mf == B.mf
+    T = typeof(one(T1) \ one(T2))
+    Op{D, R1, R3, T}(A.mf, A.values \ B.values)
+end
+
+# There is an adjoint
+
+function Base.adjoint(A::Op{D, R2, R1, T}) where {D, R1, R2, R3, T}
+    Op{D, R1, R2, T}(A.mf, adjoint(A.values))
+end
+
+
+
 # Boundary
 
 export boundary
 function boundary(::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 < R <= D
-    return mf.boundary[R]
+    Op{D, R-1, R, Int8}(mf, mf.boundaries[R])
+end
+
+# Derivative
+
+export deriv
+function deriv(::Val{R}, mf::DManifold{D}) where {R, D}
+    @assert 0 <= R < D
+    boundary(Val(R+1), mf)'
 end
 
 end

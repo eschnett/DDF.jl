@@ -68,3 +68,27 @@ using Test
 
     @test map(+, f, g) == f + g
 end
+
+
+
+@testset "Ops D=$D R=$R" for D in 0:Dmax, R in 0:D
+    T = Rational{Int64}
+
+    mf0 = DManifold(Val(D))
+    mf1 = DManifold(DSimplex(SVector{D+1}(1:D+1)))
+    mf2 = hypercube_manifold(Val(D))
+
+    for mf in [mf0, mf1, mf2]
+        for R in 0:D
+            b = R==0 ? nothing : boundary(Val(R), mf)
+            d = R==D ? nothing : deriv(Val(R), mf)
+
+            f0 = one(Fun{D, R, T}, mf)
+            f1 = id(Fun{D, R, T}, mf)
+            for f in [f0, f1]
+                bf = b isa Nothing ? nothing : b*f
+                df = d isa Nothing ? nothing : d*f
+            end
+        end
+    end
+end

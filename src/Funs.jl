@@ -101,29 +101,44 @@ function Base.:-(f::Fun{D, R, T}, g::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(f.mf, f.values - g.values)
 end
 
-# Functions have a pointwise product
-
-function Base.one(::Type{Fun{D, R, T}},
-                      mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(mf, ones(T, size(Val(R), mf)))
-end
-
 function Base.:*(a::T, f::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(f.mf, a * f.values)
-end
-
-function Base.:*(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, f.values * a)
 end
 
 function Base.:\(a::T, f::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(f.mf, a \ f.values)
 end
 
+function Base.:*(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
+    Fun{D, R, T}(f.mf, f.values * a)
+end
+
 function Base.:/(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(f.mf, f.values / a)
 end
 
+# Functions have operators
+function Base.:*(A::Op{D, R1, R2, T1}, f::Fun{D, R2, T2}
+                 ) where {D, R1, R2, T1, T2}
+    @assert A.mf == f.mf
+    T = typeof(one(T1) * oneunit(T2))
+    Fun{D, R1, T}(f.mf, A.values * f.values)
+end
+
+# Functions have a pointwise product
+
+function Base.oneunit(::Type{Fun{D, R, T}},
+                      mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
+    Fun{D, R, T}(mf, ones(T, size(Val(R), mf)))
+end
+
+# TODO: use "oneunit" instead?
+function Base.one(::Type{Fun{D, R, T}},
+                      mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
+    Fun{D, R, T}(mf, ones(T, size(Val(R), mf)))
+end
+
+# TODO: shouldn't this be defined automatically by being a collection?
 function Base.conj(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
     Fun{D, R, T}(f.mf, conj(f.values))
 end

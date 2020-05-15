@@ -139,4 +139,12 @@ using Test
         @test ndims(mf7) == D-1
         checkboundary2(mf7)
     end
+
+    # b0 = boundary(mf0)
+    # b1 = boundary(mf1)
+    # b6 = boundary(mf6)
+
+    # d0 = deriv(mf0)
+    # d1 = deriv(mf1)
+    # d6 = deriv(mf6)
 end
