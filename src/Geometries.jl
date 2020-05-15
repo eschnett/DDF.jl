@@ -59,6 +59,7 @@ export Geometry
     # simplices
     dualcoords::Fun{D, D, DVector(D, T)}
     # Dual volumes of dual top-forms are always 1 and are not stored
+    # dualvolumes[R = D-DR]
     dualvolumes::Dict{Int, Fun{D, R, T} where R}
 end
 
@@ -124,74 +125,43 @@ function Geometry(mf::DManifold{D},
     end
     circumcentres = Fun{D, D, fulltype(Chain{V,1,T})}(mf, values)
 
-    # # Calculate dual mesh
-    # # TODO: Move this to "DManifold"
-    # dualcells = Vector{Vector{T}}[] # dualcells[DR][icell][ivertex] = vertex
-    # ndualvertices = size(D, mf)
-    # for DR in 1:D
-    #     # For each primal R-simplex, find all neighbours
-    #     bnds = mf.boundaries[DR]
-    #     dss = Array{Vector{T}(undef, size(DR,mf))
-    #     for (i,si) in enumerate(mf.simplices[DR])
-    #         # Find all neighbours (which share a boundary) of this
-    #         # simplex i
-    #         # TODO: Use SVector
-    #         neighbours = Int[]
-    #         for b in findnz(bnds[:,i])[1]
-    #             # Loop over all simplices that share this boundary,
-    #             # excluding i
-    #             # TODO: This is probably slow?
-    #             js = findnz(bnds[b,:])[1]
-    #             @show i b js
-    #             @assert length(js) ∈ 1:2 # 1 at boundary, 2 in interior
-    #             @assert i ∈ js
-    #             for j in js
-    #                 if j != i
-    #                     sj = mf.simplices[DR][j]
-    # 
-    #                     # Check vertex sets for conssitency
-    #                     vimj = setdiff(si.vertices, sj.vertices)
-    #                     vjmi = setdiff(sj.vertices, si.vertices)
-    #                     @assert length(vimj) == 1
-    #                     @assert length(vjmi) == 1
-    #                     @assert vimj[1] != vjmi[1]
-    # 
-    #                     push!(neighbours, j)
-    #                 end
-    #             end
-    #         end
-    # 
-    #         @show DR i neighbours
-    #         @error "this does not hold at boundaries -- what to do?"
-    #         @error "the dual of a simplicial complex is a cell complex!"
-    #         @assert length(neighbours) == DR+1
-    #         dvs = SVector{DR+1}(neighbours)
-    #         # TODO: calculate sign by looking at circumcentre
-    #         # (see arXiv:1103.3076v2 [cs.NA], section 10)
-    #         ds = DSimplex(dvs, true)
-    #         dss[i] = ds
-    #     end
-    #     push!(dualsimplices, dss)
-    # end
-
     # Calculate dual volumes
     # [1198555.1198667, page 5]
     dualvolumes = Dict{Int, Fun{D,R,T} where {R}}()
-    for R in D-1:-1:0
+    for DR in 1:D
+        R = D - DR
+        bnds = mf.boundaries[R+1]
         values = zeros(T, size(R, mf))
-        #TODO for (i,si) in enumerate(mf.simplices[R])
-        #TODO     # TODO: This is expensive
-        #TODO     js = findnz(mf.boundary[R+1][i,:])[1]
-        #TODO     for j in js
-        #TODO         sj = mf.simplices[R+1][j]
-        #TODO         b = R+1 == D ? one(T) : dualvolumes[R+1+1][j]
-        #TODO         # TODO: Calculate lower-rank circumcentres as
-        #TODO         # intersection between boundary and the line
-        #TODO         # connecting two simplices?
-        #TODO         h = abs(circumcentre(si.vertices) - circumcentre(sj.vertices))
-        #TODO         values[j] += b * h / factorial(D-R)
-        #TODO     end
-        #TODO end
+        if R == 0
+            sis = (DSimplex{1,Int}(SVector(i)) for i in 1:mf.nvertices)
+        else
+            sis = mf.simplices[R]::Vector{DSimplex{R+1, Int}}
+        end
+        sjs = mf.simplices[R+1]::Vector{DSimplex{R+2, Int}}
+        for (i,si) in enumerate(sis)
+            # TODO: This is expensive
+            js = findnz(bnds[i,:])[1]
+            for j in js
+                sj = sjs[j]
+                b = R+1 == D ? one(T) : dualvolumes[R+1+1][j]
+                # TODO: Calculate lower-rank circumcentres as
+                # intersection between boundary and the line
+                # connecting two simplices?
+                # TODO: Cache circumcentres ahead of time
+                @assert length(si.vertices) == R+1
+                @assert length(sj.vertices) == R+2
+                xsi = sarray(fulltype(Chain{V, 1, T}),
+                             n -> coords[si.vertices[n]],
+                             Val(R+1))
+                cci = circumcentre(xsi)
+                xsj = sarray(fulltype(Chain{V, 1, T}),
+                             n -> coords[sj.vertices[n]],
+                             Val(R+2))
+                ccj = circumcentre(xsj)
+                h = scalar(abs(cci - ccj)).v
+                values[i] += b * h / factorial(DR)
+            end
+        end
         vols = Fun{D, R, T}(mf, values)
         dualvolumes[R+1] = vols
     end

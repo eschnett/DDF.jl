@@ -33,7 +33,7 @@ using Test
         if D == 1
             # TODO: Provide a constructor for manifolds with
             # disconnected vertices
-            mf2 = DManifold([DSimplex{D-1,Int}(SVector(i))
+            mf2 = DManifold([DSimplex{D,Int}(SVector(i))
                              for i in 1:mf1.nvertices])
         else
             mf2 = DManifold(mf1.simplices[D-1])
