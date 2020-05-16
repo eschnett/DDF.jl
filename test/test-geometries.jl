@@ -12,7 +12,8 @@ using Test
     V = SubManifold(S)
     T = Float64
     mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
-    dom = Domain(Chain{V,1}(zeros(SVector{T})), Chain{V,1}(ones(SVector{T})))
+    dom = Domain(Chain{V,1}(zeros(SVector{D,T})),
+                 Chain{V,1}(ones(SVector{D,T})))
     xs = Fun{D, 0, fulltype(Chain{V,1,T})}(
         mf,
         fulltype(Chain{V,1,T})[
@@ -40,7 +41,7 @@ end
 
 
 
-@testset "Ops2 D=$D R=$R" for D in 1:Dmax, R in 0:D
+@testset "Geometry ops D=$D R=$R" for D in 1:Dmax, R in 0:D
     S = Signature(D)
     V = SubManifold(S)
     T = Float64
@@ -73,7 +74,7 @@ end
     for geom in geoms
 
         for R in 0:D
-            f0 = one(Fun{D, R, T}, geom.mf)
+            f0 = ones(Fun{D, R, T}, geom.mf)
             f1 = id(Fun{D, R, T}, geom.mf)
             fs = [f0, f1]
 

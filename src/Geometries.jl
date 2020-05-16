@@ -9,6 +9,7 @@ using StaticArrays
 using ..Defs
 using ..Funs
 using ..Manifolds
+using ..Ops
 
 
 
@@ -205,8 +206,8 @@ function hodge(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     @assert length(dualvol) == size(R, geom.mf)
     
     # TODO: Add primal/dual tag to Fun and Op types
-    Op{D, R, R, T}(geom.mf,
-                   diagm([vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
+    Op{D, R, R}(geom.mf,
+                Diagonal(T[vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
 end
 
 export coderiv

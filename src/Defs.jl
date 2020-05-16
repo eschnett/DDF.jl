@@ -10,6 +10,9 @@ using StaticArrays
 export invariant
 function invariant end
 
+export unit
+function unit end
+
 
 
 export bitsign

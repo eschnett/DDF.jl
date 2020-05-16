@@ -1,5 +1,7 @@
 module Funs
 
+using SparseArrays
+
 using ..Defs
 using ..Manifolds
 
@@ -11,25 +13,30 @@ Function (aka Cochain)
 """
 struct Fun{D, R, T}             # <: AbstractVector{T}
     mf::DManifold{D}
-    values::Vector{T}
+    values::AbstractVector{T}
 
-    function Fun{D, R, T}(mf::DManifold{D}, values::Vector{T}) where {D, R, T}
+    function Fun{D, R, T}(mf::DManifold{D},
+                          values::AbstractVector{T}) where {D, R, T}
         fun = new{D, R, T}(mf, values)
         @assert invariant(fun)
         fun
+    end
+    function Fun{D, R}(mf::DManifold{D},
+                       values::AbstractVector{T}) where {D, R, T}
+        Fun{D, R, T}(mf, values)
     end
 end
 
 function Defs.invariant(fun::Fun{D, R, T})::Bool where {D, R, T}
     0 <= R <= D || return false
     invariant(fun.mf) || return false
-    length(fun.values) == size(Val(R), fun.mf) || return false
+    length(fun.values) == size(R, fun.mf) || return false
     return true
 end
 
 # Comparison
 
-function Base.:(==)(f::F, g::F)::Bool where {F<:Fun}
+function Base.:(==)(f::F, g::F) where {F<:Fun}
     @assert f.mf == g.mf
     f.values == g.values
 end
@@ -37,22 +44,20 @@ end
 # Functions are a collection
 
 Base.iterate(f::Fun, state...) = iterate(f.values, state...)
-Base.IteratorSize(::Fun) = Base.IteratorSize(Vector)
-Base.IteratorEltype(::Fun) = Base.IteratorEltype(Vector)
+Base.IteratorSize(f::Fun) = Base.IteratorSize(f.values)
+Base.IteratorEltype(f::Fun) = Base.IteratorEltype(f.values)
 Base.isempty(f::Fun) = isempty(f.values)
 Base.length(f::Fun) = length(f.values)
-Base.eltype(::Type{Fun{D, R, T}}) where {D, R, T} = eltype(Vector{T})
-
-# Random functions
-Base.rand(::Type{Fun{D, R, T}}, mf::DManifold{D}) where {D, R, T} =
-    Fun{D, R, T}(mf, rand(T, size(Val(R), mf)))
+Base.eltype(f::Fun) = eltype(f.values)
 
 function Base.map(op, f::Fun{D, R}, gs::Fun{D, R}...) where {D, R}
     @assert all(f.mf == g.mf for g in gs)
-    rvalues = map(op, f.values, (g.values for g in gs)...)
-    U = eltype(rvalues)
-    Fun{D, R, U}(f.mf, rvalues)
+    Fun{D, R}(f.mf, map(op, f.values, (g.values for g in gs)...))
 end
+
+# Random functions
+Base.rand(::Type{Fun{D, R, T}}, mf::DManifold{D}) where {D, R, T} =
+    Fun{D, R, T}(mf, rand(T, size(R, mf)))
 
 # Functions are an abstract vector
 
@@ -69,91 +74,70 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 # Functions are a vector space
 
-function Base.zero(::Type{Fun{D, R, T}},
-                   mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(mf, zeros(T, size(Val(R), mf)))
+function Base.zero(::Type{Fun{D, R, T}}, mf::DManifold{D}) where {D, R, T}
+    Fun{D, R}(mf, zeros(T, size(R, mf)))
 end
 
-export unit
-function unit(::Type{Fun{D, R, T}},
-              mf::DManifold{D}, n::Int)::Fun{D, R, T} where {D, R, T}
-    @assert 1 <= n <= size(Val(R), mf)
-    Fun{D, R, T}(mf, T[T(i == n) for i in 1:size(Val(R), mf)])
+function Defs.unit(::Type{Fun{D, R, T}}, mf::DManifold{D}, n::Int
+                   ) where {D, R, T}
+    @assert 1 <= n <= size(R, mf)
+    Fun{D, R}(mf, sparsevec([n], [one(T)]))
 end
 
 function Base.:+(f::Fun{D, R}) where {D, R}
-    rvalues = +f.values
-    U = eltype(rvalues)
-    Fun{D, R, U}(f.mf, rvalues)
+    Fun{D, R}(f.mf, +f.values)
 end
 
-function Base.:-(f::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, -f.values)
+function Base.:-(f::Fun{D, R}) where {D, R}
+    Fun{D, R}(f.mf, -f.values)
 end
 
-function Base.:+(f::Fun{D, R, T}, g::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
+function Base.:+(f::Fun{D, R}, g::Fun{D, R}) where {D, R}
     @assert f.mf == g.mf
-    Fun{D, R, T}(f.mf, f.values + g.values)
+    Fun{D, R}(f.mf, f.values + g.values)
 end
 
-function Base.:-(f::Fun{D, R, T}, g::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
+function Base.:-(f::Fun{D, R}, g::Fun{D, R}) where {D, R}
     @assert f.mf == g.mf
-    Fun{D, R, T}(f.mf, f.values - g.values)
+    Fun{D, R}(f.mf, f.values - g.values)
 end
 
-function Base.:*(a::T, f::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, a * f.values)
+function Base.:*(a::Number, f::Fun{D, R}) where {D, R}
+    Fun{D, R}(f.mf, a * f.values)
 end
 
-function Base.:\(a::T, f::Fun{D, R, T})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, a \ f.values)
+function Base.:\(a::Number, f::Fun{D, R}) where {D, R}
+    Fun{D, R}(f.mf, a \ f.values)
 end
 
-function Base.:*(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, f.values * a)
+function Base.:*(f::Fun{D, R}, a::Number) where {D, R}
+    Fun{D, R}(f.mf, f.values * a)
 end
 
-function Base.:/(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, f.values / a)
-end
-
-# Functions have operators
-function Base.:*(A::Op{D, R1, R2, T1}, f::Fun{D, R2, T2}
-                 ) where {D, R1, R2, T1, T2}
-    @assert A.mf == f.mf
-    T = typeof(one(T1) * oneunit(T2))
-    Fun{D, R1, T}(f.mf, A.values * f.values)
+function Base.:/(f::Fun{D, R}, a::Number) where {D, R}
+    Fun{D, R}(f.mf, f.values / a)
 end
 
 # Functions have a pointwise product
 
-function Base.zeros(::Type{Fun{D, R, T}},
-                    mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(mf, zeros(T, size(Val(R), mf)))
+function Base.zeros(::Type{Fun{D, R, T}}, mf::DManifold{D}) where {D, R, T}
+    Fun{D, R}(mf, zeros(T, size(R, mf)))
 end
 
-function Base.ones(::Type{Fun{D, R, T}},
-                   mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(mf, ones(T, size(Val(R), mf)))
-end
-
-# TODO: use "oneunit" instead?
-function Base.one(::Type{Fun{D, R, T}},
-                      mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(mf, ones(T, size(Val(R), mf)))
+function Base.ones(::Type{Fun{D, R, T}}, mf::DManifold{D}) where {D, R, T}
+    Fun{D, R}(mf, ones(T, size(R, mf)))
 end
 
 # TODO: shouldn't this be defined automatically by being a collection?
-function Base.conj(f::Fun{D, R, T}, a::T)::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(f.mf, conj(f.values))
+function Base.conj(f::Fun{D, R}) where {D, R}
+    Fun{D, R}(f.mf, conj(f.values))
 end
 
 # Functions are a category
 
 export id
-function id(::Type{Fun{D, R, T}},
-            mf::DManifold{D})::Fun{D, R, T} where {D, R, T}
-    Fun{D, R, T}(mf, T[T(i) for i in 1:size(Val(R), mf)])
+function id(::Type{Fun{D, R, T}}, mf::DManifold{D}) where {D, R, T}
+    Fun{D, R}(mf, [T(i) for i in 1:size(R, mf)])
 end
 
 # composition?

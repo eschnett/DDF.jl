@@ -10,7 +10,7 @@ using Test
 
     T = Rational{Int64}
     z = zero(Fun{D, R, T}, mf)
-    e = one(Fun{D, R, T}, mf)
+    e = ones(Fun{D, R, T}, mf)
     i = id(Fun{D, R, T}, mf)
     f = rand(Fun{D, R, T}, mf)
     g = rand(Fun{D, R, T}, mf)
@@ -63,39 +63,4 @@ using Test
     @test [x^2 for x in i] == [x for x in i2]
 
     @test map(+, f, g) == f + g
-end
-
-
-
-@testset "Ops D=$D R=$R" for D in 0:Dmax, R in 0:D
-    T = Rational{Int64}
-
-    mf0 = DManifold(Val(D))
-    mf1 = DManifold(DSimplex(SVector{D+1}(1:D+1)))
-    mf2 = hypercube_manifold(Val(D))
-    mfs = [mf0, mf1, mf2]
-
-    for mf in mfs
-        for R in 0:D
-            f0 = one(Fun{D, R, T}, mf)
-            f1 = id(Fun{D, R, T}, mf)
-            fs = [f0, f1]
-
-            if R > 0
-                b = boundary(Val(R), mf)
-                for f in fs
-                    bf = b*f
-                    bf::Fun{D, R-1, T}
-                end
-            end
-
-            if R < D
-                d = deriv(Val(R), mf)
-                for f in fs
-                    df = d*f
-                    df::Fun{D, R+1, T}
-                end
-            end
-        end
-    end
 end
