@@ -20,7 +20,7 @@ compress(A) = A
 compress(A::AbstractSparseMatrix{<:ExactType}) = dropzeros(A)
 compress(A::AbstractSparseMatrix{Complex{<:ExactType}}) = dropzeros(A)
 compress(A::Adjoint) = adjoint(compress(adjoint(A)))
-compress(A::Transpose) = transpose(compress(transposes(value)))
+compress(A::Transpose) = transpose(compress(transpose(A)))
 # compress(A::Union{LowerTriangular, UpperTriangular}) =
 #     typeof(A)(compress(A.data))
 
@@ -175,21 +175,25 @@ function Base.:*(A::Op{D, P1, R1, P2, R2}, B::Op{D, P2, R2, P3, R3}
     Op{D, P1, R1, P3, R3}(A.mf, A.values * B.values)
 end
 
-# # Operators are a division ring
-# 
-# function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
-#     Op{D, R2, R1}(A.mf, inv(A.values))
-# end
-# 
-# function Base.:/(A::Op{D, P1, R1, P2, R2}, B::Op{D, R3, R2}) where {D, P1, R1, P2, R2, R3}
-#     @assert A.mf == B.mf
-#     Op{D, R1, R3}(A.mf, A.values / B.values)
-# end
-# 
-# function Base.:\(A::Op{D, R2, R1}, B::Op{D, R2, R3}) where {D, P1, R1, P2, R2, R3}
-#     @assert A.mf == B.mf
-#     Op{D, R1, R3}(A.mf, A.values \ B.values)
-# end
+# Operators are a groupoid ("division ring")
+
+# Note: This works only for invertible operators, and only for some
+# matrix representations
+function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    Op{D, P2, R2, P1, R1}(A.mf, inv(A.values))
+end
+
+function Base.:/(A::Op{D, P1, R1, P2, R2}, B::Op{D, P3, R3, P2, R2}
+                 ) where {D, P1, R1, P2, R2, P3, R3}
+    @assert A.mf == B.mf
+    Op{D, P1, R1, P3, R3}(A.mf, A.values / B.values)
+end
+
+function Base.:\(A::Op{D, P2, R2, P1, R1}, B::Op{D, P2, R2, P3, R3}
+                 ) where {D, P1, R1, P2, R2, P3, R3}
+    @assert A.mf == B.mf
+    Op{D, P1, R1, P3, R3}(A.mf, A.values \ B.values)
+end
 
 # There are adjoints
 
@@ -228,7 +232,21 @@ end
 export boundary
 function boundary(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 < R <= D
-    Op{D, Pr, R-1, Pr, R, Int8}(mf, mf.boundaries[R])
+    Op{D, Pr, R-1, Pr, R}(mf, mf.boundaries[R])
+end
+function boundary(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
+    @assert 0 <= R < D
+    Op{D, Dl, R+1, Dl, R}(mf, mf.boundaries[R+1]')
+end
+
+export coboundary
+function coboundary(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
+    @assert 0 <= R < D
+    transpose(boundary(Val(Pr), Val(R+1), mf))::Op{D, Pr, R+1, Pr, R}
+end
+function coboundary(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
+    @assert 0 < R <= D
+    transpose(boundary(Val(Dl), Val(R-1), mf))::Op{D, Dl, R-1, Dl, R}
 end
 
 # Derivative
@@ -236,7 +254,11 @@ end
 export deriv
 function deriv(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 <= R < D
-    boundary(Val(Pr), Val(R+1), mf)'
+    coboundary(Val(Pr), Val(R), mf)::Op{D, Pr, R+1, Pr, R}
+end
+function deriv(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
+    @assert 0 < R <= D
+    coboundary(Val(Dl), Val(R), mf)::Op{D, Dl, R-1, Dl, R}
 end
 
 end

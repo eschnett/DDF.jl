@@ -111,7 +111,7 @@ end
 
 
 
-@testset "Manifold ops D=$D R=$R" for D in 0:Dmax, R in 0:D
+@testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
     T = Rational{Int64}
 
     mf0 = DManifold(Val(D))
@@ -120,25 +120,25 @@ end
     mfs = [mf0, mf1, mf2]
 
     for mf in mfs
-        for R in 0:D
-            f0 = ones(Fun{D, Pr, R, T}, mf)
-            f1 = id(Fun{D, Pr, R, T}, mf)
-            fs = [f0, f1]
+        f0 = ones(Fun{D, P, R, T}, mf)
+        f1 = id(Fun{D, P, R, T}, mf)
+        fs = [f0, f1]
 
-            if R > 0
-                b = boundary(Val(Pr), Val(R), mf)
-                for f in fs
-                    bf = b*f
-                    bf::Fun{D, Pr, R-1, T}
-                end
+        R1 = P == Pr ? R-1 : R+1
+        if 0 <= R1 <= D
+            b = boundary(Val(P), Val(R), mf)
+            for f in fs
+                bf = b*f
+                bf::Fun{D, P, R1, T}
             end
+        end
 
-            if R < D
-                d = deriv(Val(Pr), Val(R), mf)
-                for f in fs
-                    df = d*f
-                    df::Fun{D, Pr, R+1, T}
-                end
+        R1 = P == Pr ? R+1 : R-1
+        if 0 <= R1 <= D
+            d = deriv(Val(P), Val(R), mf)
+            for f in fs
+                df = d*f
+                df::Fun{D, P, R1, T}
             end
         end
     end

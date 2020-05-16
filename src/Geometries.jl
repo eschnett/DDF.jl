@@ -205,19 +205,23 @@ function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     @assert length(vol) == size(R, geom.mf)
     @assert length(dualvol) == size(R, geom.mf)
     
-    # TODO: Add primal/dual tag to Fun and Op types
     Op{D, Dl, R, Pr, R}(
         geom.mf,
-        Diagonal(T[vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
+        Diagonal(T[dualvol[i] / vol[i] for i in 1:size(R, geom.mf)]))
 end
+hodge(::Val{Dl}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T} =
+    inv(hodge(Val(Pr), Val(R), geom))
+
+# Derivative
 
 export coderiv
 function coderiv(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 < R <= D
-    op = hodge(Val(Pr), Val(R), geom) \
-        dualderiv(Val(Dl), Val(R), geom.mf) * hodge(Val(Pr), Val(R), geom)
+    op = hodge(Val(Dl), Val(R-1), geom) *
+        dualderiv(Val(Dl), Val(R), geom.mf) *
+        hodge(Val(Pr), Val(R), geom)
     op::Op{D, Pr, R-1, Pr, R, T}
 end
 
