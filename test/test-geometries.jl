@@ -14,7 +14,7 @@ using Test
     mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
     dom = Domain(Chain{V,1}(zeros(SVector{D,T})),
                  Chain{V,1}(ones(SVector{D,T})))
-    xs = Fun{D, 0, fulltype(Chain{V,1,T})}(
+    xs = Fun{D, Pr, 0, fulltype(Chain{V,1,T})}(
         mf,
         fulltype(Chain{V,1,T})[
             Chain{V,1}(sarray(T, d -> T(d+1 == n), Val(D))) for n in 1:D+1])
@@ -51,19 +51,19 @@ end
 
     # Empty manifold
     mf0 = DManifold(Val(D))
-    xs0 = Fun{D, 0, fulltype(Chain{V,1,T})}(mf0, fulltype(Chain{V,1,T})[])
+    xs0 = Fun{D, Pr, 0, fulltype(Chain{V,1,T})}(mf0, fulltype(Chain{V,1,T})[])
     geom0 = Geometry(mf0, dom, xs0)
 
     # Simplex
     mf1 = DManifold(DSimplex(SVector{D+1}(1:D+1)))
-    xs1 = Fun{D, 0, fulltype(Chain{V,1,T})}(
+    xs1 = Fun{D, Pr, 0, fulltype(Chain{V,1,T})}(
         mf1,
         [Chain{V,1}(sarray(T, d -> T(d+1 == n), Val(D))) for n in 1:D+1])
     geom1 = Geometry(mf1, dom, xs1)
 
     # Cube
     mf2 = hypercube_manifold(Val(D))
-    xs2 = Fun{D, 0, fulltype(Chain{V,1,T})}(
+    xs2 = Fun{D, Pr, 0, fulltype(Chain{V,1,T})}(
         mf2,
         [Chain{V,1}(sarray(T, d -> T((n-1) & (1<<(d-1)) != 0), Val(D)))
          for n in 1:1<<D])
@@ -74,14 +74,14 @@ end
     for geom in geoms
 
         for R in 0:D
-            f0 = ones(Fun{D, R, T}, geom.mf)
-            f1 = id(Fun{D, R, T}, geom.mf)
+            f0 = ones(Fun{D, Pr, R, T}, geom.mf)
+            f1 = id(Fun{D, Pr, R, T}, geom.mf)
             fs = [f0, f1]
 
             for f in fs
-                h = hodge(Val(R), geom)
+                h = hodge(Val(Pr), Val(R), geom)
                 hf = h*f
-                hf::Fun{D, R, T}
+                hf::Fun{D, Dl, R, T}
             end
 
             #TODO if R > 0

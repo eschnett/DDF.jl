@@ -5,16 +5,16 @@ using Test
 
 
 
-@testset "Fun D=$D R=$R" for D in 0:Dmax, R in 0:D
+@testset "Fun D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
     mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
 
     T = Rational{Int64}
-    z = zero(Fun{D, R, T}, mf)
-    e = ones(Fun{D, R, T}, mf)
-    i = id(Fun{D, R, T}, mf)
-    f = rand(Fun{D, R, T}, mf)
-    g = rand(Fun{D, R, T}, mf)
-    h = rand(Fun{D, R, T}, mf)
+    z = zero(Fun{D, P, R, T}, mf)
+    e = ones(Fun{D, P, R, T}, mf)
+    i = id(Fun{D, P, R, T}, mf)
+    f = rand(Fun{D, P, R, T}, mf)
+    g = rand(Fun{D, P, R, T}, mf)
+    h = rand(Fun{D, P, R, T}, mf)
     a = rand(T)
     b = rand(T)
 

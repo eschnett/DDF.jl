@@ -54,22 +54,22 @@ export Geometry
     mf::DManifold{D}
     dom::fulltype(Domain{D, T})
     # Coordinates of vertices
-    coords::Fun{D, 0, DVector(D, T)}
+    coords::Fun{D, Pr, 0, DVector(D, T)}
     # Volumes of 0-forms are always 1 and don't need to be stored
-    volumes::Dict{Int, Fun{D, R, T} where R}
+    volumes::Dict{Int, Fun{D, Pr, R, T} where R}
     # Coordinates of vertices of dual grid, i.e. circumcentres of top
     # simplices
-    dualcoords::Fun{D, D, DVector(D, T)}
+    dualcoords::Fun{D, Dl, D, DVector(D, T)}
     # Dual volumes of dual top-forms are always 1 and don't need to be stored
     # dualvolumes[R = D-DR]
-    dualvolumes::Dict{Int, Fun{D, R, T} where R}
+    dualvolumes::Dict{Int, Fun{D, Dl, R, T} where R}
 
     function Geometry{D, T}(mf::DManifold{D},
                             dom::Domain{D, T},
-                            coords::Fun{D, 0, Chain{V, 1, T, X1}},
-                            volumes::Dict{Int, Fun{D, R, T} where R},
-                            dualcoords::Fun{D, D, Chain{V, 1, T, X1}},
-                            dualvolumes::Dict{Int, Fun{D, R, T} where R}
+                            coords::Fun{D, Pr, 0, Chain{V, 1, T, X1}},
+                            volumes::Dict{Int, Fun{D, Pr, R, T} where R},
+                            dualcoords::Fun{D, Dl, D, Chain{V, 1, T, X1}},
+                            dualvolumes::Dict{Int, Fun{D, Dl, R, T} where R}
                             ) where {D, T, V, X1}
         D::Int
         T::Type
@@ -96,7 +96,7 @@ end
 
 function Geometry(mf::DManifold{D},
                   dom::Domain{D, T},
-                  coords::Fun{D, 0, Chain{V, 1, T, X1}}
+                  coords::Fun{D, Pr, 0, Chain{V, 1, T, X1}}
                   ) where {D, T, V, X1}
     D::Int
     T::Type
@@ -106,14 +106,14 @@ function Geometry(mf::DManifold{D},
     # TODO: Check Delauney criterion
 
     # Calculate volumes
-    volumes = Dict{Int, Fun{D,R,T} where {R}}()
+    volumes = Dict{Int, Fun{D,Pr,R,T} where {R}}()
     for R in 0:D
         values = Array{T}(undef, size(R, mf))
         for (i,s) in enumerate(mf.simplices[R])
-            cs = sarray(fulltype(Chain{V, 1, T}),
+            cs = sarray(fulltype(Chain{V,1,T}),
                         n -> coords.values[s.vertices[n]],
                         Val(R+1))
-            xs = sarray(fulltype(Chain{V, 1, T}), n -> cs[n+1] - cs[1], Val(R))
+            xs = sarray(fulltype(Chain{V,1,T}), n -> cs[n+1] - cs[1], Val(R))
             if length(xs) == 0
                 vol = one(T)
             elseif length(xs) == 1
@@ -125,7 +125,7 @@ function Geometry(mf::DManifold{D},
             vol *= bitsign(s.signbit)
             values[i] = vol
         end
-        vols = Fun{D, R, T}(mf, values)
+        vols = Fun{D, Pr, R, T}(mf, values)
         volumes[R] = vols
     end
 
@@ -133,18 +133,18 @@ function Geometry(mf::DManifold{D},
     values = Array{fulltype(Chain{V,1,T})}(undef, size(D, mf))
     for R in D:D
         for (i,s) in enumerate(mf.simplices[R])
-            cs = sarray(fulltype(Chain{V, 1, T}),
+            cs = sarray(fulltype(Chain{V,1,T}),
                         n -> coords.values[s.vertices[n]],
                         Val(R+1))
             cc = circumcentre(cs)
             values[i] = cc
         end
     end
-    circumcentres = Fun{D, D, fulltype(Chain{V,1,T})}(mf, values)
+    circumcentres = Fun{D, Dl, D, fulltype(Chain{V,1,T})}(mf, values)
 
     # Calculate dual volumes
     # [1198555.1198667, page 5]
-    dualvolumes = Dict{Int, Fun{D,R,T} where {R}}()
+    dualvolumes = Dict{Int, Fun{D,Dl,R,T} where {R}}()
     for DR in 0:D
         R = D - DR
         if R == D
@@ -183,7 +183,7 @@ function Geometry(mf::DManifold{D},
                 end
             end
         end
-        vols = Fun{D, R, T}(mf, values)
+        vols = Fun{D, Dl, R, T}(mf, values)
         dualvolumes[R] = vols
     end
 
@@ -193,7 +193,7 @@ end
 
 
 export hodge
-function hodge(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
+function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 <= R <= D
@@ -206,32 +206,34 @@ function hodge(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     @assert length(dualvol) == size(R, geom.mf)
     
     # TODO: Add primal/dual tag to Fun and Op types
-    Op{D, R, R}(geom.mf,
-                Diagonal(T[vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
+    Op{D, Pr, R, Pr, R}(
+        geom.mf,
+        Diagonal(T[vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
 end
 
 export coderiv
-function coderiv(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
+function coderiv(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 < R <= D
-    op = hodge(Val(R), geom) \ dualderiv(Val(R), geom.mf) * hodge(Val(R), geom)
-    op::Op{D, R-1, R, T}
+    op = hodge(Val(Pr), Val(R), geom) \
+        dualderiv(Val(Dl), Val(R), geom.mf) * hodge(Val(Pr), Val(R), geom)
+    op::Op{D, Pr, R-1, Pr, R, T}
 end
 
 export laplace
-function laplace(::Val{R}, geom::Geometry{D, T}) where {R, D, T}
+function laplace(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 <= R <= D
     op = zero(Op{D, R, R, T}, geom.mf)
     if R > 0
-        op += deriv(Val(R-1), geom) * coderiv(Val(R), geom)
+        op += deriv(Val(Pr), Val(R-1), geom) * coderiv(Val(Pr), Val(R), geom)
     end
     if R < D
-        op += coderiv(Val(R+1), geom) * deriv(Val(R), geom)
+        op += coderiv(Val(Pr), Val(R+1), geom) * deriv(Val(Pr), Val(R), geom)
     end
-    op::Op{D, R, R, T}
+    op::Op{D, Pr, R, Pr, R, T}
 end
 
 

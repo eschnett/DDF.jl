@@ -6,18 +6,20 @@ using Test
 
 
 
-@testset "Op D=$D R2=$R2 R1=$R1" for D in 0:Dmax, R2 in 0:D, R1 in 0:D
+# Dmax-1 since these tests are expensive
+@testset "Op D=$D P2=$P2 R2=$R2 P1=$P1 R1=$R1" for D in 0:Dmax-1,
+    P2 in (Pr, Dl), R2 in 0:D, P1 in (Pr, Dl), R1 in 0:D
     mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
 
     T = Rational{Int64}
-    z = zero(Op{D, R2, R1, T}, mf)
-    e = one(Op{D, R1, R1, T}, mf)
-    e2 = one(Op{D, R2, R2, T}, mf)
-    A = rand(Op{D, R2, R1, T}, mf)
-    B = rand(Op{D, R2, R1, T}, mf)
-    C = rand(Op{D, R2, R1, T}, mf)
-    f = rand(Fun{D, R1, T}, mf)
-    g = rand(Fun{D, R1, T}, mf)
+    z = zero(Op{D, P2, R2, P1, R1, T}, mf)
+    e = one(Op{D, P1, R1, P1, R1, T}, mf)
+    e2 = one(Op{D, P2, R2, P2, R2, T}, mf)
+    A = rand(Op{D, P2, R2, P1, R1, T}, mf)
+    B = rand(Op{D, P2, R2, P1, R1, T}, mf)
+    C = rand(Op{D, P2, R2, P1, R1, T}, mf)
+    f = rand(Fun{D, P1, R1, T}, mf)
+    g = rand(Fun{D, P1, R1, T}, mf)
     a = rand(T)
     b = rand(T)
 
@@ -65,9 +67,9 @@ using Test
     @test e2 * A == A
     @test A * e == A
 
-    for R3 in 0:D, R4 in 0:D
-        F = rand(Op{D, R3, R2, T}, mf)
-        G = rand(Op{D, R4, R3, T}, mf)
+    for P3 in (Pr, Dl), R3 in 0:D, P4 in (Pr, Dl), R4 in 0:D
+        F = rand(Op{D, P3, R3, P2, R2, T}, mf)
+        G = rand(Op{D, P4, R4, P3, R3, T}, mf)
 
         @test (G * F) * A == G * (F * A)
     end
@@ -90,14 +92,14 @@ using Test
     @test A * (f + g) == A * f + A * g
     @test (A + B) * f == A * f + B * f
 
-    for R3 in 0:D
-        F = rand(Op{D, R3, R2, T}, mf)
+    for P3 in (Pr, Dl), R3 in 0:D
+        F = rand(Op{D, P3, R3, P2, R2, T}, mf)
         @test (F * A) * f == F * (A * f)
     end
     
     # Add diagonal entries to help make F and G invertible
-    F = one(Op{D, R1, R1, T}, mf) + rand(Op{D, R1, R1, T}, mf)
-    G = one(Op{D, R1, R1, T}, mf) + rand(Op{D, R1, R1, T}, mf)
+    F = one(Op{D, P1, R1, P1, R1, T}, mf) + rand(Op{D, P1, R1, P1, R1, T}, mf)
+    G = one(Op{D, P1, R1, P1, R1, T}, mf) + rand(Op{D, P1, R1, P1, R1, T}, mf)
 
     # Note: \ converts rationals to Float64
     g1 = (G * F) \ f
@@ -119,23 +121,23 @@ end
 
     for mf in mfs
         for R in 0:D
-            f0 = ones(Fun{D, R, T}, mf)
-            f1 = id(Fun{D, R, T}, mf)
+            f0 = ones(Fun{D, Pr, R, T}, mf)
+            f1 = id(Fun{D, Pr, R, T}, mf)
             fs = [f0, f1]
 
             if R > 0
-                b = boundary(Val(R), mf)
+                b = boundary(Val(Pr), Val(R), mf)
                 for f in fs
                     bf = b*f
-                    bf::Fun{D, R-1, T}
+                    bf::Fun{D, Pr, R-1, T}
                 end
             end
 
             if R < D
-                d = deriv(Val(R), mf)
+                d = deriv(Val(Pr), Val(R), mf)
                 for f in fs
                     df = d*f
-                    df::Fun{D, R+1, T}
+                    df::Fun{D, Pr, R+1, T}
                 end
             end
         end

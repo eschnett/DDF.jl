@@ -25,31 +25,34 @@ compress(A::Transpose) = transpose(compress(transposes(value)))
 #     typeof(A)(compress(A.data))
 
 export Op
-struct Op{D, R1, R2, T}         # <: AbstractMatrix{T}
+struct Op{D, P1, R1, P2, R2, T} # <: AbstractMatrix{T}
     mf::DManifold{D}
     values::Union{AbstractMatrix{T}, UniformScaling{T}}
     # TODO: Check invariant
 
-    function Op{D, R1, R2, T}(mf::DManifold{D},
-                              values::Union{AbstractMatrix{T},
-                                            UniformScaling{T}}
-                              ) where {D, R1, R2, T}
-        op = new{D, R1, R2, T}(mf, compress(values))
+    function Op{D, P1, R1, P2, R2, T}(mf::DManifold{D},
+                                      values::Union{AbstractMatrix{T},
+                                                    UniformScaling{T}}
+                                      ) where {D, P1, R1, P2, R2, T}
+        op = new{D, P1, R1, P2, R2, T}(mf, compress(values))
         @assert invariant(op)
         op
     end
-    function Op{D, R1, R2}(mf::DManifold{D},
-                           values::Union{AbstractMatrix{T}, UniformScaling{T}}
-                           ) where {D, R1, R2, T}
-        Op{D, R1, R2, T}(mf, values)
+    function Op{D, P1, R1, P2, R2}(mf::DManifold{D},
+                                   values::Union{AbstractMatrix{T},
+                                                 UniformScaling{T}}
+                                   ) where {D, P1, R1, P2, R2, T}
+        Op{D, P1, R1, P2, R2, T}(mf, values)
     end
 end
 
-function Defs.invariant(op::Op{D, R1, R2})::Bool where {D, R1, R2}
+function Defs.invariant(op::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     D::Int
     @assert D >= 0
+    P1::PrimalDual
     R1::Int
     @assert 0 <= R1 <= D
+    P2::PrimalDual
     R2::Int
     @assert 0 <= R2 <= D
     if !(op.values isa UniformScaling)
@@ -75,17 +78,18 @@ Base.isempty(A::Op) = isempty(A.values)
 Base.length(A::Op) = length(A.values)
 Base.eltype(A::Op) = eltype(A.values)
 
-function Base.map(op, A::Op{D, R1, R2}, Bs::Op{D, R1, R2}...) where {D, R1, R2}
+function Base.map(op, A::Op{D, P1, R1, P2, R2}, Bs::Op{D, P1, R1, P2, R2}...
+                  ) where {D, P1, R1, P2, R2}
     @assert all(A.mf == B.mf for B in Bs)
     Fun{D, R}(A.mf, map(op, A.values, (B.values for B in Bs)...))
 end
 
 # Random operators
-function Base.rand(::Type{Op{D, R1, R2, T}}, mf::DManifold{D}
-                   ) where {D, R1, R2, T}
+function Base.rand(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D}
+                   ) where {D, P1, R1, P2, R2, T}
     m, n = size(R1, mf), size(R2, mf)
     p = clamp(4 / min(m, n), 0, 1)
-    Op{D, R1, R2}(mf, sprand(T, m, n, p))
+    Op{D, P1, R1, P2, R2}(mf, sprand(T, m, n, p))
 end
 
 # Operators are an abstract matrix
@@ -103,108 +107,118 @@ Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
 
 # Operators are a vector space
 
-function Base.zero(::Type{Op{D, R1, R2, T}}, mf::DManifold{D}
-                   ) where {D, R1, R2, T}
-    Op{D, R1, R2}(mf, sparse([], [], T[], size(R1, mf), size(R2, mf)))
+function Base.zero(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D}
+                   ) where {D, P1, R1, P2, R2, T}
+    Op{D, P1, R1, P2, R2}(mf, sparse([], [], T[], size(R1, mf), size(R2, mf)))
 end
 
-function Defs.unit(::Type{Op{D, R1, R2, T}}, mf::DManifold{D}, m::Int, n::Int
-                   ) where {D, R1, R2, T}
+function Defs.unit(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D},
+                   m::Int, n::Int) where {D, P1, R1, P2, R2, T}
     @assert 1 <= m <= size(R1, mf)
     @assert 1 <= n <= size(R2, mf)
-    Op{D, R1, R2}(mf, sparse([m], [n], [one(T)]))
+    Op{D, P1, R1, P2, R2}(mf, sparse([m], [n], [one(T)]))
 end
 
-function Base.:+(A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, +A.values)
+function Base.:+(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, +A.values)
 end
 
-function Base.:-(A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, -A.values)
+function Base.:-(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, -A.values)
 end
 
-function Base.:+(A::Op{D, R1, R2}, B::Op{D, R1, R2}) where {D, R1, R2}
+function Base.:+(A::Op{D, P1, R1, P2, R2}, B::Op{D, P1, R1, P2, R2}
+                 ) where {D, P1, R1, P2, R2}
     @assert A.mf == B.mf
-    Op{D, R1, R2}(A.mf, A.values + B.values)
+    Op{D, P1, R1, P2, R2}(A.mf, A.values + B.values)
 end
 
-function Base.:-(A::Op{D, R1, R2}, B::Op{D, R1, R2}) where {D, R1, R2}
+function Base.:-(A::Op{D, P1, R1, P2, R2}, B::Op{D, P1, R1, P2, R2}
+                 ) where {D, P1, R1, P2, R2}
     @assert A.mf == B.mf
-    Op{D, R1, R2}(A.mf, A.values - B.values)
+    Op{D, P1, R1, P2, R2}(A.mf, A.values - B.values)
 end
 
-function Base.:*(a::Number, A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, a * A.values)
+function Base.:*(a::Number, A::Op{D, P1, R1, P2, R2}
+                 ) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, a * A.values)
 end
 
-function Base.:\(a::Number, A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, a \ A.values)
+function Base.:\(a::Number, A::Op{D, P1, R1, P2, R2}
+                 ) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, a \ A.values)
 end
 
-function Base.:*(A::Op{D, R1, R2}, a::Number) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, A.values * a)
+function Base.:*(A::Op{D, P1, R1, P2, R2}, a::Number
+                 ) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, A.values * a)
 end
 
-function Base.:/(A::Op{D, R1, R2}, a::Number) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, A.values / a)
+function Base.:/(A::Op{D, P1, R1, P2, R2}, a::Number
+                 ) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, A.values / a)
 end
 
 # Operators are a ring
 
-function Base.one(::Type{Op{D, R, R}}, mf::DManifold{D}) where {D, R}
-    Op{D, R, R}(mf, I)
+function Base.one(::Type{Op{D, R, P, R, P}}, mf::DManifold{D}) where {D, R, P}
+    Op{D, R, P, R, P}(mf, I)
 end
-function Base.one(::Type{Op{D, R, R, T}}, mf::DManifold{D}) where {D, R, T}
-    Op{D, R, R}(mf, one(T)*I)
+function Base.one(::Type{Op{D, R, P, R, P, T}}, mf::DManifold{D}
+                  ) where {D, R, P, T}
+    Op{D, R, P, R, P}(mf, one(T)*I)
 end
 
-function Base.:*(A::Op{D, R1, R2}, B::Op{D, R2, R3}) where {D, R1, R2, R3}
+function Base.:*(A::Op{D, P1, R1, P2, R2}, B::Op{D, P2, R2, P3, R3}
+                 ) where {D, P1, R1, P2, R2, P3, R3}
     @assert A.mf == B.mf
-    Op{D, R1, R3}(A.mf, A.values * B.values)
+    Op{D, P1, R1, P3, R3}(A.mf, A.values * B.values)
 end
 
 # # Operators are a division ring
 # 
-# function Base.inv(A::Op{D, R1, R2}) where {D, R1, R2}
+# function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
 #     Op{D, R2, R1}(A.mf, inv(A.values))
 # end
 # 
-# function Base.:/(A::Op{D, R1, R2}, B::Op{D, R3, R2}) where {D, R1, R2, R3}
+# function Base.:/(A::Op{D, P1, R1, P2, R2}, B::Op{D, R3, R2}) where {D, P1, R1, P2, R2, R3}
 #     @assert A.mf == B.mf
 #     Op{D, R1, R3}(A.mf, A.values / B.values)
 # end
 # 
-# function Base.:\(A::Op{D, R2, R1}, B::Op{D, R2, R3}) where {D, R1, R2, R3}
+# function Base.:\(A::Op{D, R2, R1}, B::Op{D, R2, R3}) where {D, P1, R1, P2, R2, R3}
 #     @assert A.mf == B.mf
 #     Op{D, R1, R3}(A.mf, A.values \ B.values)
 # end
 
 # There are adjoints
 
-function Base.adjoint(A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R2, R1}(A.mf, adjoint(A.values))
+function Base.adjoint(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    Op{D, P2, R2, P1, R1}(A.mf, adjoint(A.values))
 end
 
-function Base.transpose(A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R2, R1}(A.mf, transpose(A.values))
+function Base.transpose(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    Op{D, P2, R2, P1, R1}(A.mf, transpose(A.values))
 end
 
 # TODO: shouldn't this be defined automatically by being a collection?
-function Base.conj(A::Op{D, R1, R2}) where {D, R1, R2}
-    Op{D, R1, R2}(A.mf, conj(A.values))
+function Base.conj(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    Op{D, P1, R1, P2, R2}(A.mf, conj(A.values))
 end
 
 # Operators act on functions
 
-function Base.:*(A::Op{D, R1, R2}, f::Fun{D, R2}) where {D, R1, R2}
+function Base.:*(A::Op{D, P1, R1, P2, R2}, f::Fun{D, P2, R2}
+                 ) where {D, P1, R1, P2, R2}
     @assert A.mf == f.mf
-    Fun{D, R1}(f.mf, A.values * f.values)
+    Fun{D, P1, R1}(f.mf, A.values * f.values)
 end
 
-function Base.:\(A::Op{D, R1, R2}, f::Fun{D, R1}) where {D, R1, R2}
+function Base.:\(A::Op{D, P1, R1, P2, R2}, f::Fun{D, P1, R1}
+                 ) where {D, P1, R1, P2, R2}
     @assert A.mf == f.mf
     # Note: \ converts rationals to Float64
-    Fun{D, R2}(f.mf, A.values \ f.values)
+    Fun{D, P2, R2}(f.mf, A.values \ f.values)
 end
 
 
@@ -212,17 +226,17 @@ end
 # Boundary
 
 export boundary
-function boundary(::Val{R}, mf::DManifold{D}) where {R, D}
+function boundary(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 < R <= D
-    Op{D, R-1, R, Int8}(mf, mf.boundaries[R])
+    Op{D, Pr, R-1, Pr, R, Int8}(mf, mf.boundaries[R])
 end
 
 # Derivative
 
 export deriv
-function deriv(::Val{R}, mf::DManifold{D}) where {R, D}
+function deriv(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 <= R < D
-    boundary(Val(R+1), mf)'
+    boundary(Val(Pr), Val(R+1), mf)'
 end
 
 end
