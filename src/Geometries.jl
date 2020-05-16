@@ -206,7 +206,7 @@ function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     @assert length(dualvol) == size(R, geom.mf)
     
     # TODO: Add primal/dual tag to Fun and Op types
-    Op{D, Pr, R, Pr, R}(
+    Op{D, Dl, R, Pr, R}(
         geom.mf,
         Diagonal(T[vol[i] / dualvol[i] for i in 1:size(R, geom.mf)]))
 end
