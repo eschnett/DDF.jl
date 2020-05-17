@@ -71,7 +71,6 @@ end
 # Operators are a collection
 
 Base.iterate(A::Op, state...) = iterate(A.values, state...)
-Base.iterate(A::Op, state...) = iterate(A.values, state...)
 Base.IteratorSize(A::Op) = Base.IteratorSize(A.values)
 Base.IteratorEltype(A::Op) = Base.IteratorEltype(A.values)
 Base.isempty(A::Op) = isempty(A.values)
@@ -109,7 +108,7 @@ Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
 
 function Base.zero(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D}
                    ) where {D, P1, R1, P2, R2, T}
-    Op{D, P1, R1, P2, R2}(mf, sparse([], [], T[], size(R1, mf), size(R2, mf)))
+    Op{D, P1, R1, P2, R2}(mf, spzeros(T, size(R1, mf), size(R2, mf)))
 end
 
 function Defs.unit(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D},
@@ -180,6 +179,9 @@ end
 # Note: This works only for invertible operators, and only for some
 # matrix representations
 function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
+    @assert R1 == R2
+    @assert size(R1, A.mf) == size(R2, A.mf)
+    @show A.values
     Op{D, P2, R2, P1, R1}(A.mf, inv(A.values))
 end
 
@@ -242,11 +244,11 @@ end
 export coboundary
 function coboundary(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 <= R < D
-    transpose(boundary(Val(Pr), Val(R+1), mf))::Op{D, Pr, R+1, Pr, R}
+    adjoint(boundary(Val(Pr), Val(R+1), mf))::Op{D, Pr, R+1, Pr, R}
 end
 function coboundary(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
     @assert 0 < R <= D
-    transpose(boundary(Val(Dl), Val(R-1), mf))::Op{D, Dl, R-1, Dl, R}
+    adjoint(boundary(Val(Dl), Val(R-1), mf))::Op{D, Dl, R-1, Dl, R}
 end
 
 # Derivative

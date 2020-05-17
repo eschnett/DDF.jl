@@ -81,3 +81,14 @@ end
         @test cc ∧ subspace == 0
     end
 end
+
+
+
+@testset "Regular simplex D=$D" for D in 1:Dmax
+    N = D+1
+    T = Float64
+    s = regular_simplex(Val(D), T)
+    for i in 1:N, j in i+1:N
+        @test scalar(abs2(s[i] - s[j])).v ≈ 1
+    end
+end

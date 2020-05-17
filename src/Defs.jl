@@ -297,4 +297,34 @@ function circumcentre(xs::SVector{R, <:Chain{V, 1, T}}) where {R, V, T}
     cc::Chain{V, 1, T}
 end
 
+
+
+export regular_simplex
+# Generate the coordinate positions for a regular simplex with edge
+# length 1.
+#
+# The algorithm proceeds recursively. A 0D simplex is a point. A
+# D-simplex is a D-1-simplex that is shifted down along the new axis,
+# plus a new point on the new axis.
+function regular_simplex(::Val{D}, ::Type{T}) where {D, T}
+    D::Integer
+    @assert D >= 0
+    T::Type
+    S = Signature(D)
+    V = SubManifold(S)
+    B = Λ(S)
+    N = D+1
+    # D == 0 && return SVector{N}(Chain{V,1,T}())
+    @assert D > 0
+    D == 1 && return SVector{N}(Chain{V,1}(T(-1)/2), Chain{V,1}(T(1)/2))
+    s0 = regular_simplex(Val(D-1), T)
+    s0::SVector{N-1, fulltype(Chain{SubManifold(Signature(D-1)),1,T})}
+    # Choose height so that edge length is 1
+    z = sqrt(1 - scalar(abs2(s0[1])).v)
+    z0 = -z/(D+1)
+    extend(x) = Chain{V,1}(x.v..., z0)
+    s = SVector{N}(extend.(s0)..., Chain((z+z0)*B.v(D)))
+    s::SVector{N, fulltype(Chain{V,1,T})}
+end
+
 end

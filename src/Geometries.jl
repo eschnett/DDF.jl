@@ -104,6 +104,8 @@ function Geometry(mf::DManifold{D},
     @assert ndims(V) == D
 
     # TODO: Check Delauney criterion
+    # TODO: Check well-centredness
+    # TODO: Experiment with barycentric duals
 
     # Calculate volumes
     volumes = Dict{Int, Fun{D,Pr,R,T} where {R}}()
@@ -125,6 +127,7 @@ function Geometry(mf::DManifold{D},
             vol *= bitsign(s.signbit)
             values[i] = vol
         end
+        @assert all(>(0), values)
         vols = Fun{D, Pr, R, T}(mf, values)
         volumes[R] = vols
     end
@@ -183,6 +186,7 @@ function Geometry(mf::DManifold{D},
                 end
             end
         end
+        @assert all(>(0), values)
         vols = Fun{D, Dl, R, T}(mf, values)
         dualvolumes[R] = vols
     end
@@ -220,7 +224,7 @@ function coderiv(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     T::Type
     @assert 0 < R <= D
     op = hodge(Val(Dl), Val(R-1), geom) *
-        dualderiv(Val(Dl), Val(R), geom.mf) *
+        deriv(Val(Dl), Val(R), geom.mf) *
         hodge(Val(Pr), Val(R), geom)
     op::Op{D, Pr, R-1, Pr, R, T}
 end
@@ -230,12 +234,12 @@ function laplace(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 <= R <= D
-    op = zero(Op{D, R, R, T}, geom.mf)
+    op = zero(Op{D, Pr, R, Pr, R, T}, geom.mf)
     if R > 0
-        op += deriv(Val(Pr), Val(R-1), geom) * coderiv(Val(Pr), Val(R), geom)
+        op += deriv(Val(Pr), Val(R-1), geom.mf) * coderiv(Val(Pr), Val(R), geom)
     end
     if R < D
-        op += coderiv(Val(Pr), Val(R+1), geom) * deriv(Val(Pr), Val(R), geom)
+        op += coderiv(Val(Pr), Val(R+1), geom) * deriv(Val(Pr), Val(R), geom.mf)
     end
     op::Op{D, Pr, R, Pr, R, T}
 end
