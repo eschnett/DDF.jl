@@ -82,8 +82,7 @@ end
 
     geoms = [geom0, geom1]
 
-    for (igeom,geom) in enumerate(geoms)
-        @show igeom
+    for geom in geoms
 
         f0 = ones(Fun{D, P, R, T}, geom.mf)
         f1 = id(Fun{D, P, R, T}, geom.mf)
@@ -91,7 +90,7 @@ end
 
         for f in fs
             h = hodge(Val(P), Val(R), geom)
-            @test all(>(0), h.values)
+            @test all(>(0), h.values.diag)
             hf = h*f
             hf::Fun{D, !P, R, T}
         end

@@ -181,7 +181,6 @@ end
 function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     @assert R1 == R2
     @assert size(R1, A.mf) == size(R2, A.mf)
-    @show A.values
     Op{D, P2, R2, P1, R1}(A.mf, inv(A.values))
 end
 
