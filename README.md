@@ -11,7 +11,8 @@ Element Exterior Calculus.
 - <https://fenicsproject.org/documentation/>.
 
 - Nathan Bell, Anil N. Hirani, "PyDEC: Software and Algorithms for
-  Discretization of Exterior Calculus", arXiv:1103.3076,
+  Discretization of Exterior Calculus",
+  [arXiv:1103.3076](https://arxiv.org/abs/1103.3076),
   <https://github.com/hirani/pydec>.
 
 - Sharif Elcott, Peter Schröder, "Building your own DEC at home",
@@ -25,19 +26,21 @@ Element Exterior Calculus.
   <https://westy31.home.xs4all.nl/SpaceTimeTriangles/Space_Time_Triangles.html>.
 
 - Charles G. Gunn, "Course notes: Geometric Algebra for Computer
-  Graphics", SIGGRAPH 2019.
+  Graphics", SIGGRAPH 2019,
+  <https://bivector.net/PROJECTIVE_GEOMETRIC_ALGEBRA.pdf>.
 
 - <https://cseweb.ucsd.edu/classes/fa17/cse252A-a/lec4.pdf>.
 
 - Anil N. Hirani, Kaushik Kalyanaraman, Evan B. VanderZee, "Delaunay
-  Hodge Star", <arXiv:1204.0747v4 [cs.CG]>: Delaunay hodge, conditions
-  for well-centred meshes.
+  Hodge Star", [arXiv:1204.0747v4
+  [cs.CG]](https://arxiv.org/abs/1204.0747): Delaunay hodge,
+  conditions for well-centred meshes.
 
 - MAYBE: Anil N. Hirani, "Discrete Exterior Calculus", PhD thesis.
 
 - Volker Springel, "E pur si muove: Galiliean-invariant cosmological
-  hydrodynamical simulations on a moving mesh",
-  <https://arxiv.org/abs/0901.4107>.
+  hydrodynamical simulations on a moving mesh", [arXiv:0901.4107
+  [astro-ph.CO]](https://arxiv.org/abs/0901.4107).
 
 
 
