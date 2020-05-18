@@ -241,14 +241,19 @@ end
 
 
 function corner2vertex(c::SVector{D,Bool})::Int where {D}
-    1 + sum(Int, d -> c[d] << (d-1), Val(D))
+    D==0 && return 1
+    1 + sum(c[d] << (d-1) for d in 1:D)
 end
 
 function next_corner!(simplices::Vector{DSimplex{N, Int}},
                       vertices::SVector{M, Int},
                       corner::SVector{D, Bool})::Nothing where {N, D, M}
     @assert N == D+1
-    @assert sum(Int, d->Int(corner[d]), Val(D)) == M - 1
+    if D == 0
+        @assert M == 1
+    else
+        @assert sum(Int(corner[d]) for d in 1:D) == M - 1
+    end
     if M == D+1
         # We have all vertices; build the simplex
         push!(simplices, DSimplex(vertices))
@@ -269,7 +274,7 @@ end
 export hypercube_manifold
 function hypercube_manifold(::Val{D}) where {D}
     simplices = DSimplex{D+1,Int}[]
-    corner = sarray(Bool, d->false, Val(D))
+    corner = zeros(SVector{D,Bool})
     vertex = corner2vertex(corner)
     next_corner!(simplices, SVector{1,Int}(vertex), corner)
     @assert length(simplices) == factorial(D)

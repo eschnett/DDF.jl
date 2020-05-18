@@ -69,58 +69,63 @@ show_sparse(A::SparseMatrixCSC) = show_sparse(stdout, A)
 
 
 
-export sarray
-@generated function sarray(::Type{T}, f::F, ::Val{R}) where {T, F, R}
-    R::Integer
-    quote
-        SArray{Tuple{$R}, T}($([:(f($i)::T) for i in 1:R]...))
+# Allow constructing static arrays from generators
+# <https://github.com/JuliaArrays/StaticArrays.jl/issues/791>
+
+@generated function StaticArrays.SVector{N, T}(gen::Base.Generator) where {N, T}
+    stmts = [:(Base.@_inline_meta)]
+    args = []
+    iter = :(iterate(gen))
+    for i in 1:N
+        el = Symbol(:el, i)
+        push!(stmts, :(($el,st) = $iter))
+        push!(args, el)
+        iter = :(iterate(gen,st))
     end
-end
-@generated function sarray(::Type{T}, f::F, ::Val{R1}, ::Val{R2}
-                           ) where {T, F, R1, R2}
-    R1::Integer
-    R2::Integer
-    quote
-        SArray{Tuple{$R1, $R2}, T}(
-            $([:(f($i, $j)::T) for i in 1:R1, j in 1:R2]...))
-    end
+    push!(stmts, :(SVector{N,T}($(args...))))
+    Expr(:block, stmts...)
 end
 
-@generated function Base.sum(::Type{T}, f::F, ::Val{R}) where {T, F, R}
-    R::Integer
-    if R <= 0
-        quote
-            zero(T)
-        end
-    elseif R == 1
-        # Work around <https://github.com/chakravala/Grassmann.jl/issues/68>
-        quote
-            f(1)::T
-        end
-    else
-        quote
-            (+($([:(f($i)::T) for i in 1:R]...)))::T
-        end
+@generated function StaticArrays.SVector{N}(gen::Base.Generator) where {N}
+    stmts = [:(Base.@_inline_meta)]
+    args = []
+    iter = :(iterate(gen))
+    for i in 1:N
+        el = Symbol(:el, i)
+        push!(stmts, :(($el,st) = $iter))
+        push!(args, el)
+        iter = :(iterate(gen,st))
     end
+    push!(stmts, :(SVector{N}($(args...))))
+    Expr(:block, stmts...)
 end
-@generated function Base.sum(::Type{T}, f::F, ::Val{R1}, ::Val{R2}
-                             ) where {T, F, R1, R2}
-    R1::Integer
-    R2::Integer
-    if R1 <= 0 || R2 <= 0
-        quote
-            zero(T)
-        end
-    elseif R1 == R2 == 1
-        # Work around <https://github.com/chakravala/Grassmann.jl/issues/68>
-        quote
-            f(1, 1)::T
-        end
-    else
-        quote
-            (+($([:(f($i, $j)::T) for i in 1:R1, j in 1:R2]...)))::T
-        end
+
+@generated function StaticArrays.SMatrix{M, N, T}(gen::Base.Generator) where {M, N, T}
+    stmts = [:(Base.@_inline_meta)]
+    args = []
+    iter = :(iterate(gen))
+    for j in 1:N, i in 1:M
+        el = Symbol(:el, i, :x, j)
+        push!(stmts, :(($el,st) = $iter))
+        push!(args, el)
+        iter = :(iterate(gen,st))
     end
+    push!(stmts, :(SMatrix{M, N, T}($(args...))))
+    Expr(:block, stmts...)
+end
+
+@generated function StaticArrays.SMatrix{M, N}(gen::Base.Generator) where {M, N}
+    stmts = [:(Base.@_inline_meta)]
+    args = []
+    iter = :(iterate(gen))
+    for j in 1:N, i in 1:M
+        el = Symbol(:el, i, :x, j)
+        push!(stmts, :(($el,st) = $iter))
+        push!(args, el)
+        iter = :(iterate(gen,st))
+    end
+    push!(stmts, :(SMatrix{M, N}($(args...))))
+    Expr(:block, stmts...)
 end
 
 
@@ -155,6 +160,12 @@ end
 # <https://github.com/chakravala/Grassmann.jl/issues/67>
 Base.ndims(::Vector{Chain{V,G,T,X}} where {G,T,X}) where V = 1
 # Base.parent(::Vector{Chain{V,G,T,X}} where {G,T,X}) where V = ???
+
+# Implement a unary version of ∧
+# <https://github.com/chakravala/Grassmann.jl/issues/69>
+Grassmann.:∧(x::Chain) = x
+Grassmann.:∧(x::Simplex) = x
+Grassmann.:∧(x::MultiVector) = x
 
 
 
@@ -286,14 +297,14 @@ end
 export circumcentre
 function circumcentre(xs::SVector{R, <:Chain{V, 1, T}}) where {R, V, T}
     # See arXiv:1103.3076v2 [cs.RA], section 10.1
-    A = sarray(T,
-               (i,j) -> i<=R && j<=R
-               ? 2*scalar(xs[i]⋅xs[j]).v
-               : i==j ? zero(T) : one(T),
-               Val(R+1), Val(R+1))
-    b = sarray(T, i -> i<=R ? scalar(xs[i]⋅xs[i]).v : one(T), Val(R+1))
+    A = SMatrix{R+1,R+1}(
+        i<=R && j<=R
+        ? 2*scalar(xs[i]⋅xs[j]).v
+        : i==j ? zero(T) : one(T)
+        for i in 1:R+1, j in 1:R+1)
+    b = SVector{R+1}(i<=R ? scalar(xs[i]⋅xs[i]).v : one(T) for i in 1:R+1)
     c = A \ b
-    cc = sum(fulltype(Chain{V,1,T}), i -> c[i]*xs[i], Val(R))
+    cc = sum(c[i]*xs[i] for i in 1:R)
     cc::Chain{V, 1, T}
 end
 

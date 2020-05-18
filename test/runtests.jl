@@ -15,6 +15,7 @@ Base.rand(rng::AbstractRNG, ::Random.SamplerType{Rational{T}}) where {T} =
 
 
 
+# Improved debug output for sparse matrices
 Base.show(io::IO, A::SparseMatrixCSC) = show_sparse(io, A)
 Base.show(io::IOContext, A::SparseMatrixCSC) = show_sparse(io, A)
 

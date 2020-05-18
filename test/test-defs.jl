@@ -2,6 +2,7 @@ using DDF
 
 using ComputedFieldTypes
 using Grassmann
+using StaticArrays
 using Test
 
 
@@ -16,6 +17,36 @@ using Test
         i = Int(rand(Int8))
         j = Int(rand(Int8))
         @test bitsign(i) * bitsign(j) == bitsign(i + j)
+    end
+end
+
+
+
+@testset "SVector(::Base.Generator)" begin
+    for N in 1:4
+        x = SVector{N}(i for i in 1:N)
+        x::SVector{N,Int}
+        @test x == SVector{N}([i for i in 1:N])
+    end
+    for N in 0:4
+        x = SVector{N,Int}(i for i in 1:N)
+        x::SVector{N,Int}
+        @test x == SVector{N,Int}([i for i in 1:N])
+    end
+end
+
+
+
+@testset "SMatrix(::Base.Generator)" begin
+    for N in 1:4, M in 1:4
+        x = SMatrix{M,N}(i for i in 1:M, j in 1:N)
+        x::SMatrix{M,N,Int}
+        @test x == SMatrix{M,N}([i for i in 1:M, j in 1:N])
+    end
+    for N in 0:4, M in 0:4
+        x = SMatrix{M,N,Int}(i for i in 1:M, j in 1:N)
+        x::SMatrix{M,N,Int}
+        @test x == SMatrix{M,N,Int}([i for i in 1:M, j in 1:N])
     end
 end
 
@@ -65,7 +96,7 @@ end
     # T = Rational{Int128}
     T = Rational{BigInt}
     for R in 1:D+1
-        xs = sarray(fulltype(Chain{V,1,T}), r -> rand(Chain{V,1,T}), Val(R))
+        xs = SVector{R}(rand(Chain{V,1,T}) for r in 1:R)
         cc = circumcentre(xs)
         cc::Chain{V,1,T}
         # Check that circumcentre has same distance from all vertices
