@@ -1,82 +1,78 @@
 module Geometries
 
+using Bernstein
 using ComputedFieldTypes
-using Grassmann
 using LinearAlgebra
 using SparseArrays
 using StaticArrays
 
+using ..Algorithms
 using ..Defs
+using ..Forms
 using ..Funs
-using ..Manifolds
 using ..Ops
+using ..Topologies
 
 
 
 # We use the following conventions:
 #     D::Int               number of dimension
 #     S::Signature         signature of manifold
-#     V::SubManifold       manifold
+#     V::SubTopology       manifold
 #     B::DirectSum.Basis   basis
 #     R::Int               rank (of multivector)
 # These can have a prefix:
 #     no prefix   euclidean basis (for manifold)
-#     P           projective basis
+#     H           homogeneous basis
 #     C           conformal basis
 #     (A          abstract (e.g. numbering tetrad vectors))
 
 
 
-DVector() = Chain{D, 1} where D
-DVector(D) = Chain{SubManifold(Signature(D)), 1}
-DVector(D, T) = fulltype(Chain{SubManifold(Signature(D)), 1, T})
-
-export Domain
-@computed struct Domain{D, T}
-    xmin::DVector(D, T)
-    xmax::DVector(D, T)
-    function Domain{D,T}(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {D,V,T}
-        V::SubManifold
-        T::Type
-        @assert D == ndims(V)
-        new{D,T}(xmin, xmax)
-    end
-    Domain(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {V,T} =
-        Domain{ndims(V),T}(xmin, xmax)
-end
-
-Defs.invariant(dom::Domain) = true
+# export Domain
+# @computed struct Domain{D, T}
+#     xmin::DVector(D, T)
+#     xmax::DVector(D, T)
+#     function Domain{D,T}(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {D,V,T}
+#         V::SubTopology
+#         T::Type
+#         @assert D == ndims(V)
+#         new{D,T}(xmin, xmax)
+#     end
+#     Domain(xmin::Chain{V,1,T}, xmax::Chain{V,1,T}) where {V,T} =
+#         Domain{ndims(V),T}(xmin, xmax)
+# end
+# 
+# Defs.invariant(dom::Domain) = true
 
 
 
 export Geometry
 @computed struct Geometry{D, T}
-    mf::DManifold{D}
-    dom::fulltype(Domain{D, T})
+    topo::Topology{D}
     # Coordinates of vertices
-    coords::Fun{D, Pr, 0, DVector(D, T)}
+    coords::Fun{D, Pr, 0, fulltype(Form{D, 1, T})}
     # Volumes of 0-forms are always 1 and don't need to be stored
     volumes::Dict{Int, Fun{D, Pr, R, T} where R}
     # Coordinates of vertices of dual grid, i.e. circumcentres of top
     # simplices
-    dualcoords::Fun{D, Dl, D, DVector(D, T)}
+    dualcoords::Fun{D, Dl, D, fulltype(Form{D, 1, T})}
     # Dual volumes of dual top-forms are always 1 and don't need to be stored
     # dualvolumes[R = D-DR]
     dualvolumes::Dict{Int, Fun{D, Dl, R, T} where R}
 
-    function Geometry{D, T}(mf::DManifold{D},
-                            dom::Domain{D, T},
-                            coords::Fun{D, Pr, 0, Chain{V, 1, T, X1}},
+    function Geometry{D, T}(topo::Topology{D},
+                            coords::Fun{D, Pr, 0, <: Form{D, 1, T}},
                             volumes::Dict{Int, Fun{D, Pr, R, T} where R},
-                            dualcoords::Fun{D, Dl, D, Chain{V, 1, T, X1}},
+                            dualcoords::Fun{D, Dl, D, <: Form{D, 1, T}},
                             dualvolumes::Dict{Int, Fun{D, Dl, R, T} where R}
-                            ) where {D, T, V, X1}
+                            ) where {D, T}
         D::Int
         T::Type
         @assert D >= 0
         @assert isempty(symdiff(keys(volumes), 0:D))
         @assert isempty(symdiff(keys(dualvolumes), 0:D))
-        geom = new(mf, dom, coords, volumes, dualcoords, dualvolumes)
+        geom = new(topo, coords, volumes, dualcoords, dualvolumes)
         @assert invariant(geom)
         geom
     end
@@ -85,8 +81,7 @@ end
 
 
 function Defs.invariant(geom::Geometry{D})::Bool where {D}
-    invariant(geom.mf) || return false
-    invariant(geom.dom) || return false
+    invariant(geom.topo) || return false
     isempty(symdiff(keys(geom.volumes), 0:D)) || return false
     isempty(symdiff(keys(geom.dualvolumes), 0:D)) || return false
     return true
@@ -94,60 +89,55 @@ end
 
 
 
-function Geometry(mf::DManifold{D},
-                  dom::Domain{D, T},
-                  coords::Fun{D, Pr, 0, Chain{V, 1, T, X1}}
-                  ) where {D, T, V, X1}
+function Geometry(topo::Topology{D},
+                  coords::Fun{D, Pr, 0, <: Form{D, 1, T}}
+                  ) where {D, T}
     D::Int
     T::Type
-    V::SubManifold
-    @assert ndims(V) == D
 
     # Calculate volumes
     volumes = Dict{Int, Fun{D,Pr,R,T} where {R}}()
     for R in 0:D
-        values = Array{T}(undef, size(R, mf))
-        for (i,s) in enumerate(mf.simplices[R])
+        values = Array{T}(undef, size(R, topo))
+        for (i,s) in enumerate(topo.simplices[R])
             cs = coords.values[s.vertices]
-            xs = SVector{R,fulltype(Chain{V,1,T})}(cs[n+1] - cs[1] for n in 1:R)
+            xs = SVector{R,fulltype(Form{D,1,T})}(cs[n+1] - cs[1] for n in 1:R)
             if length(xs) == 0
                 vol = one(T)
-            elseif length(xs) == 1
-                vol = scalar(abs(xs[1])).v
             else
-                vol = scalar(abs(∧(xs...))).v
+                vol = abs(∧(xs...))
             end
             vol /= factorial(R)
             vol *= bitsign(s.signbit)
             values[i] = vol
         end
         @assert all(>(0), values)
-        vols = Fun{D, Pr, R, T}(mf, values)
+        vols = Fun{D, Pr, R, T}(topo, values)
         volumes[R] = vols
     end
 
     # Calculate circumcentres
-    values = Array{fulltype(Chain{V,1,T})}(undef, size(D, mf))
+    values = Array{fulltype(Form{D,1,T})}(undef, size(D, topo))
     for R in D:D
-        for (i,s) in enumerate(mf.simplices[R])
+        for (i,s) in enumerate(topo.simplices[R])
             cs = coords.values[s.vertices]
             cc = circumcentre(cs)
             values[i] = cc
         end
     end
-    dualcoords = Fun{D, Dl, D, fulltype(Chain{V,1,T})}(mf, values)
+    dualcoords = Fun{D, Dl, D, fulltype(Form{D,1,T})}(topo, values)
 
     # Check Delaunay condition:
     # No vertex must lie in (or on) the circumcentre of a simplex
-    for (i,si) in enumerate(mf.simplices[D])
+    for (i,si) in enumerate(topo.simplices[D])
         xi1 = coords[si.vertices[1]]
         cc = dualcoords.values[i]
-        cr2 = scalar(abs2(xi1 - cc)).v
+        cr2 = abs2(xi1 - cc)
         # TODO: Check only vertices of neighbouring simplices
-        for (j,sj) in enumerate(mf.simplices[0])
+        for (j,sj) in enumerate(topo.simplices[0])
             if j ∉ si.vertices
-                xj = scalar(abs(coords[sj.vertices[1]]))
-                d2 = scalar(abs2(xj - cc)).v
+                xj = abs(coords[sj.vertices[1]])
+                d2 = abs2(xj - cc)
                 @assert d2 > cr2 + sqrt(eps(T))
             end
         end
@@ -157,15 +147,12 @@ function Geometry(mf::DManifold{D},
     # TODO
 
     # Check that all circumcentres lie inside their simplices
-    for (i,si) in enumerate(mf.simplices[D])
-        xsi = coords[si.vertices]
-        N = length(xsi)
+    for (i,si) in enumerate(topo.simplices[D])
+        xs = coords[si.vertices]
         cc = dualcoords.values[i]
-        svol = sign(scalar(∧(xsi...)).v)
-        for a in 1:N
-            xsj = SVector{N}(b==a ? cc : xsi[b] for b in 1:N)
-            @assert sign(scalar(∧(xsj...)).v) == svol
-        end
+        λ = cartesian2barycentric(map(x->convert(SVector,x), xs),
+                                  convert(SVector, cc))
+        @assert all(0 <= λi <= 1 for λi in λ)
     end
 
     # Calculate circumcentric dual volumes
@@ -173,12 +160,12 @@ function Geometry(mf::DManifold{D},
     dualvolumes = Dict{Int, Fun{D,Dl,R,T} where {R}}()
     for R in D:-1:0
         if R == D
-            values = ones(T, size(R, mf))
+            values = ones(T, size(R, topo))
         else
-            bnds = mf.boundaries[R+1]
-            values = zeros(T, size(R, mf))
-            sis = mf.simplices[R]::Vector{DSimplex{R+1, Int}}
-            sjs = mf.simplices[R+1]::Vector{DSimplex{R+2, Int}}
+            bnds = topo.boundaries[R+1]
+            values = zeros(T, size(R, topo))
+            sis = topo.simplices[R]::Vector{Simplex{R+1, Int}}
+            sjs = topo.simplices[R+1]::Vector{Simplex{R+2, Int}}
             for (i,si) in enumerate(sis)
                 # TODO: This is expensive
                 js = findnz(bnds[i,:])[1]
@@ -199,44 +186,44 @@ function Geometry(mf::DManifold{D},
                     # negative (i.e. when the volume circumcentre ccj
                     # is on the "other" side of the face circumcentre
                     # cci)
-                    h = scalar(abs(cci - ccj)).v
+                    h = abs(cci - ccj)
                     values[i] += b * h / factorial(D-R)
                 end
             end
         end
         @assert all(>(0), values)
-        vols = Fun{D, Dl, R, T}(mf, values)
+        vols = Fun{D, Dl, R, T}(topo, values)
         dualvolumes[R] = vols
     end
 
     # # Calculate barycentres
-    # values = Array{fulltype(Chain{V,1,T})}(undef, size(D, mf))
+    # values = Array{fulltype(Form{D,1,T})}(undef, size(D, topo))
     # for R in D:D
-    #     for (i,s) in enumerate(mf.simplices[R])
-    #         cs = sarray(fulltype(Chain{V,1,T}),
+    #     for (i,s) in enumerate(topo.simplices[R])
+    #         cs = sarray(fulltype(Form{D,1,T}),
     #                     n -> coords.values[s.vertices[n]],
     #                     Val(R+1))
     #         cc = +(cs...) / length(cs)
     #         values[i] = cc
     #     end
     # end
-    # dualcoords = Fun{D, Dl, D, fulltype(Chain{V,1,T})}(mf, values)
+    # dualcoords = Fun{D, Dl, D, fulltype(Form{D,1,T})}(topo, values)
     #
     # # Calculate barycentric dual volumes
     # dualvolumes = Dict{Int, Fun{D,Dl,R,T} where {R}}()
     # for DR in 0:D
     #     R = D - DR
     #     if R == D
-    #         values = ones(T, size(R, mf))
+    #         values = ones(T, size(R, topo))
     #     else
-    #         sjs = mf.simplices[R+1]::Vector{DSimplex{R+2, Int}}
-    #         bnds = mf.boundaries[R+1]
-    #         values = zeros(T, size(R, mf))
+    #         sjs = topo.simplices[R+1]::Vector{Simplex{R+2, Int}}
+    #         bnds = topo.boundaries[R+1]
+    #         values = zeros(T, size(R, topo))
     #         # Loop over all duals of rank R (e.g. faces)
     #         if R == 0
-    #             sis = (DSimplex{1,Int}(SVector(i)) for i in 1:mf.nvertices)
+    #             sis = (Simplex{1,Int}(SVector(i)) for i in 1:topo.nvertices)
     #         else
-    #             sis = mf.simplices[R]::Vector{DSimplex{R+1, Int}}
+    #             sis = topo.simplices[R]::Vector{Simplex{R+1, Int}}
     #         end
     #         for (i,si) in enumerate(sis)
     #             # Loop over all neighbours of i (e.g. volumes)
@@ -250,7 +237,7 @@ function Geometry(mf::DManifold{D},
     #                 xsj = coords[sj.vertices]
     #                 ccj = +(xsj...) / length(xsj)
     #                 ysi = xsi .- ccj
-    #                 vol = scalar(abs(∧(ysi...))).v
+    #                 vol = abs(∧(ysi...))
     #                 # TODO: take sign into account?
     #                 @assert vol > 0
     #                 values[i] += vol
@@ -258,11 +245,33 @@ function Geometry(mf::DManifold{D},
     #         end
     #     end
     #     @assert all(>(0), values)
-    #     vols = Fun{D, Dl, R, T}(mf, values)
+    #     vols = Fun{D, Dl, R, T}(topo, values)
     #     dualvolumes[R] = vols
     # end
 
-    Geometry{D, T}(mf, dom, coords, volumes, dualcoords, dualvolumes)
+    Geometry{D, T}(topo, coords, volumes, dualcoords, dualvolumes)
+end
+
+
+
+export bisect
+# Bisect simplex, creating a new geometry
+function bisect(geom::Geometry{D, T}) where {D, T}
+    # Special case -- no simplices
+    size(D, geom.topo) == 0 && return geom
+    # Ensure (for now) there is only one simplex
+    @assert size(D, geom.topo) == 1
+    @assert size(0, geom.topo) == D+1
+    for R in 0:D
+        @assert size(R, geom.topo) == binomial(D+1, R+1)
+    end
+    # Choose new vertices
+    num_new_vertices = size(1, geom.topo)
+    new_vertices = size(0, geom.topo) .+ (1:num_new_vertices)
+    new_coords = [(geom.coords.values[i] + geom.coords.values[j]) / 2
+                  for i in 1:size(0,geom.topo), j in i+1:size(0,geom.topo)]
+    @warn "move part of this to Topologies?"
+    @error "continue here"
 end
 
 
@@ -274,17 +283,15 @@ function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 <= R <= D
-    S = Signature(D)
-    V = SubManifold(S)
 
     vol = geom.volumes[R]
     dualvol = geom.dualvolumes[R]
-    @assert length(vol) == size(R, geom.mf)
-    @assert length(dualvol) == size(R, geom.mf)
+    @assert length(vol) == size(R, geom.topo)
+    @assert length(dualvol) == size(R, geom.topo)
     
     Op{D, Dl, R, Pr, R}(
-        geom.mf,
-        Diagonal(T[dualvol[i] / vol[i] for i in 1:size(R, geom.mf)]))
+        geom.topo,
+        Diagonal(T[dualvol[i] / vol[i] for i in 1:size(R, geom.topo)]))
 end
 hodge(::Val{Dl}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T} =
     inv(hodge(Val(Pr), Val(R), geom))
@@ -299,7 +306,7 @@ function coderiv(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     T::Type
     @assert 0 < R <= D
     op = hodge(Val(Dl), Val(R-1), geom) *
-        deriv(Val(Dl), Val(R), geom.mf) *
+        deriv(Val(Dl), Val(R), geom.topo) *
         hodge(Val(Pr), Val(R), geom)
     op::Op{D, Pr, R-1, Pr, R, T}
 end
@@ -309,12 +316,12 @@ function laplace(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     D::Int
     T::Type
     @assert 0 <= R <= D
-    op = zero(Op{D, Pr, R, Pr, R, T}, geom.mf)
+    op = zero(Op{D, Pr, R, Pr, R, T}, geom.topo)
     if R > 0
-        op += deriv(Val(Pr), Val(R-1), geom.mf) * coderiv(Val(Pr), Val(R), geom)
+        op += deriv(Val(Pr), Val(R-1), geom.topo) * coderiv(Val(Pr), Val(R), geom)
     end
     if R < D
-        op += coderiv(Val(Pr), Val(R+1), geom) * deriv(Val(Pr), Val(R), geom.mf)
+        op += coderiv(Val(Pr), Val(R+1), geom) * deriv(Val(Pr), Val(R), geom.topo)
     end
     op::Op{D, Pr, R, Pr, R, T}
 end
@@ -323,7 +330,7 @@ end
 
 # @computed struct Tree{D, T}
 #     dom::Domain{D}
-#     mf::DManifold{D}
+#     topo::Topology{D}
 # 
 #     pivot::NTuple{D, T}
 #     tree::Union{NTuple{2^D, fulltype(Tree{D, T})},
@@ -332,7 +339,143 @@ end
 
 
 
-# function sample
-# function evaluate
+export coordinates
+function coordinates(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
+    D::Int
+    @assert D >= 0
+    R::Int
+    @assert 0 <= R <= D
+    Fun{D, Pr, R}(
+        geom.topo,
+        map(si -> sum(geom.coords.values[si.vertices]) / length(si.vertices),
+            geom.topo.simplices[R]))
+end
+
+
+
+export sample
+function sample(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D, T}
+                ) where {R, F, D, T}
+    D::Int
+    T::Type
+    @assert 0 <= R <= D
+    S = Signature(D)
+    V = SubTopology(S)
+    f(zero(Form{D, 1, T}))::Form{D, R}
+    Fun{D, Pr, R}(geom.topo, map(f, coords1(Val(Pr), Val(R), geom)))
+end
+
+
+
+export project
+function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D, T}
+                 ) where {R, F, D, T}
+    D::Int
+    R::Type
+    @assert 0 <= R <= D
+    S = Signature(D)
+    V = SubTopology(S)
+
+    N = D+1
+    P = 4                       # Choice
+
+    @assert R == 0              # TODO
+
+    # TODO: Support chains as return values
+    U = typeof(f(zero(Form{D, 1, T})))
+
+    # Loop over all vertices
+    values = Array{U}(undef, size(0, geom.topo))
+    for (i,si) in enumerate(geom.topo.simplices[0])
+        s = zero(U)
+        # Loop over all neighbouring simplices
+        # TODO: Improve this
+        for (j,sj) in enumerate(topo.simplices[D])
+            if j ≠ i && si.vertex[1] ∉ si.vertices
+                ss = geom.coords.values[sj.vertices]
+                s = SMatrix{D, N}(ss[n][a] for a in 1:D, n in 1:N)
+                X, W = simplexquad(P, collect(s)')
+
+                setup = cartesian2barycentric_setup(s)
+                n = findfirst(j, si.vertices)
+                @assert n !== nothing
+                kernel(x) = basis_x(setup, n, x) * f(x.v)
+                s += integratex(kernel, X, W)
+            end
+        end
+        values[i] = s
+    end
+    Fun{D, Pr, R}(geom.topo, values)
+end
+
+
+
+export evaluate
+# TODO: Put Geomtry into Fun?
+function evaluate(geom::Geometry{D, T}, f::Fun{D, Pr, R, U}, x::Form{D, 1, T}
+                  ) where {D, R, T, V, U}
+    D::Int
+    @assert D >= 0
+    R::Int
+    @assert 0 <= R <= D
+    V::SubTopology
+    @assert ndims(V) == D
+    @assert geom.topo == f.topo
+    
+    coords = coordinates(Val(Pr), Val(R), geom)
+
+    val = zero(U)
+    # Loop over all vertices
+    # TODO: Use <https://github.com/KristofferC/NearestNeighbors.jl>
+    @assert R == 0
+    for (i,si) in enumerate(geom.topo.simplices[0])
+        xs = coords.values[si.vertices]
+        X = SMatrix{D, D+1}(xs[n].v[a] for a in 1:D, n in 1:D+1)
+        λ = cartesian2barycentric(xs, x.v)
+        if all(λi -> 0 <= λi <= 1, λ)
+            # point is inside simplex
+            ss = geom.coords.values[sj.vertices]
+            s = SMatrix{D, N}(ss[n][a] for a in 1:D, n in 1:N)
+            X, W = simplexquad(P, collect(s)')
+
+            setup = cartesian2barycentric_setup(s)
+            n = findfirst(j, si.vertices)
+            @assert n !== nothing
+            val += f.values[i] * basis_x(setup, n, x)
+        end
+    end
+    val
+end
+
+
+
+@fastmath function basis_x(setup, n::Int, x::SVector{D, T}) where {D, T}
+    D::Int
+    λ = cartesian2barycentric(setup, x)
+    basis_λ(n, λ)
+end
+
+@fastmath function basis_λ(n::Int, λ::SVector{N, T}) where {N, T}
+    N::Int
+    @assert 1 < n <= n
+    1 - λ[n]
+end
+
+@fastmath function integrate_x(f::F, ::Val{D},
+                               X::AbstractMatrix, W::AbstractVector
+                               ) where {F, D, T}
+    D::Int
+    @assert D >= 0
+    @assert size(X, 2) == D
+    @assert size(X, 1) == size(W, 1)
+
+    @inbounds begin
+        s = zero(W[1] * f(SVector{D}(X[1, a] for a in 1:D)))
+        for n in 1:length(W)
+            s += W[n] * f(SVector{D}(X[n, a] for a in 1:D))
+        end
+        s
+    end
+end
 
 end

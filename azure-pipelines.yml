@@ -1,9 +1,0 @@
-pool:
-  vmImage: 'ubuntu-16.04'
-
-container: julia:1.4-buster
-
-steps:
-  - script: |
-      julia --project=@. -e 'using Pkg; pkg"test"'
-    displayName: Test package

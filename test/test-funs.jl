@@ -6,15 +6,15 @@ using Test
 
 
 @testset "Fun D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-    mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
+    topo = Topology(Simplex(SVector{D+1}(1:D+1)))
 
     T = Rational{Int64}
-    z = zero(Fun{D, P, R, T}, mf)
-    e = ones(Fun{D, P, R, T}, mf)
-    i = id(Fun{D, P, R, T}, mf)
-    f = rand(Fun{D, P, R, T}, mf)
-    g = rand(Fun{D, P, R, T}, mf)
-    h = rand(Fun{D, P, R, T}, mf)
+    z = zero(Fun{D, P, R, T}, topo)
+    e = ones(Fun{D, P, R, T}, topo)
+    i = id(Fun{D, P, R, T}, topo)
+    f = rand(Fun{D, P, R, T}, topo)
+    g = rand(Fun{D, P, R, T}, topo)
+    h = rand(Fun{D, P, R, T}, topo)
     a = rand(T)
     b = rand(T)
 

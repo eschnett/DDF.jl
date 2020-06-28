@@ -5,7 +5,7 @@ using SparseArrays
 
 using ..Defs
 using ..Funs
-using ..Manifolds
+using ..Topologies
 
 
 
@@ -26,23 +26,23 @@ compress(A::Transpose) = transpose(compress(transpose(A)))
 
 export Op
 struct Op{D, P1, R1, P2, R2, T} # <: AbstractMatrix{T}
-    mf::DManifold{D}
+    topo::Topology{D}
     values::Union{AbstractMatrix{T}, UniformScaling{T}}
     # TODO: Check invariant
 
-    function Op{D, P1, R1, P2, R2, T}(mf::DManifold{D},
+    function Op{D, P1, R1, P2, R2, T}(topo::Topology{D},
                                       values::Union{AbstractMatrix{T},
                                                     UniformScaling{T}}
                                       ) where {D, P1, R1, P2, R2, T}
-        op = new{D, P1, R1, P2, R2, T}(mf, compress(values))
+        op = new{D, P1, R1, P2, R2, T}(topo, compress(values))
         @assert invariant(op)
         op
     end
-    function Op{D, P1, R1, P2, R2}(mf::DManifold{D},
+    function Op{D, P1, R1, P2, R2}(topo::Topology{D},
                                    values::Union{AbstractMatrix{T},
                                                  UniformScaling{T}}
                                    ) where {D, P1, R1, P2, R2, T}
-        Op{D, P1, R1, P2, R2, T}(mf, values)
+        Op{D, P1, R1, P2, R2, T}(topo, values)
     end
 end
 
@@ -56,7 +56,7 @@ function Defs.invariant(op::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     R2::Int
     @assert 0 <= R2 <= D
     if !(op.values isa UniformScaling)
-        @assert size(op.values) == (size(R1, op.mf), size(R2, op.mf))
+        @assert size(op.values) == (size(R1, op.topo), size(R2, op.topo))
     end
     true
 end
@@ -64,7 +64,7 @@ end
 # Comparison
 
 function Base.:(==)(A::M, B::M) where {M<:Op}
-    @assert A.mf == B.mf
+    @assert A.topo == B.topo
     A.values == B.values
 end
 
@@ -79,16 +79,16 @@ Base.eltype(A::Op) = eltype(A.values)
 
 function Base.map(op, A::Op{D, P1, R1, P2, R2}, Bs::Op{D, P1, R1, P2, R2}...
                   ) where {D, P1, R1, P2, R2}
-    @assert all(A.mf == B.mf for B in Bs)
-    Fun{D, R}(A.mf, map(op, A.values, (B.values for B in Bs)...))
+    @assert all(A.topo == B.topo for B in Bs)
+    Fun{D, R}(A.topo, map(op, A.values, (B.values for B in Bs)...))
 end
 
 # Random operators
-function Base.rand(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D}
+function Base.rand(::Type{Op{D, P1, R1, P2, R2, T}}, topo::Topology{D}
                    ) where {D, P1, R1, P2, R2, T}
-    m, n = size(R1, mf), size(R2, mf)
+    m, n = size(R1, topo), size(R2, topo)
     p = clamp(4 / min(m, n), 0, 1)
-    Op{D, P1, R1, P2, R2}(mf, sprand(T, m, n, p))
+    Op{D, P1, R1, P2, R2}(topo, sprand(T, m, n, p))
 end
 
 # Operators are an abstract matrix
@@ -106,72 +106,72 @@ Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
 
 # Operators are a vector space
 
-function Base.zero(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D}
+function Base.zero(::Type{Op{D, P1, R1, P2, R2, T}}, topo::Topology{D}
                    ) where {D, P1, R1, P2, R2, T}
-    Op{D, P1, R1, P2, R2}(mf, spzeros(T, size(R1, mf), size(R2, mf)))
+    Op{D, P1, R1, P2, R2}(topo, spzeros(T, size(R1, topo), size(R2, topo)))
 end
 
-function Defs.unit(::Type{Op{D, P1, R1, P2, R2, T}}, mf::DManifold{D},
+function Defs.unit(::Type{Op{D, P1, R1, P2, R2, T}}, topo::Topology{D},
                    m::Int, n::Int) where {D, P1, R1, P2, R2, T}
-    @assert 1 <= m <= size(R1, mf)
-    @assert 1 <= n <= size(R2, mf)
-    Op{D, P1, R1, P2, R2}(mf, sparse([m], [n], [one(T)]))
+    @assert 1 <= m <= size(R1, topo)
+    @assert 1 <= n <= size(R2, topo)
+    Op{D, P1, R1, P2, R2}(topo, sparse([m], [n], [one(T)]))
 end
 
 function Base.:+(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, +A.values)
+    Op{D, P1, R1, P2, R2}(A.topo, +A.values)
 end
 
 function Base.:-(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, -A.values)
+    Op{D, P1, R1, P2, R2}(A.topo, -A.values)
 end
 
 function Base.:+(A::Op{D, P1, R1, P2, R2}, B::Op{D, P1, R1, P2, R2}
                  ) where {D, P1, R1, P2, R2}
-    @assert A.mf == B.mf
-    Op{D, P1, R1, P2, R2}(A.mf, A.values + B.values)
+    @assert A.topo == B.topo
+    Op{D, P1, R1, P2, R2}(A.topo, A.values + B.values)
 end
 
 function Base.:-(A::Op{D, P1, R1, P2, R2}, B::Op{D, P1, R1, P2, R2}
                  ) where {D, P1, R1, P2, R2}
-    @assert A.mf == B.mf
-    Op{D, P1, R1, P2, R2}(A.mf, A.values - B.values)
+    @assert A.topo == B.topo
+    Op{D, P1, R1, P2, R2}(A.topo, A.values - B.values)
 end
 
 function Base.:*(a::Number, A::Op{D, P1, R1, P2, R2}
                  ) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, a * A.values)
+    Op{D, P1, R1, P2, R2}(A.topo, a * A.values)
 end
 
 function Base.:\(a::Number, A::Op{D, P1, R1, P2, R2}
                  ) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, a \ A.values)
+    Op{D, P1, R1, P2, R2}(A.topo, a \ A.values)
 end
 
 function Base.:*(A::Op{D, P1, R1, P2, R2}, a::Number
                  ) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, A.values * a)
+    Op{D, P1, R1, P2, R2}(A.topo, A.values * a)
 end
 
 function Base.:/(A::Op{D, P1, R1, P2, R2}, a::Number
                  ) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, A.values / a)
+    Op{D, P1, R1, P2, R2}(A.topo, A.values / a)
 end
 
 # Operators are a ring
 
-function Base.one(::Type{Op{D, R, P, R, P}}, mf::DManifold{D}) where {D, R, P}
-    Op{D, R, P, R, P}(mf, I)
+function Base.one(::Type{Op{D, R, P, R, P}}, topo::Topology{D}) where {D, R, P}
+    Op{D, R, P, R, P}(topo, I)
 end
-function Base.one(::Type{Op{D, R, P, R, P, T}}, mf::DManifold{D}
+function Base.one(::Type{Op{D, R, P, R, P, T}}, topo::Topology{D}
                   ) where {D, R, P, T}
-    Op{D, R, P, R, P}(mf, one(T)*I)
+    Op{D, R, P, R, P}(topo, one(T)*I)
 end
 
 function Base.:*(A::Op{D, P1, R1, P2, R2}, B::Op{D, P2, R2, P3, R3}
                  ) where {D, P1, R1, P2, R2, P3, R3}
-    @assert A.mf == B.mf
-    Op{D, P1, R1, P3, R3}(A.mf, A.values * B.values)
+    @assert A.topo == B.topo
+    Op{D, P1, R1, P3, R3}(A.topo, A.values * B.values)
 end
 
 # Operators are a groupoid ("division ring")
@@ -180,50 +180,50 @@ end
 # matrix representations
 function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     @assert R1 == R2
-    @assert size(R1, A.mf) == size(R2, A.mf)
-    Op{D, P2, R2, P1, R1}(A.mf, inv(A.values))
+    @assert size(R1, A.topo) == size(R2, A.topo)
+    Op{D, P2, R2, P1, R1}(A.topo, inv(A.values))
 end
 
 function Base.:/(A::Op{D, P1, R1, P2, R2}, B::Op{D, P3, R3, P2, R2}
                  ) where {D, P1, R1, P2, R2, P3, R3}
-    @assert A.mf == B.mf
-    Op{D, P1, R1, P3, R3}(A.mf, A.values / B.values)
+    @assert A.topo == B.topo
+    Op{D, P1, R1, P3, R3}(A.topo, A.values / B.values)
 end
 
 function Base.:\(A::Op{D, P2, R2, P1, R1}, B::Op{D, P2, R2, P3, R3}
                  ) where {D, P1, R1, P2, R2, P3, R3}
-    @assert A.mf == B.mf
-    Op{D, P1, R1, P3, R3}(A.mf, A.values \ B.values)
+    @assert A.topo == B.topo
+    Op{D, P1, R1, P3, R3}(A.topo, A.values \ B.values)
 end
 
 # There are adjoints
 
 function Base.adjoint(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
-    Op{D, P2, R2, P1, R1}(A.mf, adjoint(A.values))
+    Op{D, P2, R2, P1, R1}(A.topo, adjoint(A.values))
 end
 
 function Base.transpose(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
-    Op{D, P2, R2, P1, R1}(A.mf, transpose(A.values))
+    Op{D, P2, R2, P1, R1}(A.topo, transpose(A.values))
 end
 
 # TODO: shouldn't this be defined automatically by being a collection?
 function Base.conj(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
-    Op{D, P1, R1, P2, R2}(A.mf, conj(A.values))
+    Op{D, P1, R1, P2, R2}(A.topo, conj(A.values))
 end
 
 # Operators act on functions
 
 function Base.:*(A::Op{D, P1, R1, P2, R2}, f::Fun{D, P2, R2}
                  ) where {D, P1, R1, P2, R2}
-    @assert A.mf == f.mf
-    Fun{D, P1, R1}(f.mf, A.values * f.values)
+    @assert A.topo == f.topo
+    Fun{D, P1, R1}(f.topo, A.values * f.values)
 end
 
 function Base.:\(A::Op{D, P1, R1, P2, R2}, f::Fun{D, P1, R1}
                  ) where {D, P1, R1, P2, R2}
-    @assert A.mf == f.mf
+    @assert A.topo == f.topo
     # Note: \ converts rationals to Float64
-    Fun{D, P2, R2}(f.mf, A.values \ f.values)
+    Fun{D, P2, R2}(f.topo, A.values \ f.values)
 end
 
 
@@ -231,35 +231,35 @@ end
 # Boundary
 
 export boundary
-function boundary(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
+function boundary(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 < R <= D
-    Op{D, Pr, R-1, Pr, R}(mf, mf.boundaries[R])
+    Op{D, Pr, R-1, Pr, R}(topo, topo.boundaries[R])
 end
-function boundary(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
+function boundary(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 <= R < D
-    Op{D, Dl, R+1, Dl, R}(mf, mf.boundaries[R+1]')
+    Op{D, Dl, R+1, Dl, R}(topo, topo.boundaries[R+1]')
 end
 
 export coboundary
-function coboundary(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
+function coboundary(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 <= R < D
-    adjoint(boundary(Val(Pr), Val(R+1), mf))::Op{D, Pr, R+1, Pr, R}
+    adjoint(boundary(Val(Pr), Val(R+1), topo))::Op{D, Pr, R+1, Pr, R}
 end
-function coboundary(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
+function coboundary(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 < R <= D
-    adjoint(boundary(Val(Dl), Val(R-1), mf))::Op{D, Dl, R-1, Dl, R}
+    adjoint(boundary(Val(Dl), Val(R-1), topo))::Op{D, Dl, R-1, Dl, R}
 end
 
 # Derivative
 
 export deriv
-function deriv(::Val{Pr}, ::Val{R}, mf::DManifold{D}) where {R, D}
+function deriv(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 <= R < D
-    coboundary(Val(Pr), Val(R), mf)::Op{D, Pr, R+1, Pr, R}
+    coboundary(Val(Pr), Val(R), topo)::Op{D, Pr, R+1, Pr, R}
 end
-function deriv(::Val{Dl}, ::Val{R}, mf::DManifold{D}) where {R, D}
+function deriv(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 < R <= D
-    coboundary(Val(Dl), Val(R), mf)::Op{D, Dl, R-1, Dl, R}
+    coboundary(Val(Dl), Val(R), topo)::Op{D, Dl, R-1, Dl, R}
 end
 
 end

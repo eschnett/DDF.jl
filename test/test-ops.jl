@@ -9,17 +9,17 @@ using Test
 # Dmax-1 since these tests are expensive
 @testset "Op D=$D P2=$P2 R2=$R2 P1=$P1 R1=$R1" for D in 0:Dmax-1,
     P2 in (Pr, Dl), R2 in 0:D, P1 in (Pr, Dl), R1 in 0:D
-    mf = DManifold(DSimplex(SVector{D+1}(1:D+1)))
+    topo = Topology(Simplex(SVector{D+1}(1:D+1)))
 
     T = Rational{Int64}
-    z = zero(Op{D, P2, R2, P1, R1, T}, mf)
-    e = one(Op{D, P1, R1, P1, R1, T}, mf)
-    e2 = one(Op{D, P2, R2, P2, R2, T}, mf)
-    A = rand(Op{D, P2, R2, P1, R1, T}, mf)
-    B = rand(Op{D, P2, R2, P1, R1, T}, mf)
-    C = rand(Op{D, P2, R2, P1, R1, T}, mf)
-    f = rand(Fun{D, P1, R1, T}, mf)
-    g = rand(Fun{D, P1, R1, T}, mf)
+    z = zero(Op{D, P2, R2, P1, R1, T}, topo)
+    e = one(Op{D, P1, R1, P1, R1, T}, topo)
+    e2 = one(Op{D, P2, R2, P2, R2, T}, topo)
+    A = rand(Op{D, P2, R2, P1, R1, T}, topo)
+    B = rand(Op{D, P2, R2, P1, R1, T}, topo)
+    C = rand(Op{D, P2, R2, P1, R1, T}, topo)
+    f = rand(Fun{D, P1, R1, T}, topo)
+    g = rand(Fun{D, P1, R1, T}, topo)
     a = rand(T)
     b = rand(T)
 
@@ -68,8 +68,8 @@ using Test
     @test A * e == A
 
     for P3 in (Pr, Dl), R3 in 0:D, P4 in (Pr, Dl), R4 in 0:D
-        F = rand(Op{D, P3, R3, P2, R2, T}, mf)
-        G = rand(Op{D, P4, R4, P3, R3, T}, mf)
+        F = rand(Op{D, P3, R3, P2, R2, T}, topo)
+        G = rand(Op{D, P4, R4, P3, R3, T}, topo)
 
         @test (G * F) * A == G * (F * A)
     end
@@ -93,13 +93,13 @@ using Test
     @test (A + B) * f == A * f + B * f
 
     for P3 in (Pr, Dl), R3 in 0:D
-        F = rand(Op{D, P3, R3, P2, R2, T}, mf)
+        F = rand(Op{D, P3, R3, P2, R2, T}, topo)
         @test (F * A) * f == F * (A * f)
     end
     
     # Add diagonal entries to help make F and G invertible
-    F = one(Op{D, P1, R1, P1, R1, T}, mf) + rand(Op{D, P1, R1, P1, R1, T}, mf)
-    G = one(Op{D, P1, R1, P1, R1, T}, mf) + rand(Op{D, P1, R1, P1, R1, T}, mf)
+    F = one(Op{D, P1, R1, P1, R1, T}, topo) + rand(Op{D, P1, R1, P1, R1, T}, topo)
+    G = one(Op{D, P1, R1, P1, R1, T}, topo) + rand(Op{D, P1, R1, P1, R1, T}, topo)
 
     # Note: \ converts rationals to Float64
     g1 = (G * F) \ f
@@ -114,19 +114,19 @@ end
 @testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
     T = Rational{Int64}
 
-    mf0 = DManifold(Val(D))
-    mf1 = DManifold(DSimplex(SVector{D+1}(1:D+1)))
-    mf2 = hypercube_manifold(Val(D))
-    mfs = [mf0, mf1, mf2]
+    topo0 = Topology(Val(D))
+    topo1 = Topology(Simplex(SVector{D+1}(1:D+1)))
+    topo2 = hypercube_manifold(Val(D))
+    topos = [topo0, topo1, topo2]
 
-    for mf in mfs
-        f0 = ones(Fun{D, P, R, T}, mf)
-        f1 = id(Fun{D, P, R, T}, mf)
+    for topo in topos
+        f0 = ones(Fun{D, P, R, T}, topo)
+        f1 = id(Fun{D, P, R, T}, topo)
         fs = [f0, f1]
 
         R1 = P == Pr ? R-1 : R+1
         if 0 <= R1 <= D
-            b = boundary(Val(P), Val(R), mf)
+            b = boundary(Val(P), Val(R), topo)
             for f in fs
                 bf = b*f
                 bf::Fun{D, P, R1, T}
@@ -135,7 +135,7 @@ end
 
         R1 = P == Pr ? R+1 : R-1
         if 0 <= R1 <= D
-            d = deriv(Val(P), Val(R), mf)
+            d = deriv(Val(P), Val(R), topo)
             for f in fs
                 df = d*f
                 df::Fun{D, P, R1, T}
