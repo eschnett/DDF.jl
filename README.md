@@ -42,6 +42,10 @@ Element Exterior Calculus.
   hydrodynamical simulations on a moving mesh", [arXiv:0901.4107
   [astro-ph.CO]](https://arxiv.org/abs/0901.4107).
 
+- Michael Reed, "Differential geometric algebra with Leibniz and
+  Grassmann", Proceedings of JuliaCon 2019,
+  <https://crucialflow.com/grassmann-juliacon-2019.pdf>.
+
 
 
 [Glitter](<https://en.wikipedia.org/wiki/Glitter>)
