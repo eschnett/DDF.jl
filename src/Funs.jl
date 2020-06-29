@@ -89,7 +89,8 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 # Functions are a vector space
 
-function Base.zero(::Type{Fun{D, P, R, T}}, topo::Topology{D}) where {D, P, R, T}
+function Base.zero(::Type{Fun{D, P, R, T}},
+                   topo::Topology{D}) where {D, P, R, T}
     Fun{D, P, R}(topo, zeros(T, size(R, topo)))
 end
 
@@ -140,7 +141,8 @@ function Base.zeros(::Type{Fun{D, P, R, T}}, topo::Topology{D}
     Fun{D, P, R}(topo, zeros(T, size(R, topo)))
 end
 
-function Base.ones(::Type{Fun{D, P, R, T}}, topo::Topology{D}) where {D, P, R, T}
+function Base.ones(::Type{Fun{D, P, R, T}},
+                   topo::Topology{D}) where {D, P, R, T}
     Fun{D, P, R}(topo, ones(T, size(R, topo)))
 end
 

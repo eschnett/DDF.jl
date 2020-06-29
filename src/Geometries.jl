@@ -318,10 +318,12 @@ function laplace(::Val{Pr}, ::Val{R}, geom::Geometry{D, T}) where {R, D, T}
     @assert 0 <= R <= D
     op = zero(Op{D, Pr, R, Pr, R, T}, geom.topo)
     if R > 0
-        op += deriv(Val(Pr), Val(R-1), geom.topo) * coderiv(Val(Pr), Val(R), geom)
+        op += deriv(Val(Pr), Val(R-1), geom.topo) *
+            coderiv(Val(Pr), Val(R), geom)
     end
     if R < D
-        op += coderiv(Val(Pr), Val(R+1), geom) * deriv(Val(Pr), Val(R), geom.topo)
+        op += coderiv(Val(Pr), Val(R+1), geom) *
+            deriv(Val(Pr), Val(R), geom.topo)
     end
     op::Op{D, Pr, R, Pr, R, T}
 end
