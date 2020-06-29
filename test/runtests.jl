@@ -21,10 +21,10 @@ Base.show(io::IOContext, A::SparseMatrixCSC) = show_sparse(io, A)
 
 
 
-#TODO include("test-defs.jl")
-#TODO include("test-forms.jl")
-#TODO include("test-algorithms.jl")
-#TODO include("test-topologies.jl")
-#TODO include("test-funs.jl")
-#TODO include("test-ops.jl")
+include("test-defs.jl")
+include("test-forms.jl")
+include("test-algorithms.jl")
+include("test-topologies.jl")
+include("test-funs.jl")
+include("test-ops.jl")
 include("test-geometries.jl")

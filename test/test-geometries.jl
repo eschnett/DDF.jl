@@ -147,16 +147,12 @@ end
 
 
 # @testset "Derivative is functorial D=$D R=$R" for D in 1:Dmax, R in 0:D-1
-#     S = Signature(D)
-#     V = SubTopology(S)
 #     T = Float64
 # 
-#     dom = Domain(Chain{V,1}(zeros(SVector{D,T})),
-#                  Chain{V,1}(ones(SVector{D,T})))
 #     # Regular simplex
 #     topo = Topology(Simplex(SVector{D+1}(1:D+1)))
-#     xs = Fun{D, Pr, 0, fulltype(Chain{V,1,T})}(topo, regular_simplex(Val(D), T))
-#     geom = Geometry(topo, dom, xs)
+#     xs = Fun{D, Pr, 0}(topo, regular_simplex(Form{D, D, T}))
+#     geom = Geometry(topo, xs)
 # 
 #     for dir in 1:D, pow in 0:1
 #         pow==0 && dir>1 && continue
@@ -165,9 +161,9 @@ end
 #         g(x) = x[dir]^pow
 #         dg(d,x) = d==dir ? (pow==0 ? zero(T) : pow*x[dir]^(pow-1)) : zero(T)
 # 
-#         xs = coords(Val(0), Val(Pr), geom)
+#         xs = coordinates(Val(Pr), Val(0), geom)
 #         @show xs.values
-#         dxs = coords(Val(1), Val(Pr), geom)
+#         dxs = coordinates(Val(Pr), Val(1), geom)
 #         @show dxs.values
 #         f = map(g, xs)
 #         @show f.values
@@ -175,7 +171,7 @@ end
 #         df = d*f
 #         @show df.values
 #         for i in 1:size(R+1, geom.topo)
-#             for 
+#             # for 
 #             @assert df.values[i] == dgdxs.values[i]
 #         end
 #     end
