@@ -64,7 +64,10 @@ end
 
 
 
-@testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D in 1:Dmax, R1 in 0:D, R2 in 0:D-R1, R3 in 0:D-R1-R2
+@testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D in 1:Dmax,
+    R1 in 0:D,
+    R2 in 0:D-R1,
+    R3 in 0:D-R1-R2
     # Using === instead of == for comparisons to catch wrong types
     T = Rational{Int64}
     e = one(Form{D, 0, T})
@@ -82,13 +85,13 @@ end
     @test conj(conj(x)) === x
     @test inv(inv(x)) === x      # can fail
     @test transpose(transpose(x)) === x
-    @test ⋆⋆x === bitsign(R1 * (D-R1)) * x
+    @test ⋆⋆x === bitsign(R1 * (D - R1)) * x
     @test inv(⋆)(⋆x) === x
     @test ⋆inv(⋆)(x) === x
-    @test ⋆⋆⋆⋆x === x
+    @test ⋆⋆ ⋆ ⋆x === x
 
     # exterior product: x ∧ y
-    (x ∧ y)::Form{D, R1+R2}
+    (x ∧ y)::Form{D, R1 + R2}
 
     @test (x ∧ y) ∧ z === x ∧ (y ∧ z)
 
@@ -110,10 +113,10 @@ end
     end
 
     # regressive product: ⋆(x ∨ y) = ⋆x ∧ ⋆y
-    @test ⋆(⋆x ∨ ⋆y) === ⋆⋆x ∧ ⋆⋆y
+    @test ⋆(⋆x ∨ ⋆y) === ⋆⋆x ∧ ⋆ ⋆ y
 
     # dot product: x ⋅ y = x ∨ ⋆y   (right contraction)
-    @test ⋆(⋆x ⋅ y) === ⋆⋆x ∧ ⋆⋆y
+    @test ⋆(⋆x ⋅ y) === ⋆⋆x ∧ ⋆ ⋆ y
 
     # cross product: x × y = ⋆(x ∧ y)
     @test x × y === ⋆(x ∧ y)

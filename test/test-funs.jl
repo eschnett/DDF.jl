@@ -6,7 +6,7 @@ using Test
 
 
 @testset "Fun D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-    topo = Topology(Simplex(SVector{D+1}(1:D+1)))
+    topo = Topology(Simplex(SVector{D + 1}(1:D+1)))
 
     T = Rational{Int64}
     z = zero(Fun{D, P, R, T}, topo)
@@ -59,7 +59,7 @@ using Test
 
     # Nonlinear transformations
 
-    i2 = map(x->x^2, i)
+    i2 = map(x -> x^2, i)
     @test [x^2 for x in i] == [x for x in i2]
 
     @test map(+, f, g) == f + g

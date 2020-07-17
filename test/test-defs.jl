@@ -48,7 +48,7 @@ end
             xsj = xs[j]
             xsj1 = xs[j+1]
             xs = setindex(xs, xsj1, j)
-            xs = setindex(xs, xsj, j+1)
+            xs = setindex(xs, xsj, j + 1)
         end
         ys, s = sort_perm(xs)
         @test issorted(ys)

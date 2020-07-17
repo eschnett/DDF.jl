@@ -8,8 +8,12 @@ using Test
 
 # Dmax-1 since these tests are expensive
 @testset "Op D=$D P2=$P2 R2=$R2 P1=$P1 R1=$R1" for D in 0:Dmax-1,
-    P2 in (Pr, Dl), R2 in 0:D, P1 in (Pr, Dl), R1 in 0:D
-    topo = Topology(Simplex(SVector{D+1}(1:D+1)))
+    P2 in (Pr, Dl),
+    R2 in 0:D,
+    P1 in (Pr, Dl),
+    R1 in 0:D
+
+    topo = Topology(Simplex(SVector{D + 1}(1:D+1)))
 
     T = Rational{Int64}
     z = zero(Op{D, P2, R2, P1, R1, T}, topo)
@@ -96,10 +100,14 @@ using Test
         F = rand(Op{D, P3, R3, P2, R2, T}, topo)
         @test (F * A) * f == F * (A * f)
     end
-    
+
     # Add diagonal entries to help make F and G invertible
-    F = one(Op{D, P1, R1, P1, R1, T}, topo) + rand(Op{D, P1, R1, P1, R1, T}, topo)
-    G = one(Op{D, P1, R1, P1, R1, T}, topo) + rand(Op{D, P1, R1, P1, R1, T}, topo)
+    F =
+        one(Op{D, P1, R1, P1, R1, T}, topo) +
+        rand(Op{D, P1, R1, P1, R1, T}, topo)
+    G =
+        one(Op{D, P1, R1, P1, R1, T}, topo) +
+        rand(Op{D, P1, R1, P1, R1, T}, topo)
 
     # Note: \ converts rationals to Float64
     g1 = (G * F) \ f
@@ -115,7 +123,7 @@ end
     T = Rational{Int64}
 
     topo0 = Topology(Val(D))
-    topo1 = Topology(Simplex(SVector{D+1}(1:D+1)))
+    topo1 = Topology(Simplex(SVector{D + 1}(1:D+1)))
     topo2 = hypercube_manifold(Val(D))
     topos = [topo0, topo1, topo2]
 
@@ -124,20 +132,20 @@ end
         f1 = id(Fun{D, P, R, T}, topo)
         fs = [f0, f1]
 
-        R1 = P == Pr ? R-1 : R+1
+        R1 = P == Pr ? R - 1 : R + 1
         if 0 <= R1 <= D
             b = boundary(Val(P), Val(R), topo)
             for f in fs
-                bf = b*f
+                bf = b * f
                 bf::Fun{D, P, R1, T}
             end
         end
 
-        R1 = P == Pr ? R+1 : R-1
+        R1 = P == Pr ? R + 1 : R - 1
         if 0 <= R1 <= D
             d = deriv(Val(P), Val(R), topo)
             for f in fs
-                df = d*f
+                df = d * f
                 df::Fun{D, P, R1, T}
             end
         end

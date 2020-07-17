@@ -38,16 +38,15 @@ using ..Forms
 # end
 
 export circumcentre
-function circumcentre(xs::SVector{N, <: Form{D, 1, T}}) where {N, D, T}
+function circumcentre(xs::SVector{N, <:Form{D, 1, T}}) where {N, D, T}
     # See arXiv:1103.3076v2 [cs.RA], section 10.1
-    A = SMatrix{N+1, N+1}(
-        i<=N && j<=N
-        ? 2*(xs[i]⋅xs[j])[]
-        : i==j ? zero(T) : one(T)
-        for i in 1:N+1, j in 1:N+1)
-    b = SVector{N+1}(i<=N ? (xs[i]⋅xs[i])[] : one(T) for i in 1:N+1)
+    A = SMatrix{N + 1, N + 1}(
+        i <= N && j <= N ? 2 * (xs[i]⋅xs[j])[] : i == j ? zero(T) : one(T)
+        for i in 1:N+1, j in 1:N+1
+    )
+    b = SVector{N + 1}(i <= N ? (xs[i]⋅xs[i])[] : one(T) for i in 1:N+1)
     c = A \ b
-    cc = sum(c[i]*xs[i] for i in 1:N)
+    cc = sum(c[i] * xs[i] for i in 1:N)
     cc::Form{D, 1, T}
 end
 
@@ -62,18 +61,18 @@ export regular_simplex
 # plus a new point on the new axis.
 function regular_simplex1(D::Int, ::Type{T}) where {T}
     @assert D >= 0
-    N = D+1
+    N = D + 1
     # D == 0 && return SVector{N}(Chain{V,1,T}())
     @assert D > 0
-    D == 1 && return SVector(Form{D, 1}((T(-1)/2,)), Form{D, 1}((T(1)/2,)))
-    s0 = regular_simplex1(D-1, T)
+    D == 1 && return SVector(Form{D, 1}((T(-1) / 2,)), Form{D, 1}((T(1) / 2,)))
+    s0 = regular_simplex1(D - 1, T)
     # Choose height so that edge length is 1
     z = sqrt(1 - abs2(s0[1]))
-    z0 = -z/(D+1)
-    s = SVector{N}(map(x -> x ⊗ z0, s0)..., zero(Form{D-1, 1, T}) ⊗ (z+z0))
+    z0 = -z / (D + 1)
+    s = SVector{N}(map(x -> x ⊗ z0, s0)..., zero(Form{D - 1, 1, T}) ⊗ (z + z0))
     s::SVector{N, fulltype(Form{D, 1, T})}
 end
-@generated function regular_simplex(::Type{<: Form{D, R, T}}) where {D, R, T}
+@generated function regular_simplex(::Type{<:Form{D, R, T}}) where {D, R, T}
     D::Int
     @assert D >= 0
     R::Int

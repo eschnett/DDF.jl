@@ -9,6 +9,13 @@ const Dmax = 5
 
 
 
+# Ignore a statement
+macro DISABLED(expr)
+    quote end
+end
+
+
+
 # Random rationals
 Base.rand(rng::AbstractRNG, ::Random.SamplerType{Rational{T}}) where {T} =
     Rational{T}(T(rand(rng, -1000:1000)) // 1000)

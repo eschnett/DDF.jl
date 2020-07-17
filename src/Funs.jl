@@ -22,8 +22,10 @@ struct Fun{D, P, R, T}         # <: AbstractVector{T}
     topo::Topology{D}
     values::AbstractVector{T}
 
-    function Fun{D, P, R, T}(topo::Topology{D},
-                             values::AbstractVector{T}) where {D, P, R, T}
+    function Fun{D, P, R, T}(
+        topo::Topology{D},
+        values::AbstractVector{T},
+    ) where {D, P, R, T}
         D::Int
         @assert D >= 0
         P::PrimalDual
@@ -33,10 +35,20 @@ struct Fun{D, P, R, T}         # <: AbstractVector{T}
         @assert invariant(fun)
         fun
     end
-    function Fun{D, P, R}(topo::Topology{D},
-                          values::AbstractVector{T}) where {D, P, R, T}
+    function Fun{D, P, R}(
+        topo::Topology{D},
+        values::AbstractVector{T},
+    ) where {D, P, R, T}
         Fun{D, P, R, T}(topo, values)
     end
+end
+
+function Base.show(io::IO, fun::Fun{D, P, R, T}) where {D, P, R, T}
+    println(io)
+    println(io, "Fun{$D,$P,$R,$T}(")
+    println(io, "    topo=$(fun.topo.name)")
+    println(io, "    values=$(fun.values)")
+    print(io, ")")
 end
 
 function Defs.invariant(fun::Fun{D, P, R, T})::Bool where {D, P, R, T}
@@ -51,7 +63,7 @@ end
 
 # Comparison
 
-function Base.:(==)(f::F, g::F) where {F<:Fun}
+function Base.:(==)(f::F, g::F) where {F <: Fun}
     @assert f.topo == g.topo
     f.values == g.values
 end
@@ -68,6 +80,9 @@ Base.eltype(f::Fun) = eltype(f.values)
 function Base.map(op, f::Fun{D, P, R}, gs::Fun{D, P, R}...) where {D, P, R}
     @assert all(f.topo == g.topo for g in gs)
     Fun{D, P, R}(f.topo, map(op, f.values, (g.values for g in gs)...))
+    # r1 = map(op, f.values[1], (g.values[1] for g in gs)...))
+    # T = typeof(r1)
+    # Fun{D, P, R, T}(f.topo, map(op, f.values, (g.values for g in gs)...))
 end
 
 # Random functions
@@ -89,13 +104,18 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 # Functions are a vector space
 
-function Base.zero(::Type{Fun{D, P, R, T}},
-                   topo::Topology{D}) where {D, P, R, T}
+function Base.zero(
+    ::Type{Fun{D, P, R, T}},
+    topo::Topology{D},
+) where {D, P, R, T}
     Fun{D, P, R}(topo, zeros(T, size(R, topo)))
 end
 
-function Defs.unit(::Type{Fun{D, P, R, T}}, topo::Topology{D}, n::Int
-                   ) where {D, P, R, T}
+function Defs.unit(
+    ::Type{Fun{D, P, R, T}},
+    topo::Topology{D},
+    n::Int,
+) where {D, P, R, T}
     @assert 1 <= n <= size(R, topo)
     Fun{D, P, R}(topo, sparsevec([n], [one(T)]))
 end
@@ -136,13 +156,17 @@ end
 
 # Functions have a pointwise product
 
-function Base.zeros(::Type{Fun{D, P, R, T}}, topo::Topology{D}
-                    ) where {D, P, R, T}
+function Base.zeros(
+    ::Type{Fun{D, P, R, T}},
+    topo::Topology{D},
+) where {D, P, R, T}
     Fun{D, P, R}(topo, zeros(T, size(R, topo)))
 end
 
-function Base.ones(::Type{Fun{D, P, R, T}},
-                   topo::Topology{D}) where {D, P, R, T}
+function Base.ones(
+    ::Type{Fun{D, P, R, T}},
+    topo::Topology{D},
+) where {D, P, R, T}
     Fun{D, P, R}(topo, ones(T, size(R, topo)))
 end
 

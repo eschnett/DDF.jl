@@ -30,20 +30,31 @@ struct Op{D, P1, R1, P2, R2, T} # <: AbstractMatrix{T}
     values::Union{AbstractMatrix{T}, UniformScaling{T}}
     # TODO: Check invariant
 
-    function Op{D, P1, R1, P2, R2, T}(topo::Topology{D},
-                                      values::Union{AbstractMatrix{T},
-                                                    UniformScaling{T}}
-                                      ) where {D, P1, R1, P2, R2, T}
+    function Op{D, P1, R1, P2, R2, T}(
+        topo::Topology{D},
+        values::Union{AbstractMatrix{T}, UniformScaling{T}},
+    ) where {D, P1, R1, P2, R2, T}
         op = new{D, P1, R1, P2, R2, T}(topo, compress(values))
         @assert invariant(op)
         op
     end
-    function Op{D, P1, R1, P2, R2}(topo::Topology{D},
-                                   values::Union{AbstractMatrix{T},
-                                                 UniformScaling{T}}
-                                   ) where {D, P1, R1, P2, R2, T}
+    function Op{D, P1, R1, P2, R2}(
+        topo::Topology{D},
+        values::Union{AbstractMatrix{T}, UniformScaling{T}},
+    ) where {D, P1, R1, P2, R2, T}
         Op{D, P1, R1, P2, R2, T}(topo, values)
     end
+end
+
+function Base.show(
+    io::IO,
+    op::Op{D, P1, R1, P2, R2, T},
+) where {D, P1, R1, P2, R2, T}
+    println(io)
+    println(io, "Op{$D,$P1,$R1,$P2,$R2,$T}(")
+    println(io, "    topo=$(op.topo.name)")
+    println(io, "    values=$(op.values)")
+    print(io, ")")
 end
 
 function Defs.invariant(op::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
@@ -63,7 +74,7 @@ end
 
 # Comparison
 
-function Base.:(==)(A::M, B::M) where {M<:Op}
+function Base.:(==)(A::M, B::M) where {M <: Op}
     @assert A.topo == B.topo
     A.values == B.values
 end
@@ -77,15 +88,20 @@ Base.isempty(A::Op) = isempty(A.values)
 Base.length(A::Op) = length(A.values)
 Base.eltype(A::Op) = eltype(A.values)
 
-function Base.map(op, A::Op{D, P1, R1, P2, R2}, Bs::Op{D, P1, R1, P2, R2}...
-                  ) where {D, P1, R1, P2, R2}
+function Base.map(
+    op,
+    A::Op{D, P1, R1, P2, R2},
+    Bs::Op{D, P1, R1, P2, R2}...,
+) where {D, P1, R1, P2, R2}
     @assert all(A.topo == B.topo for B in Bs)
     Fun{D, R}(A.topo, map(op, A.values, (B.values for B in Bs)...))
 end
 
 # Random operators
-function Base.rand(::Type{Op{D, P1, R1, P2, R2, T}}, topo::Topology{D}
-                   ) where {D, P1, R1, P2, R2, T}
+function Base.rand(
+    ::Type{Op{D, P1, R1, P2, R2, T}},
+    topo::Topology{D},
+) where {D, P1, R1, P2, R2, T}
     m, n = size(R1, topo), size(R2, topo)
     p = clamp(4 / min(m, n), 0, 1)
     Op{D, P1, R1, P2, R2}(topo, sprand(T, m, n, p))
@@ -106,13 +122,19 @@ Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
 
 # Operators are a vector space
 
-function Base.zero(::Type{Op{D, P1, R1, P2, R2, T}}, topo::Topology{D}
-                   ) where {D, P1, R1, P2, R2, T}
+function Base.zero(
+    ::Type{Op{D, P1, R1, P2, R2, T}},
+    topo::Topology{D},
+) where {D, P1, R1, P2, R2, T}
     Op{D, P1, R1, P2, R2}(topo, spzeros(T, size(R1, topo), size(R2, topo)))
 end
 
-function Defs.unit(::Type{Op{D, P1, R1, P2, R2, T}}, topo::Topology{D},
-                   m::Int, n::Int) where {D, P1, R1, P2, R2, T}
+function Defs.unit(
+    ::Type{Op{D, P1, R1, P2, R2, T}},
+    topo::Topology{D},
+    m::Int,
+    n::Int,
+) where {D, P1, R1, P2, R2, T}
     @assert 1 <= m <= size(R1, topo)
     @assert 1 <= n <= size(R2, topo)
     Op{D, P1, R1, P2, R2}(topo, sparse([m], [n], [one(T)]))
@@ -126,35 +148,35 @@ function Base.:-(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     Op{D, P1, R1, P2, R2}(A.topo, -A.values)
 end
 
-function Base.:+(A::Op{D, P1, R1, P2, R2}, B::Op{D, P1, R1, P2, R2}
-                 ) where {D, P1, R1, P2, R2}
+function Base.:+(
+    A::Op{D, P1, R1, P2, R2},
+    B::Op{D, P1, R1, P2, R2},
+) where {D, P1, R1, P2, R2}
     @assert A.topo == B.topo
     Op{D, P1, R1, P2, R2}(A.topo, A.values + B.values)
 end
 
-function Base.:-(A::Op{D, P1, R1, P2, R2}, B::Op{D, P1, R1, P2, R2}
-                 ) where {D, P1, R1, P2, R2}
+function Base.:-(
+    A::Op{D, P1, R1, P2, R2},
+    B::Op{D, P1, R1, P2, R2},
+) where {D, P1, R1, P2, R2}
     @assert A.topo == B.topo
     Op{D, P1, R1, P2, R2}(A.topo, A.values - B.values)
 end
 
-function Base.:*(a::Number, A::Op{D, P1, R1, P2, R2}
-                 ) where {D, P1, R1, P2, R2}
+function Base.:*(a::Number, A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     Op{D, P1, R1, P2, R2}(A.topo, a * A.values)
 end
 
-function Base.:\(a::Number, A::Op{D, P1, R1, P2, R2}
-                 ) where {D, P1, R1, P2, R2}
+function Base.:\(a::Number, A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     Op{D, P1, R1, P2, R2}(A.topo, a \ A.values)
 end
 
-function Base.:*(A::Op{D, P1, R1, P2, R2}, a::Number
-                 ) where {D, P1, R1, P2, R2}
+function Base.:*(A::Op{D, P1, R1, P2, R2}, a::Number) where {D, P1, R1, P2, R2}
     Op{D, P1, R1, P2, R2}(A.topo, A.values * a)
 end
 
-function Base.:/(A::Op{D, P1, R1, P2, R2}, a::Number
-                 ) where {D, P1, R1, P2, R2}
+function Base.:/(A::Op{D, P1, R1, P2, R2}, a::Number) where {D, P1, R1, P2, R2}
     Op{D, P1, R1, P2, R2}(A.topo, A.values / a)
 end
 
@@ -163,13 +185,17 @@ end
 function Base.one(::Type{Op{D, R, P, R, P}}, topo::Topology{D}) where {D, R, P}
     Op{D, R, P, R, P}(topo, I)
 end
-function Base.one(::Type{Op{D, R, P, R, P, T}}, topo::Topology{D}
-                  ) where {D, R, P, T}
-    Op{D, R, P, R, P}(topo, one(T)*I)
+function Base.one(
+    ::Type{Op{D, R, P, R, P, T}},
+    topo::Topology{D},
+) where {D, R, P, T}
+    Op{D, R, P, R, P}(topo, one(T) * I)
 end
 
-function Base.:*(A::Op{D, P1, R1, P2, R2}, B::Op{D, P2, R2, P3, R3}
-                 ) where {D, P1, R1, P2, R2, P3, R3}
+function Base.:*(
+    A::Op{D, P1, R1, P2, R2},
+    B::Op{D, P2, R2, P3, R3},
+) where {D, P1, R1, P2, R2, P3, R3}
     @assert A.topo == B.topo
     Op{D, P1, R1, P3, R3}(A.topo, A.values * B.values)
 end
@@ -184,14 +210,18 @@ function Base.inv(A::Op{D, P1, R1, P2, R2}) where {D, P1, R1, P2, R2}
     Op{D, P2, R2, P1, R1}(A.topo, inv(A.values))
 end
 
-function Base.:/(A::Op{D, P1, R1, P2, R2}, B::Op{D, P3, R3, P2, R2}
-                 ) where {D, P1, R1, P2, R2, P3, R3}
+function Base.:/(
+    A::Op{D, P1, R1, P2, R2},
+    B::Op{D, P3, R3, P2, R2},
+) where {D, P1, R1, P2, R2, P3, R3}
     @assert A.topo == B.topo
     Op{D, P1, R1, P3, R3}(A.topo, A.values / B.values)
 end
 
-function Base.:\(A::Op{D, P2, R2, P1, R1}, B::Op{D, P2, R2, P3, R3}
-                 ) where {D, P1, R1, P2, R2, P3, R3}
+function Base.:\(
+    A::Op{D, P2, R2, P1, R1},
+    B::Op{D, P2, R2, P3, R3},
+) where {D, P1, R1, P2, R2, P3, R3}
     @assert A.topo == B.topo
     Op{D, P1, R1, P3, R3}(A.topo, A.values \ B.values)
 end
@@ -213,14 +243,18 @@ end
 
 # Operators act on functions
 
-function Base.:*(A::Op{D, P1, R1, P2, R2}, f::Fun{D, P2, R2}
-                 ) where {D, P1, R1, P2, R2}
+function Base.:*(
+    A::Op{D, P1, R1, P2, R2},
+    f::Fun{D, P2, R2},
+) where {D, P1, R1, P2, R2}
     @assert A.topo == f.topo
     Fun{D, P1, R1}(f.topo, A.values * f.values)
 end
 
-function Base.:\(A::Op{D, P1, R1, P2, R2}, f::Fun{D, P1, R1}
-                 ) where {D, P1, R1, P2, R2}
+function Base.:\(
+    A::Op{D, P1, R1, P2, R2},
+    f::Fun{D, P1, R1},
+) where {D, P1, R1, P2, R2}
     @assert A.topo == f.topo
     # Note: \ converts rationals to Float64
     Fun{D, P2, R2}(f.topo, A.values \ f.values)
@@ -233,21 +267,21 @@ end
 export boundary
 function boundary(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 < R <= D
-    Op{D, Pr, R-1, Pr, R}(topo, topo.boundaries[R])
+    Op{D, Pr, R - 1, Pr, R}(topo, topo.boundaries[R])
 end
 function boundary(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 <= R < D
-    Op{D, Dl, R+1, Dl, R}(topo, topo.boundaries[R+1]')
+    Op{D, Dl, R + 1, Dl, R}(topo, topo.boundaries[R+1]')
 end
 
 export coboundary
 function coboundary(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 <= R < D
-    adjoint(boundary(Val(Pr), Val(R+1), topo))::Op{D, Pr, R+1, Pr, R}
+    adjoint(boundary(Val(Pr), Val(R + 1), topo))::Op{D, Pr, R + 1, Pr, R}
 end
 function coboundary(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 < R <= D
-    adjoint(boundary(Val(Dl), Val(R-1), topo))::Op{D, Dl, R-1, Dl, R}
+    adjoint(boundary(Val(Dl), Val(R - 1), topo))::Op{D, Dl, R - 1, Dl, R}
 end
 
 # Derivative
@@ -255,11 +289,11 @@ end
 export deriv
 function deriv(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 <= R < D
-    coboundary(Val(Pr), Val(R), topo)::Op{D, Pr, R+1, Pr, R}
+    coboundary(Val(Pr), Val(R), topo)::Op{D, Pr, R + 1, Pr, R}
 end
 function deriv(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R, D}
     @assert 0 < R <= D
-    coboundary(Val(Dl), Val(R), topo)::Op{D, Dl, R-1, Dl, R}
+    coboundary(Val(Dl), Val(R), topo)::Op{D, Dl, R - 1, Dl, R}
 end
 
 end
