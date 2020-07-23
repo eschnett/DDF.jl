@@ -34,7 +34,7 @@ function sort_perm(xs::SVector{D}) where {D}
     rs1, s1 = sort_perm(xs1)
     i = findfirst(>(xend), rs1)
     i === nothing && (i = D)
-    rs = SVector{D}(j < i ? rs1[j] : j == i ? xend : rs1[j-1] for j in 1:D)
+    rs = SVector{D}(j < i ? rs1[j] : j == i ? xend : rs1[j-1] for j = 1:D)
     s = s1 + D - i
     # @assert issorted(rs)
     rs, s
@@ -97,7 +97,7 @@ end
 
 
 export show_sparse
-function show_sparse(io::IO, A::SparseMatrixCSC{T, I}) where {T, I}
+function show_sparse(io::IO, A::SparseMatrixCSC{T,I}) where {T,I}
     # Convert to CSR -- this is expensive!
     A = sparse(A')
     println(
@@ -105,12 +105,12 @@ function show_sparse(io::IO, A::SparseMatrixCSC{T, I}) where {T, I}
         "$(A.n)×$(A.m) SparseMatrixCSC{$I,$T} ",
         "with $(length(A.nzval)) stored entries:",
     )
-    for i in 1:A.n
+    for i = 1:A.n
         jmin = A.colptr[i]
         jmax = A.colptr[i+1] - 1
         if jmin <= jmax
             print(io, "  [$i]:")
-            for j in jmin:jmax
+            for j = jmin:jmax
                 print(io, " [$(A.rowval[j])]=$(A.nzval[j])")
             end
             println(io)

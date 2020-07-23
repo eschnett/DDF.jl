@@ -1,6 +1,7 @@
 module Topologies
 
 using LinearAlgebra
+using OrderedCollections
 using SparseArrays
 using StaticArrays
 
@@ -11,24 +12,18 @@ using ..Defs
 # add golden tests for derivatives on topologies (simplex, hypercube,
 # surface of simplex/hypercube, etc.)
 export Simplex
-struct Simplex{N, T}
-    vertices::SVector{N, T}
+struct Simplex{N,T}
+    vertices::SVector{N,T}
     signbit::Bool
 
-    function Simplex{N, T}(
-        vertices::SVector{N, T},
-        signbit::Bool = false,
-    ) where {N, T}
+    function Simplex{N,T}(vertices::SVector{N,T}, signbit::Bool = false) where {N,T}
         N::Int
         T::Type
         v, s = sort_perm(vertices)
-        return new{N, T}(v, signbit ⊻ isodd(s))
+        return new{N,T}(v, signbit ⊻ isodd(s))
     end
-    function Simplex(
-        vertices::SVector{N, T},
-        signbit::Bool = false,
-    ) where {N, T}
-        return Simplex{N, T}(vertices, signbit)
+    function Simplex(vertices::SVector{N,T}, signbit::Bool = false) where {N,T}
+        return Simplex{N,T}(vertices, signbit)
     end
 end
 
@@ -41,23 +36,23 @@ function Base.show(io::IO, s::Simplex)
     return print(io, "⟨$sign⟩$(s.vertices)")
 end
 
-function Base.:(==)(s::S, t::S) where {S <: Simplex}
+function Base.:(==)(s::S, t::S) where {S<:Simplex}
     return s.vertices == t.vertices && s.signbit == t.signbit
 end
-function Base.isless(s::S, t::S) where {S <: Simplex}
+function Base.isless(s::S, t::S) where {S<:Simplex}
     isless(s.vertices, t.vertices) && return true
     isless(t.vertices, s.vertices) && return false
     return isless(s.signbit, t.signbit)
 end
 
-Base.ndims(::Type{S}) where {S <: Simplex} = length(S) - 1
-Base.ndims(::S) where {S <: Simplex} = ndims(S)
+Base.ndims(::Type{S}) where {S<:Simplex} = length(S) - 1
+Base.ndims(::S) where {S<:Simplex} = ndims(S)
 
 Base.getindex(s::Simplex, i) = s.vertices[i]
 Base.length(::Type{<:Simplex{N}}) where {N} = N
-Base.length(::S) where {S <: Simplex} = length(S)
+Base.length(::S) where {S<:Simplex} = length(S)
 
-const Simplices{N} = Vector{Simplex{N, Int}}
+const Simplices{N} = Vector{Simplex{N,Int}}
 
 # TODO: Introduce type for operators
 
@@ -71,15 +66,15 @@ struct Topology{D}
     # vertices (i.e. 0-simplices) are always numbered 1:nvertices and
     # don't need to be stored
     # simplices[R]::Vector{Simplex{R+1, Int}}
-    simplices::Dict{Int, Simplices}
+    simplices::Dict{Int,Simplices}
     # The boundary ∂ of 0-forms vanishes and is not stored
-    boundaries::Dict{Int, SparseMatrixCSC{Int8, Int}}
+    boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}
 
     function Topology{D}(
         name::String,
         nvertices::Int,
-        simplices::Dict{Int, Simplices},
-        boundaries::Dict{Int, SparseMatrixCSC{Int8, Int}},
+        simplices::Dict{Int,Simplices},
+        boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}},
     ) where {D}
         D::Int
         @assert D >= 0
@@ -92,8 +87,8 @@ struct Topology{D}
     function Topology(
         name::String,
         nvertices::Int,
-        simplices::Dict{Int, Simplices},
-        boundaries::Dict{Int, SparseMatrixCSC{Int8, Int}},
+        simplices::Dict{Int,Simplices},
+        boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}},
     ) where {D}
         return Topology{D}(name, nvertices, simplices, boundaries)
     end
@@ -105,10 +100,10 @@ function Base.show(io::IO, topo::Topology{D}) where {D}
     println(io, "Topology{$D}(")
     println(io, "    name=$(topo.name)")
     println(io, "    nvertices=$(topo.nvertices)")
-    for (d, ss) in topo.simplices
+    for (d, ss) in sort!(OrderedDict(topo.simplices))
         println(io, "    simplices[$d]=$ss")
     end
-    for (d, bs) in topo.boundaries
+    for (d, bs) in sort!(OrderedDict(topo.boundaries))
         print(io, "    boundaries[$d]=$bs")
     end
     print(io, ")")
@@ -122,14 +117,14 @@ function Defs.invariant(topo::Topology{D})::Bool where {D}
     isempty(symdiff(keys(topo.simplices), 0:D)) || (@assert false; return false)
     length(topo.simplices[0]) == topo.nvertices || (@assert false; return false)
 
-    for R in 0:D
+    for R = 0:D
         simplices = topo.simplices[R]
-        for i in 1:length(simplices)
+        for i = 1:length(simplices)
             s = simplices[i]
-            for d in 1:(R+1)
+            for d = 1:(R+1)
                 1 <= s[d] <= topo.nvertices || (@assert false; return false)
             end
-            for d in 2:(R+1)
+            for d = 2:(R+1)
                 s[d] > s[d-1] || (@assert false; return false)
             end
             if i > 1
@@ -138,7 +133,7 @@ function Defs.invariant(topo::Topology{D})::Bool where {D}
         end
     end
 
-    for R in 1:D
+    for R = 1:D
         boundaries = topo.boundaries[R]
         size(boundaries) == (size(R - 1, topo), size(R, topo)) ||
             (@assert false; return false)
@@ -156,7 +151,7 @@ end
 
 Base.ndims(::Topology{D}) where {D} = D
 
-Base.size(::Val{R}, topo::Topology{D}) where {R, D} = size(R, topo)
+Base.size(::Val{R}, topo::Topology{D}) where {R,D} = size(R, topo)
 function Base.size(R::Integer, topo::Topology)::Int
     @assert 0 <= R <= ndims(topo)
     return length(topo.simplices[R])
@@ -166,7 +161,7 @@ end
 
 function Topology(
     name::String,
-    simplices::Vector{Simplex{N, Int}},
+    simplices::Vector{Simplex{N,Int}},
 )::Topology{N - 1} where {N}
     D = N - 1
     # # Ensure simplex vertices are sorted
@@ -182,7 +177,7 @@ function Topology(
     # Count vertices
     nvertices = 0
     for s in simplices
-        for a in 1:N
+        for a = 1:N
             nvertices = max(nvertices, s[a])
         end
     end
@@ -202,23 +197,23 @@ function Topology(
         return Topology{D}(
             name,
             nvertices,
-            Dict{Int, Simplices}(0 => simplices),
-            Dict{Int, SparseMatrixCSC{Int8, Int}}(),
+            Dict{Int,Simplices}(0 => simplices),
+            Dict{Int,SparseMatrixCSC{Int8,Int}}(),
         )
     end
 
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076v2 [cs.NA], section 7
-    faces = Simplex{N - 1, Int}[]
-    boundaries1 = Tuple{Simplex{N - 1}, Int}[]
+    faces = Simplex{N - 1,Int}[]
+    boundaries1 = Tuple{Simplex{N - 1},Int}[]
     for (i, s) in enumerate(simplices)
-        for a in 1:N
+        for a = 1:N
             # Leave out vertex a
             v1 = SVector{N - 1}(ntuple(b -> s[b+(b>=a)], N - 1))
             s1 = xor(s.signbit, isodd(a - 1))
-            face = Simplex{N - 1, Int}(v1)
+            face = Simplex{N - 1,Int}(v1)
             # face = Simplex{N-1, Int}(face.vertices, false)
-            boundary1 = (Simplex{N - 1, Int}(v1, s1), i)
+            boundary1 = (Simplex{N - 1,Int}(v1, s1), i)
             push!(faces, face)
             push!(boundaries1, boundary1)
         end
@@ -253,34 +248,34 @@ end
 
 function Topology(
     name::String,
-    simplices::Vector{SVector{N, Int}},
+    simplices::Vector{SVector{N,Int}},
 )::Topology{N - 1} where {N}
-    return Topology(name, [Simplex{N, Int}(s) for s in simplices])
+    return Topology(name, [Simplex{N,Int}(s) for s in simplices])
 end
 
 function Topology(::Val{D})::Topology{D} where {D}
-    return Topology("D=$D emtpy domain", Simplex{D + 1, Int}[])
+    return Topology("D=$D emtpy domain", Simplex{D + 1,Int}[])
 end
 
-function Topology(simplex::Simplex{N, Int})::Topology{N - 1} where {N}
-    return Topology("D=$(N-1) simplex", Simplex{N, Int}[simplex])
+function Topology(simplex::Simplex{N,Int})::Topology{N - 1} where {N}
+    return Topology("D=$(N-1) simplex", Simplex{N,Int}[simplex])
 end
 
-function corner2vertex(c::SVector{D, Bool})::Int where {D}
+function corner2vertex(c::SVector{D,Bool})::Int where {D}
     D == 0 && return 1
-    return 1 + sum(c[d] << (d - 1) for d in 1:D)
+    return 1 + sum(c[d] << (d - 1) for d = 1:D)
 end
 
 function next_corner!(
-    simplices::Vector{Simplex{N, Int}},
-    vertices::SVector{M, Int},
-    corner::SVector{D, Bool},
-)::Nothing where {N, D, M}
+    simplices::Vector{Simplex{N,Int}},
+    vertices::SVector{M,Int},
+    corner::SVector{D,Bool},
+)::Nothing where {N,D,M}
     @assert N == D + 1
     if D == 0
         @assert M == 1
     else
-        @assert sum(Int(corner[d]) for d in 1:D) == M - 1
+        @assert sum(Int(corner[d]) for d = 1:D) == M - 1
     end
     if M == D + 1
         # We have all vertices; build the simplex
@@ -288,11 +283,11 @@ function next_corner!(
         return
     end
     # Loop over all neighbouring corners
-    for d in 1:D
+    for d = 1:D
         if !corner[d]
             new_corner = setindex(corner, true, d)
             new_vertex = corner2vertex(new_corner)
-            new_vertices = SVector{M + 1, Int}(vertices..., new_vertex)
+            new_vertices = SVector{M + 1,Int}(vertices..., new_vertex)
             next_corner!(simplices, new_vertices, new_corner)
         end
     end
@@ -301,10 +296,10 @@ end
 
 export hypercube_manifold
 function hypercube_manifold(::Val{D}) where {D}
-    simplices = Simplex{D + 1, Int}[]
-    corner = zeros(SVector{D, Bool})
+    simplices = Simplex{D + 1,Int}[]
+    corner = zeros(SVector{D,Bool})
     vertex = corner2vertex(corner)
-    next_corner!(simplices, SVector{1, Int}(vertex), corner)
+    next_corner!(simplices, SVector{1,Int}(vertex), corner)
     @assert length(simplices) == factorial(D)
     return Topology("D=$D hypercube", simplices)
 end

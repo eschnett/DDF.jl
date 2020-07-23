@@ -10,32 +10,31 @@ using ..Defs
 function VecType(D::Int, R::Int, T)
     @assert D >= 0
     @assert 0 <= R <= D
-    return Chain{SubManifold(Signature(D)), R, T}
+    return Chain{SubManifold(Signature(D)),R,T}
 end
 
 export Form
-@computed struct Form{D, R, T}
+@computed struct Form{D,R,T}
     vec::fulltype(VecType(D, R, T))
 
-    Form{D, R, T}(xs::Chain{V, R, T}) where {D, V, R, T} = new{D, R, T}(xs)
-    Form{D, R, T}(xs::Chain{V, R}) where {D, V, R, T} =
-        Form{D, R, T}(Chain{T}(xs))
-    Form{D, R}(xs::Chain{V, R, T}) where {D, V, R, T} = Form{D, R, T}(xs)
-    Form{D}(xs::Chain{V, R}) where {D, V, R} = Form{D, R}(xs)
-    Form(xs::Chain{V, R}) where {V, R} = Form{ndims(V), R}(xs)
+    Form{D,R,T}(xs::Chain{V,R,T}) where {D,V,R,T} = new{D,R,T}(xs)
+    Form{D,R,T}(xs::Chain{V,R}) where {D,V,R,T} = Form{D,R,T}(Chain{T}(xs))
+    Form{D,R}(xs::Chain{V,R,T}) where {D,V,R,T} = Form{D,R,T}(xs)
+    Form{D}(xs::Chain{V,R}) where {D,V,R} = Form{D,R}(xs)
+    Form(xs::Chain{V,R}) where {V,R} = Form{ndims(V),R}(xs)
 end
 
 # Construct Forms from their components
-function Form{D, R}(xs::SVector) where {D, R}
+function Form{D,R}(xs::SVector) where {D,R}
     V = SubManifold(Signature(D))
-    return Form{D, R}(Chain{V, R}(xs))
+    return Form{D,R}(Chain{V,R}(xs))
 end
-function Form{D, R, T}(xs::SVector) where {D, R, T}
+function Form{D,R,T}(xs::SVector) where {D,R,T}
     V = SubManifold(Signature(D))
-    return Form{D, R, T}(Chain{V, R}(xs))
+    return Form{D,R,T}(Chain{V,R}(xs))
 end
-Form{D, R}(xs::Tuple) where {D, R} = Form{D, R}(SVector(xs))
-Form{D, R, T}(xs::Tuple) where {D, R, T} = Form{D, R, T}(SVector(xs))
+Form{D,R}(xs::Tuple) where {D,R} = Form{D,R}(SVector(xs))
+Form{D,R,T}(xs::Tuple) where {D,R,T} = Form{D,R,T}(SVector(xs))
 
 # TODO: Add conversions to Chain etc.
 # Base.convert(::Type{SA}, x::Form) where {SA <: StaticArray} = x.vec.v::SA
@@ -52,23 +51,23 @@ Form{D, R, T}(xs::Tuple) where {D, R, T} = Form{D, R, T}(SVector(xs))
 # OneForm{D, T}(x) where {D, T} = Form{D, 0}(SVector{D, T}(x))
 # OneForm{D}(x) where D = Form{D, 0}(SVector(x))
 
-Base.convert(::Type{<:T}, x::Form{D, 0, T}) where {D, T} = x[]
-Base.convert(::Type{SVector}, x::Form{D, 1, T}) where {D, T} = x.vec.v
-Base.convert(::Type{SVector{D}}, x::Form{D, 1, T}) where {D, T} = x.vec.v
-Base.convert(::Type{SVector{D, T}}, x::Form{D, 1, T}) where {D, T} = x.vec.v
+Base.convert(::Type{<:T}, x::Form{D,0,T}) where {D,T} = x[]
+Base.convert(::Type{SVector}, x::Form{D,1,T}) where {D,T} = x.vec.v
+Base.convert(::Type{SVector{D}}, x::Form{D,1,T}) where {D,T} = x.vec.v
+Base.convert(::Type{SVector{D,T}}, x::Form{D,1,T}) where {D,T} = x.vec.v
 
 export fdim
 fdim(::Type{<:Form{D}}) where {D} = D
-fdim(::F) where {F <: Form} = fdim(F)
+fdim(::F) where {F<:Form} = fdim(F)
 export frank
-frank(::Type{<:Form{D, R}} where {D}) where {R} = R
-frank(::F) where {F <: Form} = frank(F)
+frank(::Type{<:Form{D,R}} where {D}) where {R} = R
+frank(::F) where {F<:Form} = frank(F)
 
 # I/O
 
 function Base.show(io::IO, x::Form)
     print(io, "{$(fdim(x)),$(frank(x))}[")
-    for a in 1:length(x)
+    for a = 1:length(x)
         a != 1 && print(io, ",")
         print(io, x.vec[a])
     end
@@ -81,10 +80,10 @@ end
 
 # Collection
 
-function Base.IteratorSize(::Type{<:Form{D, R, T}}) where {D, R, T}
+function Base.IteratorSize(::Type{<:Form{D,R,T}}) where {D,R,T}
     return Base.IteratorSize(VecType(D, R, T))
 end
-function Base.IteratorEltype(::Type{<:Form{D, R, T}}) where {D, R, T}
+function Base.IteratorEltype(::Type{<:Form{D,R,T}}) where {D,R,T}
     return Base.IteratorEltype(VecType(D, R, T))
 end
 Base.eltype(x::Form) = eltype(x.vec)
@@ -93,14 +92,14 @@ Base.iterate(x::Form, state...) = iterate(x.vec, state...)
 Base.length(x::Form) = length(x.vec)
 Base.ndims(x::Form) = ndims(x.vec)
 Base.size(x::Form) = size(x.vec)
-function Base.map(f, x::Form{D, R}, ys::Form{D, R}...) where {D, R}
-    return Form{D, R}(map(f, x.vec, map(y -> y.vec, ys)...))
+function Base.map(f, x::Form{D,R}, ys::Form{D,R}...) where {D,R}
+    return Form{D,R}(map(f, x.vec, map(y -> y.vec, ys)...))
 end
 
 # Element access
-function _getindex(x::Form{D, R}, is::SVector{R, Int}) where {D, R}
+function _getindex(x::Form{D,R}, is::SVector{R,Int}) where {D,R}
     js, s = sort_perm(is)
-    for r in 2:R
+    for r = 2:R
         js[r] == js[r-1] && return zero(T)
     end
 
@@ -108,11 +107,11 @@ function _getindex(x::Form{D, R}, is::SVector{R, Int}) where {D, R}
     r = (x.vec⋅(isempty(is) ? B.v : B.v(is...))).v[1]
     return isodd(s) ? -r : r
 end
-@inline function _getindex(x::Form{D, R}, is::SVector{R}) where {D, R}
-    return _getindex(x, SVector{R, Int}(is))
+@inline function _getindex(x::Form{D,R}, is::SVector{R}) where {D,R}
+    return _getindex(x, SVector{R,Int}(is))
 end
 @inline Base.getindex(x::Form, is...) = _getindex(x, SVector(is...))
-@inline Base.getindex(x::Form) = _getindex(x, SVector{0, Int}())
+@inline Base.getindex(x::Form) = _getindex(x, SVector{0,Int}())
 
 # Comparison
 
@@ -121,16 +120,16 @@ Base.isless(x::Form, y::Form) = isless(x.vec, y.vec)
 
 # Field
 
-Base.one(::Type{<:Form{D, 0, T}}) where {D, T} = Form{D, 0}((one(T),))
-Base.one(::F) where {F <: Form} = one(F)
+Base.one(::Type{<:Form{D,0,T}}) where {D,T} = Form{D,0}((one(T),))
+Base.one(::F) where {F<:Form} = one(F)
 
 # Nullary functions
 for fun in [:rand, :zero]
     @eval begin
-        function Base.$fun(::Type{<:Form{D, R, T}}) where {D, R, T}
+        function Base.$fun(::Type{<:Form{D,R,T}}) where {D,R,T}
             return Form($fun(VecType(D, R, T)))
         end
-        Base.$fun(::F) where {F <: Form} = $fun(F)
+        Base.$fun(::F) where {F<:Form} = $fun(F)
     end
 end
 
@@ -145,7 +144,7 @@ for fun in [:⋆]
     end
 end
 export invhodge
-invhodge(x::Form{D, R}) where {D, R} = bitsign(R * (D - R)) * ⋆x
+invhodge(x::Form{D,R}) where {D,R} = bitsign(R * (D - R)) * ⋆x
 Base.inv(::typeof(⋆)) = invhodge
 for fun in [:transpose]
     @eval begin
@@ -161,7 +160,7 @@ LinearAlgebra.norm(x::Form; p) = norm(x.vec; p = p)
 
 # Binary functions
 for fun in [:+, :-]             # :*, :/, :\
-    @eval function Base.$fun(x::Form{D, R}, y::Form{D, R}) where {D, R}
+    @eval function Base.$fun(x::Form{D,R}, y::Form{D,R}) where {D,R}
         return Form($fun(x.vec, y.vec))
     end
 end
@@ -183,44 +182,44 @@ Base.:*(x::Form, a::Number) = Form(*(x.vec, a))
 Base.:\(a::Number, x::Form) = Form(\(a, x.vec))
 Base.:/(x::Form, a::Number) = Form(/(x.vec, a))
 
-Base.:*(a::T, x::Form{D, R, T}) where {D, R, T} = Form(*(a, x.vec))
-Base.:*(x::Form{D, R, T}, a::T) where {D, R, T} = Form(*(x.vec, a))
-Base.:\(a::T, x::Form{D, R, T}) where {D, R, T} = Form(\(a, x.vec))
-Base.:/(x::Form{D, R, T}, a::T) where {D, R, T} = Form(/(x.vec, a))
+Base.:*(a::T, x::Form{D,R,T}) where {D,R,T} = Form(*(a, x.vec))
+Base.:*(x::Form{D,R,T}, a::T) where {D,R,T} = Form(*(x.vec, a))
+Base.:\(a::T, x::Form{D,R,T}) where {D,R,T} = Form(\(a, x.vec))
+Base.:/(x::Form{D,R,T}, a::T) where {D,R,T} = Form(/(x.vec, a))
 
 # Sum space
 export ⊗
-function ⊗(x::Form{D1, 1}, y::Form{D2, 1}) where {D1, D2}
+function ⊗(x::Form{D1,1}, y::Form{D2,1}) where {D1,D2}
     D1::Int
     @assert D1 >= 0
     D2::Int
     @assert D2 >= 0
-    return Form{D1 + D2, 1}(SVector(x.vec.v..., y.vec.v...))
+    return Form{D1 + D2,1}(SVector(x.vec.v..., y.vec.v...))
 end
-function ⊗(x::Form{D1, 1, T}, a::T) where {D1, T}
+function ⊗(x::Form{D1,1,T}, a::T) where {D1,T}
     D1::Int
     @assert D1 >= 0
-    return Form{D1 + 1, 1}(SVector(x.vec.v..., a))
+    return Form{D1 + 1,1}(SVector(x.vec.v..., a))
 end
-function ⊗(a::T, x::Form{D1, 1, T}) where {D1, T}
+function ⊗(a::T, x::Form{D1,1,T}) where {D1,T}
     D1::Int
     @assert D1 >= 0
-    return Form{D1 + 1, 1}(SVector(a, x.vec.v...))
+    return Form{D1 + 1,1}(SVector(a, x.vec.v...))
 end
 
 # Subspace
-function Base.getindex(x::Form{D1, 1}, i::SVector{D2, Int}) where {D1, D2}
+function Base.getindex(x::Form{D1,1}, i::SVector{D2,Int}) where {D1,D2}
     D1::Int
     @assert D1 >= 0
     D2::Int
     @assert D1 - D2 >= 0
-    return Form{D1 - D2, 1}(x.vec.v[i])
+    return Form{D1 - D2,1}(x.vec.v[i])
 end
-@inline function Base.getindex(x::Form{D1, 1}, i::SVector{D2}) where {D1, D2}
-    return getindex(x, SVector{D2, Int}(i))
+@inline function Base.getindex(x::Form{D1,1}, i::SVector{D2}) where {D1,D2}
+    return getindex(x, SVector{D2,Int}(i))
 end
 @inline getindex(x::Form, i::Tuple) = getindex(x, SVector(i...))
-@inline getindex(x::Form, i::Tuple{}) = getindex(x, SVector{0, Int}())
+@inline getindex(x::Form, i::Tuple{}) = getindex(x, SVector{0,Int}())
 
 # # Homogeneous and conformal geometries
 # 

@@ -18,32 +18,26 @@ export Fun
 """
 Function (aka Cochain)
 """
-struct Fun{D, P, R, T}         # <: AbstractVector{T}
+struct Fun{D,P,R,T}         # <: AbstractVector{T}
     topo::Topology{D}
     values::AbstractVector{T}
 
-    function Fun{D, P, R, T}(
-        topo::Topology{D},
-        values::AbstractVector{T},
-    ) where {D, P, R, T}
+    function Fun{D,P,R,T}(topo::Topology{D}, values::AbstractVector{T}) where {D,P,R,T}
         D::Int
         @assert D >= 0
         P::PrimalDual
         R::Int
         @assert 0 <= R <= D
-        fun = new{D, P, R, T}(topo, values)
+        fun = new{D,P,R,T}(topo, values)
         @assert invariant(fun)
         fun
     end
-    function Fun{D, P, R}(
-        topo::Topology{D},
-        values::AbstractVector{T},
-    ) where {D, P, R, T}
-        Fun{D, P, R, T}(topo, values)
+    function Fun{D,P,R}(topo::Topology{D}, values::AbstractVector{T}) where {D,P,R,T}
+        Fun{D,P,R,T}(topo, values)
     end
 end
 
-function Base.show(io::IO, fun::Fun{D, P, R, T}) where {D, P, R, T}
+function Base.show(io::IO, fun::Fun{D,P,R,T}) where {D,P,R,T}
     println(io)
     println(io, "Fun{$D,$P,$R,$T}(")
     println(io, "    topo=$(fun.topo.name)")
@@ -51,7 +45,7 @@ function Base.show(io::IO, fun::Fun{D, P, R, T}) where {D, P, R, T}
     print(io, ")")
 end
 
-function Defs.invariant(fun::Fun{D, P, R, T})::Bool where {D, P, R, T}
+function Defs.invariant(fun::Fun{D,P,R,T})::Bool where {D,P,R,T}
     D::Int
     P::PrimalDual
     R::Int
@@ -63,7 +57,7 @@ end
 
 # Comparison
 
-function Base.:(==)(f::F, g::F) where {F <: Fun}
+function Base.:(==)(f::F, g::F) where {F<:Fun}
     @assert f.topo == g.topo
     f.values == g.values
 end
@@ -77,17 +71,17 @@ Base.isempty(f::Fun) = isempty(f.values)
 Base.length(f::Fun) = length(f.values)
 Base.eltype(f::Fun) = eltype(f.values)
 
-function Base.map(op, f::Fun{D, P, R}, gs::Fun{D, P, R}...) where {D, P, R}
+function Base.map(op, f::Fun{D,P,R}, gs::Fun{D,P,R}...) where {D,P,R}
     @assert all(f.topo == g.topo for g in gs)
-    Fun{D, P, R}(f.topo, map(op, f.values, (g.values for g in gs)...))
+    Fun{D,P,R}(f.topo, map(op, f.values, (g.values for g in gs)...))
     # r1 = map(op, f.values[1], (g.values[1] for g in gs)...))
     # T = typeof(r1)
     # Fun{D, P, R, T}(f.topo, map(op, f.values, (g.values for g in gs)...))
 end
 
 # Random functions
-Base.rand(::Type{Fun{D, P, R, T}}, topo::Topology{D}) where {D, P, R, T} =
-    Fun{D, P, R, T}(topo, rand(T, size(R, topo)))
+Base.rand(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T} =
+    Fun{D,P,R,T}(topo, rand(T, size(R, topo)))
 
 # Functions are an abstract vector
 
@@ -104,82 +98,69 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 # Functions are a vector space
 
-function Base.zero(
-    ::Type{Fun{D, P, R, T}},
-    topo::Topology{D},
-) where {D, P, R, T}
-    Fun{D, P, R}(topo, zeros(T, size(R, topo)))
+function Base.zero(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
+    Fun{D,P,R}(topo, zeros(T, size(R, topo)))
 end
 
-function Defs.unit(
-    ::Type{Fun{D, P, R, T}},
-    topo::Topology{D},
-    n::Int,
-) where {D, P, R, T}
+function Defs.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D}, n::Int) where {D,P,R,T}
     @assert 1 <= n <= size(R, topo)
-    Fun{D, P, R}(topo, sparsevec([n], [one(T)]))
+    Fun{D,P,R}(topo, sparsevec([n], [one(T)]))
 end
 
-function Base.:+(f::Fun{D, P, R}) where {D, P, R}
-    Fun{D, P, R}(f.topo, +f.values)
+function Base.:+(f::Fun{D,P,R}) where {D,P,R}
+    Fun{D,P,R}(f.topo, +f.values)
 end
 
-function Base.:-(f::Fun{D, P, R}) where {D, P, R}
-    Fun{D, P, R}(f.topo, -f.values)
+function Base.:-(f::Fun{D,P,R}) where {D,P,R}
+    Fun{D,P,R}(f.topo, -f.values)
 end
 
-function Base.:+(f::Fun{D, P, R}, g::Fun{D, P, R}) where {D, P, R}
+function Base.:+(f::Fun{D,P,R}, g::Fun{D,P,R}) where {D,P,R}
     @assert f.topo == g.topo
-    Fun{D, P, R}(f.topo, f.values + g.values)
+    Fun{D,P,R}(f.topo, f.values + g.values)
 end
 
-function Base.:-(f::Fun{D, P, R}, g::Fun{D, P, R}) where {D, P, R}
+function Base.:-(f::Fun{D,P,R}, g::Fun{D,P,R}) where {D,P,R}
     @assert f.topo == g.topo
-    Fun{D, P, R}(f.topo, f.values - g.values)
+    Fun{D,P,R}(f.topo, f.values - g.values)
 end
 
-function Base.:*(a::Number, f::Fun{D, P, R}) where {D, P, R}
-    Fun{D, P, R}(f.topo, a * f.values)
+function Base.:*(a::Number, f::Fun{D,P,R}) where {D,P,R}
+    Fun{D,P,R}(f.topo, a * f.values)
 end
 
-function Base.:\(a::Number, f::Fun{D, P, R}) where {D, P, R}
-    Fun{D, P, R}(f.topo, a \ f.values)
+function Base.:\(a::Number, f::Fun{D,P,R}) where {D,P,R}
+    Fun{D,P,R}(f.topo, a \ f.values)
 end
 
-function Base.:*(f::Fun{D, P, R}, a::Number) where {D, P, R}
-    Fun{D, P, R}(f.topo, f.values * a)
+function Base.:*(f::Fun{D,P,R}, a::Number) where {D,P,R}
+    Fun{D,P,R}(f.topo, f.values * a)
 end
 
-function Base.:/(f::Fun{D, P, R}, a::Number) where {D, P, R}
-    Fun{D, P, R}(f.topo, f.values / a)
+function Base.:/(f::Fun{D,P,R}, a::Number) where {D,P,R}
+    Fun{D,P,R}(f.topo, f.values / a)
 end
 
 # Functions have a pointwise product
 
-function Base.zeros(
-    ::Type{Fun{D, P, R, T}},
-    topo::Topology{D},
-) where {D, P, R, T}
-    Fun{D, P, R}(topo, zeros(T, size(R, topo)))
+function Base.zeros(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
+    Fun{D,P,R}(topo, zeros(T, size(R, topo)))
 end
 
-function Base.ones(
-    ::Type{Fun{D, P, R, T}},
-    topo::Topology{D},
-) where {D, P, R, T}
-    Fun{D, P, R}(topo, ones(T, size(R, topo)))
+function Base.ones(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
+    Fun{D,P,R}(topo, ones(T, size(R, topo)))
 end
 
 # TODO: shouldn't this be defined automatically by being a collection?
-function Base.conj(f::Fun{D, P, R}) where {D, P, R}
-    Fun{D, P, R}(f.topo, conj(f.values))
+function Base.conj(f::Fun{D,P,R}) where {D,P,R}
+    Fun{D,P,R}(f.topo, conj(f.values))
 end
 
 # Functions are a category
 
 export id
-function id(::Type{Fun{D, P, R, T}}, topo::Topology{D}) where {D, P, R, T}
-    Fun{D, P, R}(topo, [T(i) for i in 1:size(R, topo)])
+function id(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
+    Fun{D,P,R}(topo, [T(i) for i = 1:size(R, topo)])
 end
 
 # composition?

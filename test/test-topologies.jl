@@ -6,22 +6,22 @@ using Test
 
 
 
-@testset "Topology D=$D" for D in 0:Dmax
+@testset "Topology D=$D" for D = 0:Dmax
     function checkboundary2(topo::Topology{D}) where {D}
-        for R in 2:D
+        for R = 2:D
             boundary2 = dropzeros(topo.boundaries[R-1] * topo.boundaries[R])
             @test nnz(boundary2) == 0
         end
     end
 
     topo0 = Topology(Val(D))
-    for R in 0:D
+    for R = 0:D
         @test size(Val(R), topo0) == 0
     end
     checkboundary2(topo0)
 
     topo1 = Topology(Simplex(SVector{D + 1}(1:D+1)))
-    for R in 0:D
+    for R = 0:D
         @test size(R, topo1) == binomial(D + 1, R + 1)
     end
     checkboundary2(topo1)
@@ -39,14 +39,7 @@ using Test
             "Möbius strip",
             SVector{
                 D + 1,
-            }.([
-                (1, 2, 4),
-                (1, 4, 6),
-                (4, 3, 6),
-                (6, 3, 5),
-                (3, 1, 5),
-                (1, 2, 5),
-            ]),
+            }.([(1, 2, 4), (1, 4, 6), (4, 3, 6), (6, 3, 5), (3, 1, 5), (1, 2, 5)]),
         )
         @test ndims(topo2) == D
         @test size(Val(0), topo2) == 6
@@ -85,12 +78,7 @@ using Test
             "square",
             SVector{
                 D + 1,
-            }.([
-                (p00, p02, p11),
-                (p02, p22, p11),
-                (p22, p20, p11),
-                (p20, p00, p11),
-            ]),
+            }.([(p00, p02, p11), (p02, p22, p11), (p22, p20, p11), (p20, p00, p11)]),
         )
         @test ndims(topo4) == D
         checkboundary2(topo4)

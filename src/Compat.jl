@@ -6,7 +6,7 @@ using Grassmann
 
 # Ensure type stability in some methods
 # <https://github.com/chakravala/Grassmann.jl/issues/65>
-function Grassmann.:↑(ω::T) where {T <: TensorAlgebra}
+function Grassmann.:↑(ω::T) where {T<:TensorAlgebra}
     V = Manifold(ω)
     !(hasinf(V) || hasorigin(V)) && (return ω)
     G = Λ(V)
@@ -18,7 +18,7 @@ function Grassmann.:↑(ω::T) where {T <: TensorAlgebra}
         (hasinf(V) ? G.v∞ : G.v∅) * (ω2 - 1) * iω2 + 2 * iω2 * ω
     end
 end
-function Grassmann.:↓(ω::T) where {T <: TensorAlgebra}
+function Grassmann.:↓(ω::T) where {T<:TensorAlgebra}
     V = Manifold(ω)
     !(hasinf(V) || hasorigin(V)) && (return ω)
     G = Λ(V)
@@ -32,7 +32,7 @@ end
 
 # Override (aka delete) harmful methods from Grassmann
 # <https://github.com/chakravala/Grassmann.jl/issues/67>
-Base.ndims(::Vector{Chain{V, G, T, X}} where {G, T, X}) where {V} = 1
+Base.ndims(::Vector{Chain{V,G,T,X}} where {G,T,X}) where {V} = 1
 # Base.parent(::Vector{Chain{V,G,T,X}} where {G,T,X}) where V = ???
 
 # Implement a unary version of ∧

@@ -5,13 +5,13 @@ using Test
 
 
 
-@testset "Form D=$D R=$R" for D in 0:Dmax, R in 0:D
+@testset "Form D=$D R=$R" for D = 0:Dmax, R = 0:D
     # Using === instead of == for comparisons to catch wrong types
     T = Rational{Int64}
-    n = zero(Form{D, R, T})
-    x = rand(Form{D, R, T})
-    y = rand(Form{D, R, T})
-    z = rand(Form{D, R, T})
+    n = zero(Form{D,R,T})
+    x = rand(Form{D,R,T})
+    y = rand(Form{D,R,T})
+    z = rand(Form{D,R,T})
     a = rand(T)
     b = rand(T)
 
@@ -64,17 +64,17 @@ end
 
 
 
-@testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D in 1:Dmax,
-    R1 in 0:D,
-    R2 in 0:D-R1,
-    R3 in 0:D-R1-R2
+@testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D = 1:Dmax,
+    R1 = 0:D,
+    R2 = 0:D-R1,
+    R3 = 0:D-R1-R2
     # Using === instead of == for comparisons to catch wrong types
     T = Rational{Int64}
-    e = one(Form{D, 0, T})
-    x = rand(Form{D, R1, T})
-    y = rand(Form{D, R2, T})
-    y2 = rand(Form{D, R2, T})
-    z = rand(Form{D, R3, T})
+    e = one(Form{D,0,T})
+    x = rand(Form{D,R1,T})
+    y = rand(Form{D,R2,T})
+    y2 = rand(Form{D,R2,T})
+    z = rand(Form{D,R3,T})
     a = rand(T)
     b = rand(T)
 
@@ -91,7 +91,7 @@ end
     @test ⋆⋆ ⋆ ⋆x === x
 
     # exterior product: x ∧ y
-    (x ∧ y)::Form{D, R1 + R2}
+    (x ∧ y)::Form{D,R1 + R2}
 
     @test (x ∧ y) ∧ z === x ∧ (y ∧ z)
 
