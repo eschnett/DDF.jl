@@ -1,8 +1,71 @@
 using DDF
 
 using ComputedFieldTypes
+using Random
 using StaticArrays
 using Test
+
+
+
+@testset "Delaunay triangulation D=$D" for D = 1:Dmax
+    T = Float64
+
+    @testset "Orthogonal simplex" begin
+        coords = [Form{D,1}(SVector{D}(T(d + 1 == n) for d = 1:D)) for n = 1:D+1]
+        geom = delaunay("Orthogonal simplex", coords)
+
+        vol = sum(geom.volumes[D].values)
+        @test vol ≈ T(1) / factorial(D)
+    end
+
+    @testset "Regular simplex" begin
+        coords = regular_simplex(Form{D,D,T})
+        geom = delaunay("Regular simplex", coords)
+
+        vol = sum(geom.volumes[D].values)
+        @test vol ≈ sqrt(T(D + 1) / 2^D) / factorial(D)
+    end
+
+    @testset "Hypercube" begin
+        coords = fulltype(Form{D,1,T})[]
+        imin = CartesianIndex(ntuple(d -> 0, D))
+        imax = CartesianIndex(ntuple(d -> 1, D))
+        for i = imin:imax
+            push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
+        end
+        push!(coords, Form{D,1,T}(SVector{D,T}(T(1) / 2 for d = 1:D)))
+        geom = delaunay("Hypercube", coords)
+
+        vol = sum(geom.volumes[D].values)
+        @test vol ≈ 1
+    end
+
+    @testset "Hypercube with random extra points" begin
+        coords = fulltype(Form{D,1,T})[]
+        imin = CartesianIndex(ntuple(d -> 0, D))
+        imax = CartesianIndex(ntuple(d -> 1, D))
+        for i = imin:imax
+            push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
+        end
+        for R = 1:D
+            for i = 1:10
+                # Choose a random corner
+                coord = SVector{D,T}(rand(0:1, D))
+                # Choose random coordinates for R directions
+                for d in randperm(D)[1:R]
+                    coord = setindex(coord, rand(T), d)
+                end
+                push!(coords, Form{D,1,T}(coord))
+            end
+        end
+        geom = delaunay("Hypercube with random extra points", coords)
+
+        vol = sum(geom.volumes[D].values)
+        @test vol ≈ 1
+    end
+end
+
+
 
 @testset "Geometry D=$D" for D = 1:Dmax
     T = Float64
@@ -151,7 +214,9 @@ end
 
 
 
-@testset "Evaluate functions D=$D P=$P R=$R" for D = 1:Dmax, P in (Pr, Dl), R = 0:D
+@testset "Evaluate functions D=$D P=$P R=$R" for D = 1:Dmax,
+    P in (Pr, Dl),
+    R = 0:D
 
     # TODO: all R, all P
     (R == 0 && P == Pr) || continue

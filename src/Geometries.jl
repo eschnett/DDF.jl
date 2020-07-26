@@ -2,6 +2,7 @@ module Geometries
 
 using Bernstein
 using ComputedFieldTypes
+using Delaunay
 using LinearAlgebra
 using OrderedCollections
 using SimplexQuad
@@ -121,7 +122,8 @@ function Geometry(
                 vol = abs(∧(xs...))
             end
             vol /= factorial(R)
-            vol *= bitsign(s.signbit)
+            # TODO: Why not?
+            # vol *= bitsign(s.signbit)
             values[i] = vol
         end
         @assert all(>(0), values)
@@ -151,7 +153,7 @@ function Geometry(
             if j ∉ si.vertices
                 xj = coords[sj.vertices[1]]
                 d2 = abs2(xj - cc)
-                @assert d2 >= cr2
+                @assert d2 >= cr2 || d2 ≈ cr2
             end
         end
     end
@@ -267,27 +269,58 @@ function Geometry(
     return Geometry{D,T}(name, topo, coords, volumes, dualcoords, dualvolumes)
 end
 
-export bisect
-# Bisect simplex, creating a new geometry
-function bisect(geom::Geometry{D,T}) where {D,T}
-    # Special case -- no simplices
-    size(D, geom.topo) == 0 && return geom
-    # Ensure (for now) there is only one simplex
-    @assert size(D, geom.topo) == 1
-    @assert size(0, geom.topo) == D + 1
-    for R = 0:D
-        @assert size(R, geom.topo) == binomial(D + 1, R + 1)
+# export bisect
+# # Bisect simplex, creating a new geometry
+# function bisect(geom::Geometry{D,T}) where {D,T}
+#     # Special case -- no simplices
+#     size(D, geom.topo) == 0 && return geom
+#     # Ensure (for now) there is only one simplex
+#     @assert size(D, geom.topo) == 1
+#     @assert size(0, geom.topo) == D + 1
+#     for R = 0:D
+#         @assert size(R, geom.topo) == binomial(D + 1, R + 1)
+#     end
+#     # Choose new vertices
+#     num_new_vertices = size(1, geom.topo)
+#     new_vertices = size(0, geom.topo) .+ (1:num_new_vertices)
+#     new_coords = [
+#         (geom.coords.values[i] + geom.coords.values[j]) / 2
+#         for i = 1:size(0, geom.topo), j = (i+1):size(0, geom.topo)
+#     ]
+#     @warn "move part of this to Topologies?"
+#     return @error "continue here"
+# end
+
+export delaunay
+function delaunay(
+    name::String,
+    coords::AbstractVector{Form{D,1,T,X}},
+)::Geometry{D,T} where {D,T,X}
+    N = D + 1
+
+    nvertices = length(coords)
+    # Convert coordinates to 2d array, and add additional coordinate |p|^2
+    xs = Array{T}(undef, nvertices, D)
+    for i = 1:nvertices
+        for d = 1:D
+            xs[i, d] = coords[i][d]
+        end
     end
-    # Choose new vertices
-    num_new_vertices = size(1, geom.topo)
-    new_vertices = size(0, geom.topo) .+ (1:num_new_vertices)
-    new_coords = [
-        (geom.coords.values[i] + geom.coords.values[j]) / 2
-        for i = 1:size(0, geom.topo), j = (i+1):size(0, geom.topo)
-    ]
-    @warn "move part of this to Topologies?"
-    return @error "continue here"
+
+    mesh = Delaunay.delaunay(xs)
+
+    nsimplices = size(mesh.simplices, 1)
+    simplices = Array{Simplex{N,Int}}(undef, nsimplices)
+    for j = 1:nsimplices
+        simplices[j] = Simplex(SVector{N}(mesh.simplices[j, :]))
+    end
+
+    topo = Topology(name, simplices)
+    geom = Geometry(topo.name, topo, Fun{D,Pr,0}(topo, coords))
+    return geom
 end
+
+################################################################################
 
 export hodge
 
@@ -387,7 +420,7 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     S = Signature(D)
     V = SubTopology(S)
 
-    N = D + 1
+    N = N
     P = 4                       # Choice
 
     @assert R == 0              # TODO

@@ -22,7 +22,7 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[Bernstein]]
 deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "SimplexQuad", "StaticArrays", "Test"]
-git-tree-sha1 = "1fe8594ae1015888cd8952c703f3a9fd8db52998"
+git-tree-sha1 = "40ebd4aff6312f570be66f57919fd21cb70ec85e"
 repo-rev = "master"
 repo-url = "https://github.com/eschnett/Bernstein.jl"
 uuid = "e9b0fb4c-9cb7-4f61-9c14-701a41c684d7"
@@ -33,18 +33,6 @@ deps = ["Random"]
 git-tree-sha1 = "858e8265e3f16a825fad0c2bc6f2134941d8816d"
 uuid = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
 version = "0.2.3"
-
-[[CSTParser]]
-deps = ["Tokenize"]
-git-tree-sha1 = "60e9121d9ea044c30a04397e59b00c5d9eb826ee"
-uuid = "00ebfdb7-1f24-5e51-bd34-a7502290713f"
-version = "2.5.0"
-
-[[CodeTracking]]
-deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "cab4da992adc0a64f63fa30d2db2fd8bec40cab4"
-uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "0.5.11"
 
 [[Combinatorics]]
 git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
@@ -57,16 +45,16 @@ git-tree-sha1 = "c77875b634a10dee1b3701c92f993bf8dc1dee02"
 uuid = "459fdd68-db75-56b8-8c15-d717a790f88e"
 version = "0.1.0"
 
+[[Conda]]
+deps = ["JSON", "VersionParsing"]
+git-tree-sha1 = "7a58bb32ce5d85f8bf7559aa7c2842f9aecf52fc"
+uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+version = "1.4.1"
+
 [[DataAPI]]
 git-tree-sha1 = "176e23402d80e7743fc26c19c681bfb11246af32"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.3.0"
-
-[[DataStructures]]
-deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "edad9434967fdc0a2631a65d902228400642120c"
-uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.19"
 
 [[DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -77,6 +65,14 @@ version = "1.0.0"
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
+[[Delaunay]]
+deps = ["LinearAlgebra", "PyCall", "SparseArrays", "Test"]
+git-tree-sha1 = "15bba00861f9ddbe2c71e4591fbbb061667e247d"
+repo-rev = "master"
+repo-url = "https://github.com/eschnett/Delaunay.jl"
+uuid = "07eb4e4e-0c6d-46ef-bc4e-83d5e5d860a9"
+version = "1.0.0"
+
 [[DirectSum]]
 deps = ["AbstractTensors", "Combinatorics", "ComputedFieldTypes", "LinearAlgebra", "Random", "StaticArrays"]
 git-tree-sha1 = "2d862073aef458e6d435707bc5a27c33a69db88a"
@@ -86,9 +82,6 @@ version = "0.6.0"
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-
-[[FileWatching]]
-uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[GeometryBasics]]
 deps = ["IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -101,18 +94,6 @@ deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "Linear
 git-tree-sha1 = "92679877c9352cf3e94340f3a300d203d8fb2410"
 uuid = "4df31cd9-4c27-5bea-88d0-e6a7146666d8"
 version = "0.5.18"
-
-[[HTTP]]
-deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
-git-tree-sha1 = "eca61b35cdd8cd2fcc5eec1eda766424a995b02f"
-uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.8.16"
-
-[[IniFile]]
-deps = ["Test"]
-git-tree-sha1 = "098e4d2c533924c921f9f9847274f2ad89e018b8"
-uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
-version = "0.5.0"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
@@ -134,18 +115,6 @@ git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.0"
 
-[[JuliaFormatter]]
-deps = ["CSTParser", "DataStructures", "Pkg", "Test", "Tokenize"]
-git-tree-sha1 = "bc6658d1ce2c4244726255398567a9e28bac2d95"
-uuid = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
-version = "0.6.7"
-
-[[JuliaInterpreter]]
-deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "79e4496b79e8af45198f8c291f26d4514d6b06d6"
-uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.7.24"
-
 [[Leibniz]]
 deps = ["AbstractTensors", "DirectSum", "LinearAlgebra", "StaticArrays"]
 git-tree-sha1 = "631f33990730847cc570a67d4a85427326c2ebb6"
@@ -166,27 +135,15 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
-[[LoweredCodeUtils]]
-deps = ["JuliaInterpreter"]
-git-tree-sha1 = "1b632dc108106101a9909db7be8f8b32ed8d02f7"
-uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-version = "0.4.6"
+[[MacroTools]]
+deps = ["Markdown", "Random"]
+git-tree-sha1 = "f7d2e3f654af75f01ec49be82c231c382214223a"
+uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+version = "0.5.5"
 
 [[Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
-
-[[MbedTLS]]
-deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
-git-tree-sha1 = "426a6978b03a97ceb7ead77775a1da066343ec6e"
-uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "1.0.2"
-
-[[MbedTLS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "a0cb0d489819fa7ea5f9fa84c7e7eba19d8073af"
-uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.16.6+1"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
@@ -206,15 +163,15 @@ version = "1.0.7"
 deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
-[[Pluto]]
-deps = ["Base64", "Distributed", "HTTP", "InteractiveUtils", "JSON", "Markdown", "Pkg", "REPL", "Sockets", "UUIDs"]
-git-tree-sha1 = "224d63cc3b18fe106c2061ee9a86a681e3262c4c"
-uuid = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
-version = "0.11.0"
-
 [[Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[PyCall]]
+deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
+git-tree-sha1 = "3a3fdb9000d35958c9ba2323ca7c4958901f115d"
+uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+version = "1.91.4"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
@@ -235,12 +192,6 @@ deps = ["UUIDs"]
 git-tree-sha1 = "d37400976e98018ee840e0ca4f9d20baa231dc6b"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.0.1"
-
-[[Revise]]
-deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "UUIDs", "Unicode"]
-git-tree-sha1 = "0992d4643e27b2deb9f2e4ec7a56b7033813a027"
-uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "2.7.3"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -285,18 +236,13 @@ version = "1.0.0"
 
 [[Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
-git-tree-sha1 = "c45dcc27331febabc20d86cb3974ef095257dcf3"
+git-tree-sha1 = "b7f762e9820b7fab47544c36f26f54ac59cf8abf"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.0.4"
+version = "1.0.5"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[[Tokenize]]
-git-tree-sha1 = "73c00ad506d88a7e8e4f90f48a70943101728227"
-uuid = "0796e94c-ce3b-5d07-9a54-7f471281c624"
-version = "0.5.8"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]
@@ -304,3 +250,8 @@ uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [[Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[[VersionParsing]]
+git-tree-sha1 = "80229be1f670524750d905f8fc8148e5a8c4537f"
+uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
+version = "1.2.0"

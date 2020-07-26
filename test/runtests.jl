@@ -13,6 +13,10 @@ const Dmax = 5
 macro DISABLED(expr)
     quote end
 end
+# # Don't ignore a statement
+# macro DISABLED(expr)
+#     expr
+# end
 
 
 
