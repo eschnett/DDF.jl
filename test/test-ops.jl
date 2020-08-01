@@ -8,10 +8,10 @@ using Test
 
 # Dmax-1 since these tests are expensive
 @testset "Op D=$D P2=$P2 R2=$R2 P1=$P1 R1=$R1" for D = 0:Dmax-1,
-    P2 in (Pr, Dl),
-    R2 = 0:D,
-    P1 in (Pr, Dl),
-    R1 = 0:D
+P2 in (Pr, Dl),
+R2 = 0:D,
+P1 in (Pr, Dl),
+R1 = 0:D
 
     topo = Topology(Simplex(SVector{D + 1}(1:D+1)))
 

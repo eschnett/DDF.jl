@@ -14,6 +14,7 @@ Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 
 
 
+# TODO: Fun needs to have a Geometry
 export Fun
 """
 Function (aka Cochain)
@@ -22,7 +23,8 @@ struct Fun{D,P,R,T}         # <: AbstractVector{T}
     topo::Topology{D}
     values::AbstractVector{T}
 
-    function Fun{D,P,R,T}(topo::Topology{D}, values::AbstractVector{T}) where {D,P,R,T}
+    function Fun{D,P,R,T}(topo::Topology{D},
+                          values::AbstractVector{T}) where {D,P,R,T}
         D::Int
         @assert D >= 0
         P::PrimalDual
@@ -32,7 +34,8 @@ struct Fun{D,P,R,T}         # <: AbstractVector{T}
         @assert invariant(fun)
         fun
     end
-    function Fun{D,P,R}(topo::Topology{D}, values::AbstractVector{T}) where {D,P,R,T}
+    function Fun{D,P,R}(topo::Topology{D},
+                        values::AbstractVector{T}) where {D,P,R,T}
         Fun{D,P,R,T}(topo, values)
     end
 end
@@ -80,8 +83,11 @@ function Base.map(op, f::Fun{D,P,R}, gs::Fun{D,P,R}...) where {D,P,R}
 end
 
 # Random functions
-Base.rand(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T} =
-    Fun{D,P,R,T}(topo, rand(T, size(R, topo)))
+Base.rand(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T} = Fun{D,P,R,
+                                                                         T}(topo,
+                                                                                  rand(T,
+                                                                                       size(R,
+                                                                                            topo)))
 
 # Functions are an abstract vector
 
@@ -102,7 +108,8 @@ function Base.zero(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
     Fun{D,P,R}(topo, zeros(T, size(R, topo)))
 end
 
-function Defs.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D}, n::Int) where {D,P,R,T}
+function Defs.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D},
+                   n::Int) where {D,P,R,T}
     @assert 1 <= n <= size(R, topo)
     Fun{D,P,R}(topo, sparsevec([n], [one(T)]))
 end

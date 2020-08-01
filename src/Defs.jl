@@ -1,5 +1,6 @@
 module Defs
 
+using LinearAlgebra
 using SparseArrays
 using StaticArrays
 
@@ -99,12 +100,9 @@ end
 export show_sparse
 function show_sparse(io::IO, A::SparseMatrixCSC{T,I}) where {T,I}
     # Convert to CSR -- this is expensive!
-    A = sparse(A')
-    println(
-        io,
-        "$(A.n)×$(A.m) SparseMatrixCSC{$I,$T} ",
-        "with $(length(A.nzval)) stored entries:",
-    )
+    A = permutedims(A)
+    println(io, "$(A.n)×$(A.m) SparseMatrixCSC{$I,$T} ",
+            "with $(length(A.nzval)) stored entries:")
     for i = 1:A.n
         jmin = A.colptr[i]
         jmax = A.colptr[i+1] - 1

@@ -40,10 +40,8 @@ using ..Forms
 export circumcentre
 function circumcentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     # See arXiv:1103.3076v2 [cs.RA], section 10.1
-    A = SMatrix{N + 1,N + 1}(
-        i <= N && j <= N ? 2 * (xs[i]⋅xs[j])[] : i == j ? zero(T) : one(T)
-        for i = 1:N+1, j = 1:N+1
-    )
+    A = SMatrix{N + 1,N + 1}(i <= N && j <= N ? 2 * (xs[i]⋅xs[j])[] :
+                             i == j ? zero(T) : one(T) for i = 1:N+1, j = 1:N+1)
     b = SVector{N + 1}(i <= N ? (xs[i]⋅xs[i])[] : one(T) for i = 1:N+1)
     c = A \ b
     cc = sum(c[i] * xs[i] for i = 1:N)

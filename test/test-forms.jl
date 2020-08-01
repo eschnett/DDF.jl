@@ -65,9 +65,9 @@ end
 
 
 @testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D = 1:Dmax,
-    R1 = 0:D,
-    R2 = 0:D-R1,
-    R3 = 0:D-R1-R2
+R1 = 0:D,
+R2 = 0:D-R1,
+R3 = 0:D-R1-R2
     # Using === instead of == for comparisons to catch wrong types
     T = Rational{Int64}
     e = one(Form{D,0,T})

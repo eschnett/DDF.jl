@@ -21,8 +21,9 @@ end
 
 
 # Random rationals
-Base.rand(rng::AbstractRNG, ::Random.SamplerType{Rational{T}}) where {T} =
-    Rational{T}(T(rand(rng, -1000:1000)) // 1000)
+Base.rand(rng::AbstractRNG, ::Random.SamplerType{Rational{T}}) where {T} = Rational{T}(T(rand(rng,
+                                                                                              -1000:1000)) //
+                                                                                       1000)
 
 
 

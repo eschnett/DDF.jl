@@ -3,7 +3,9 @@ module Geometries
 using Bernstein
 using ComputedFieldTypes
 using Delaunay
+using Distances
 using LinearAlgebra
+using NearestNeighbors
 using OrderedCollections
 using SimplexQuad
 using SparseArrays
@@ -58,21 +60,24 @@ export Geometry
     # Dual volumes of dual top-forms are always 1 and don't need to be stored
     # dualvolumes[R = D-DR]
     dualvolumes::Dict{Int,Fun{D,Dl,R,T} where R}
+    # Nearest neighbour tree for simplex vertices
+    simplex_tree::KDTree{SVector{D,Float64},Euclidean,T}
+    # TODO: dualsimplex_tree
 
-    function Geometry{D,T}(
-        name::String,
-        topo::Topology{D},
-        coords::Fun{D,Pr,0,<:Form{D,1,T}},
-        volumes::Dict{Int,Fun{D,Pr,R,T} where R},
-        dualcoords::Fun{D,Dl,D,<:Form{D,1,T}},
-        dualvolumes::Dict{Int,Fun{D,Dl,R,T} where R},
-    ) where {D,T}
+    function Geometry{D,T}(name::String, topo::Topology{D},
+                           coords::Fun{D,Pr,0,<:Form{D,1,T}},
+                           volumes::Dict{Int,Fun{D,Pr,R,T} where R},
+                           dualcoords::Fun{D,Dl,D,<:Form{D,1,T}},
+                           dualvolumes::Dict{Int,Fun{D,Dl,R,T} where R},
+                           simplex_tree::KDTree{SVector{D,Float64},Euclidean,T}) where {D,
+                                                                                        T}
         D::Int
         T::Type
         @assert D >= 0
         @assert isempty(symdiff(keys(volumes), 0:D))
         @assert isempty(symdiff(keys(dualvolumes), 0:D))
-        geom = new(name, topo, coords, volumes, dualcoords, dualvolumes)
+        geom = new(name, topo, coords, volumes, dualcoords, dualvolumes,
+                   simplex_tree)
         @assert invariant(geom)
         return geom
     end
@@ -101,11 +106,8 @@ function Defs.invariant(geom::Geometry{D})::Bool where {D}
     return true
 end
 
-function Geometry(
-    name::String,
-    topo::Topology{D},
-    coords::Fun{D,Pr,0,<:Form{D,1,T}},
-) where {D,T}
+function Geometry(name::String, topo::Topology{D},
+                  coords::Fun{D,Pr,0,<:Form{D,1,T}}) where {D,T}
     D::Int
     T::Type
 
@@ -266,7 +268,10 @@ function Geometry(
     #     dualvolumes[R] = vols
     # end
 
-    return Geometry{D,T}(name, topo, coords, volumes, dualcoords, dualvolumes)
+    simplex_tree = KDTree(map(x -> convert(SVector, x), coords.values))
+
+    return Geometry{D,T}(name, topo, coords, volumes, dualcoords, dualvolumes,
+                         simplex_tree)
 end
 
 # export bisect
@@ -292,10 +297,11 @@ end
 # end
 
 export delaunay
-function delaunay(
-    name::String,
-    coords::AbstractVector{Form{D,1,T,X}},
-)::Geometry{D,T} where {D,T,X}
+function delaunay(name::String,
+                  coords::AbstractVector{Form{D,1,T,X}})::Geometry{D,
+                                                                   T} where {D,
+                                                                             T,
+                                                                             X}
     N = D + 1
 
     nvertices = length(coords)
@@ -335,10 +341,9 @@ function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     @assert length(vol) == size(R, geom.topo)
     @assert length(dualvol) == size(R, geom.topo)
 
-    return Op{D,Dl,R,Pr,R}(
-        geom.topo,
-        Diagonal(T[dualvol[i] / vol[i] for i = 1:size(R, geom.topo)]),
-    )
+    return Op{D,Dl,R,Pr,R}(geom.topo,
+                           Diagonal(T[dualvol[i] / vol[i]
+                                      for i = 1:size(R, geom.topo)]))
 end
 function hodge(::Val{Dl}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     # return inv(hodge(Val(Pr), Val(R), geom))
@@ -355,10 +360,9 @@ function coderiv(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     D::Int
     T::Type
     @assert 0 < R <= D
-    op =
-        hodge(Val(Dl), Val(R - 1), geom) *
-        deriv(Val(Dl), Val(R), geom.topo) *
-        hodge(Val(Pr), Val(R), geom)
+    op = hodge(Val(Dl), Val(R - 1), geom) *
+         deriv(Val(Dl), Val(R), geom.topo) *
+         hodge(Val(Pr), Val(R), geom)
     return op::Op{D,Pr,R - 1,Pr,R,T}
 end
 
@@ -369,10 +373,12 @@ function laplace(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     @assert 0 <= R <= D
     op = zero(Op{D,Pr,R,Pr,R,T}, geom.topo)
     if R > 0
-        op += deriv(Val(Pr), Val(R - 1), geom.topo) * coderiv(Val(Pr), Val(R), geom)
+        op += deriv(Val(Pr), Val(R - 1), geom.topo) *
+              coderiv(Val(Pr), Val(R), geom)
     end
     if R < D
-        op += coderiv(Val(Pr), Val(R + 1), geom) * deriv(Val(Pr), Val(R), geom.topo)
+        op += coderiv(Val(Pr), Val(R + 1), geom) *
+              deriv(Val(Pr), Val(R), geom.topo)
     end
     return op::Op{D,Pr,R,Pr,R,T}
 end
@@ -392,13 +398,9 @@ function coordinates(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     @assert D >= 0
     R::Int
     @assert 0 <= R <= D
-    return Fun{D,Pr,R}(
-        geom.topo,
-        map(
-            si -> sum(geom.coords.values[si.vertices]) / length(si.vertices),
-            geom.topo.simplices[R],
-        ),
-    )
+    return Fun{D,Pr,R}(geom.topo,
+                       map(si -> sum(geom.coords.values[si.vertices]) /
+                                 length(si.vertices), geom.topo.simplices[R]))
 end
 
 export sample
@@ -437,8 +439,8 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
         for (j, sj) in enumerate(topo.simplices[D])
             if j ≠ i && si.vertex[1] ∉ si.vertices
                 ss = geom.coords.values[sj.vertices]
-                s = SMatrix{D,N}(ss[n][a] for a = 1:D, n = 1:N)
-                X, W = simplexquad(P, collect(s)')
+                s = SMatrix{N,D}(ss[n][a] for n = 1:N, a = 1:D)
+                X, W = simplexquad(P, collect(s))
 
                 setup = cartesian2barycentric_setup(s)
                 n = findfirst(j, si.vertices)
@@ -452,8 +454,10 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     return Fun{D,Pr,R}(geom.topo, values)
 end
 
+# TODO: evaluate many points simultaneously
 export evaluate
-function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U}, x::Form{D,1,T}) where {D,R,T,V,U}
+function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
+                  x::Form{D,1,T}) where {D,R,T,U}
     D::Int
     @assert D >= 0
     R::Int
@@ -462,31 +466,59 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U}, x::Form{D,1,T}) where {
 
     coords = coordinates(Val(Pr), Val(R), geom)
 
-    nvals = 0
-    val = zero(U)
-    # Loop over all vertices
-    # TODO: Use <https://github.com/KristofferC/NearestNeighbors.jl>
-    # TODO: Generalize this
-    @assert R == 0
-    for (i, si) in enumerate(geom.topo.simplices[D])
-        xs = coords.values[si.vertices]
-        xsm = SMatrix{D,D + 1}(xs[n][a] for a = 1:D, n = 1:D+1)
-        # setup = cartesian2barycentric_setup(xsm)
-        λ = cartesian2barycentric(xsm, convert(SVector, x))
-        delta = sqrt(eps(T))
+    # nvals = 0
+    # val = zero(U)
+    # # Loop over all simplices
+    # # TODO: Use <https://github.com/KristofferC/NearestNeighbors.jl>
+    # # TODO: Generalize this
+    # @assert R == 0
+    # for (i, si) in enumerate(geom.topo.simplices[D])
+    #     xs = coords.values[si.vertices]
+    #     xsm = SMatrix{D,D + 1}(xs[n][a] for a = 1:D, n = 1:D+1)
+    #     # setup = cartesian2barycentric_setup(xsm)
+    #     λ = cartesian2barycentric(xsm, convert(SVector, x))
+    #     delta = sqrt(eps(T))
+    #     if all(λi -> -delta <= λi <= 1 + delta, λ)
+    #         # point is inside simplex
+    #         fs = f.values[si.vertices]
+    #         for n = 1:D+1
+    #             val += fs[n] * basis_λ(n, λ)
+    #         end
+    #         nvals += 1
+    #     end
+    # end
+    # # @assert nvals == 1    # there should be exactly one containing simplex
+    # # return val
+    # @assert nvals > 0
+    # return val / nvals
+
+    # Find nearest vertex
+    i, dist = nn(geom.simplex_tree, convert(SVector, x))
+    # Search all neighbouring simplices to find containing simplex
+    lookup = geom.topo.lookup[D]
+    rows = rowvals(lookup)
+    for j0 in nzrange(lookup, i)
+        j = rows[j0]
+        sj = geom.topo.simplices[D][j]
+
+        # Coordinates of simplex vertices
+        xs = map(x -> convert(SVector, x), coords.values[sj.vertices])
+        xs::SVector{D + 1,SVector{D,T}}
+        # setup = cartesian2barycentric_setup(xs)
+
+        # Calculate barycentric coordinates
+        λ = cartesian2barycentric(xs, convert(SVector, x))
+        delta = T(0)            # sqrt(eps(T))
         if all(λi -> -delta <= λi <= 1 + delta, λ)
-            # point is inside simplex
-            fs = f.values[si.vertices]
-            for n = 1:D+1
-                val += fs[n] * basis_λ(n, λ)
-            end
-            nvals += 1
+            # Function values
+            fs = f.values[sj.vertices]
+            # Linear interpolation
+            # TODO: Use Bernstein polynomials instead
+            val = sum(fs[n] * basis_λ(n, λ) for n = 1:D+1)
+            return val
         end
     end
-    # @assert nvals == 1    # there should be exactly one containing simplex
-    # return val
-    @assert nvals > 0
-    return val / nvals
+    @assert false
 end
 
 @fastmath function basis_x(setup, n::Int, x::SVector{D,T}) where {D,T}
@@ -503,12 +535,8 @@ end
     return λ[n]
 end
 
-@fastmath function integrate_x(
-    f::F,
-    ::Val{D},
-    X::AbstractMatrix,
-    W::AbstractVector,
-) where {F,D,T}
+@fastmath function integrate_x(f::F, ::Val{D}, X::AbstractMatrix,
+                               W::AbstractVector) where {F,D,T}
     D::Int
     @assert D >= 0
     @assert size(X, 2) == D

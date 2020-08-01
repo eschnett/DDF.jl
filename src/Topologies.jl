@@ -7,16 +7,19 @@ using StaticArrays
 
 using ..Defs
 
-# TODO: do we really need this type? it only makes sense if the sign
+# TODO: Do we really need this type? it only makes sense if the sign
 # bit is used often. check this, after the algorithms work correctly.
 # add golden tests for derivatives on topologies (simplex, hypercube,
 # surface of simplex/hypercube, etc.)
+# TODO: Use GeometryBasics.Ngon instead? Use GeometryBasics.Point
+# instead of SVector / Form?
 export Simplex
 struct Simplex{N,T}
     vertices::SVector{N,T}
     signbit::Bool
 
-    function Simplex{N,T}(vertices::SVector{N,T}, signbit::Bool = false) where {N,T}
+    function Simplex{N,T}(vertices::SVector{N,T},
+                          signbit::Bool = false) where {N,T}
         N::Int
         T::Type
         v, s = sort_perm(vertices)
@@ -67,30 +70,29 @@ struct Topology{D}
     # don't need to be stored
     # simplices[R]::Vector{Simplex{R+1, Int}}
     simplices::Dict{Int,Simplices}
+    # map from vertices to containing simplices
+    lookup::Dict{Int,SparseMatrixCSC{Nothing,Int}}
     # The boundary ∂ of 0-forms vanishes and is not stored
     boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}
 
-    function Topology{D}(
-        name::String,
-        nvertices::Int,
-        simplices::Dict{Int,Simplices},
-        boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}},
-    ) where {D}
+    function Topology{D}(name::String, nvertices::Int,
+                         simplices::Dict{Int,Simplices},
+                         lookup::Dict{Int,SparseMatrixCSC{Nothing,Int}},
+                         boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}) where {D}
         D::Int
         @assert D >= 0
         @assert isempty(symdiff(keys(simplices), 0:D))
+        @assert isempty(symdiff(keys(lookup), 1:D))
         @assert isempty(symdiff(keys(boundaries), 1:D))
-        topo = new{D}(name, nvertices, simplices, boundaries)
+        topo = new{D}(name, nvertices, simplices, lookup, boundaries)
         @assert invariant(topo)
         return topo
     end
-    function Topology(
-        name::String,
-        nvertices::Int,
-        simplices::Dict{Int,Simplices},
-        boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}},
-    ) where {D}
-        return Topology{D}(name, nvertices, simplices, boundaries)
+    function Topology(name::String, nvertices::Int,
+                      simplices::Dict{Int,Simplices},
+                      lookup::Dict{Int,SparseMatrixCSC{Nothing,Int}},
+                      boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}) where {D}
+        return Topology{D}(name, nvertices, simplices, lookup, boundaries)
     end
 end
 # TODO: Implement also the "cube complex" representation
@@ -134,6 +136,22 @@ function Defs.invariant(topo::Topology{D})::Bool where {D}
     end
 
     for R = 1:D
+        lookup = topo.lookup[R]
+        size(lookup) == (size(R, topo), size(0, topo)) ||
+            (@assert false; return false)
+        simplices = topo.simplices[R]
+        nnz(lookup) == (R + 1) * length(simplices) ||
+            (@assert false; return false)
+        rows = rowvals(lookup)
+        for i = 1:size(lookup, 2)
+            for j0 in nzrange(lookup, i)
+                j = rows[j0]
+                i in simplices[j].vertices || (@assert false; return false)
+            end
+        end
+    end
+
+    for R = 1:D
         boundaries = topo.boundaries[R]
         size(boundaries) == (size(R - 1, topo), size(R, topo)) ||
             (@assert false; return false)
@@ -159,10 +177,8 @@ end
 
 # Constructors
 
-function Topology(
-    name::String,
-    simplices::Vector{Simplex{N,Int}},
-)::Topology{N - 1} where {N}
+function Topology(name::String,
+                  simplices::Vector{Simplex{N,Int}})::Topology{N - 1} where {N}
     D = N - 1
     # # Ensure simplex vertices are sorted
     # for s in simplices
@@ -194,12 +210,9 @@ function Topology(
     sort!(simplices)
     unique!(simplices)
     if D == 0
-        return Topology{D}(
-            name,
-            nvertices,
-            Dict{Int,Simplices}(0 => simplices),
-            Dict{Int,SparseMatrixCSC{Int8,Int}}(),
-        )
+        return Topology{D}(name, nvertices, Dict{Int,Simplices}(0 => simplices),
+                           Dict{Int,SparseMatrixCSC{Nothing,Int}}(),
+                           Dict{Int,SparseMatrixCSC{Int8,Int}}())
     end
 
     # Calculate lower-dimensional simplices
@@ -222,6 +235,18 @@ function Topology(
     unique!(faces)
     topo1 = Topology(name, faces)
 
+    I = Int[]
+    J = Int[]
+    V = Nothing[]
+    for (i, si) in enumerate(simplices)
+        for j in si.vertices
+            push!(I, i)
+            push!(J, j)
+            push!(V, nothing)
+        end
+    end
+    lookup = sparse(I, J, V)
+
     sort!(boundaries1)
     @assert allunique(boundaries1)
     I = Int[]
@@ -242,14 +267,14 @@ function Topology(
     boundaries = sparse(I, J, V)
 
     topo1.simplices[D] = simplices
+    topo1.lookup[D] = lookup
     topo1.boundaries[D] = boundaries
-    return Topology{D}(name, nvertices, topo1.simplices, topo1.boundaries)
+    return Topology{D}(name, nvertices, topo1.simplices, topo1.lookup,
+                       topo1.boundaries)
 end
 
-function Topology(
-    name::String,
-    simplices::Vector{SVector{N,Int}},
-)::Topology{N - 1} where {N}
+function Topology(name::String,
+                  simplices::Vector{SVector{N,Int}})::Topology{N - 1} where {N}
     return Topology(name, [Simplex{N,Int}(s) for s in simplices])
 end
 
@@ -266,11 +291,9 @@ function corner2vertex(c::SVector{D,Bool})::Int where {D}
     return 1 + sum(c[d] << (d - 1) for d = 1:D)
 end
 
-function next_corner!(
-    simplices::Vector{Simplex{N,Int}},
-    vertices::SVector{M,Int},
-    corner::SVector{D,Bool},
-)::Nothing where {N,D,M}
+function next_corner!(simplices::Vector{Simplex{N,Int}},
+                      vertices::SVector{M,Int},
+                      corner::SVector{D,Bool})::Nothing where {N,D,M}
     @assert N == D + 1
     if D == 0
         @assert M == 1
