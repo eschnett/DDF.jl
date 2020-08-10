@@ -179,9 +179,9 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [[SimplexQuad]]
 deps = ["LinearAlgebra", "Test"]
-git-tree-sha1 = "f85edd156be540e4883b9b67fa70f954d0070dc4"
+git-tree-sha1 = "388cbe3a2afb2cb278ff6e022f54c1ba3ecd1036"
 uuid = "f5de1e94-2f77-472d-8c3b-9d09f580ee5e"
-version = "1.0.0"
+version = "1.0.1"
 
 [[Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
