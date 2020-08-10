@@ -5,11 +5,9 @@ using Random
 using StaticArrays
 using Test
 
-
-
 const geometries = Dict{Int,Dict{String,Geometry}}()
 
-@testset "Delaunay triangulation D=$D" for D = 1:Dmax
+@testset "Delaunay triangulation D=$D" for D in 1:Dmax
     T = Float64
 
     geometries[D] = Dict{String,Geometry}()
@@ -24,8 +22,8 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
     end
 
     @testset "Orthogonal simplex" begin
-        coords = [Form{D,1}(SVector{D}(T(d + 1 == n) for d = 1:D))
-                  for n = 1:D+1]
+        coords = [Form{D,1}(SVector{D}(T(d + 1 == n) for d in 1:D))
+                  for n in 1:(D + 1)]
         geom = delaunay("Orthogonal simplex", coords)
         geometries[D]["orthogonal simplex"] = geom
 
@@ -47,7 +45,8 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
         topo = hypercube_manifold(Val(D))
         xs = Fun{D,Pr,0}(topo,
                          [Form{D,1}(SVector{D}(T((n - 1) & (1 << (d - 1)) != 0)
-                                               for d = 1:D)) for n = 1:1<<D])
+                                               for d in 1:D))
+                          for n in 1:(1 << D)])
         geom = Geometry(topo.name, topo, xs)
         geometries[D]["standard hypercube"] = geom
 
@@ -59,10 +58,10 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
         coords = fulltype(Form{D,1,T})[]
         imin = CartesianIndex(ntuple(d -> 0, D))
         imax = CartesianIndex(ntuple(d -> 1, D))
-        for i = imin:imax
+        for i in imin:imax
             push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
         end
-        push!(coords, Form{D,1,T}(SVector{D,T}(T(1) / 2 for d = 1:D)))
+        push!(coords, Form{D,1,T}(SVector{D,T}(T(1) / 2 for d in 1:D)))
         geom = delaunay("Delaunay Hypercube", coords)
         geometries[D]["delaunay hypercube"] = geom
 
@@ -74,11 +73,11 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
         coords = fulltype(Form{D,1,T})[]
         imin = CartesianIndex(ntuple(d -> 0, D))
         imax = CartesianIndex(ntuple(d -> 1, D))
-        for i = imin:imax
+        for i in imin:imax
             push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
         end
-        for R = 1:D
-            for i = 1:10
+        for R in 1:D
+            for i in 1:10
                 # Choose a random corner
                 coord = SVector{D,T}(rand(0:1, D))
                 # Choose random coordinates for R directions
@@ -96,15 +95,13 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
     end
 end
 
-
-
-@testset "Geometry D=$D" for D = 1:Dmax
+@testset "Geometry D=$D" for D in 1:Dmax
     T = Float64
 
     @testset "Empty topology" begin
         geom = geometries[D]["empty topology"]
 
-        for R = 0:D
+        for R in 0:D
             @test length(geom.volumes[R].values) == 0
         end
     end
@@ -112,7 +109,7 @@ end
     @testset "Orthogonal simplex" begin
         geom = geometries[D]["orthogonal simplex"]
 
-        for R = 0:D
+        for R in 0:D
             @test length(geom.volumes[R].values) == binomial(D + 1, R + 1)
         end
         @test geom.volumes[D].values[1] ≈ one(T) / factorial(D)
@@ -121,7 +118,7 @@ end
     @testset "Regular simplex" begin
         geom = geometries[D]["regular simplex"]
 
-        for R = 0:D
+        for R in 0:D
             @test length(geom.volumes[R].values) == binomial(D + 1, R + 1)
         end
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
@@ -149,9 +146,7 @@ end
     end
 end
 
-
-
-@testset "Geometry ops D=$D P=$P R=$R" for D = 1:Dmax, P in (Pr, Dl), R = 0:D
+@testset "Geometry ops D=$D P=$P R=$R" for D in 1:Dmax, P in (Pr, Dl), R in 0:D
     T = Float64
 
     @testset "$(geom.name)" for (geom_name, geom) in geometries[D]
@@ -160,7 +155,7 @@ end
         fid = id(Fun{D,P,R,T}, geom.topo)
         funs = [f0, f1, fid]
         if R == 0 && P == Pr
-            for d = 1:D
+            for d in 1:D
                 if geom.topo.nvertices == 0
                     # Cannot deduce element type
                     xs = T[]
@@ -205,11 +200,9 @@ end
     end
 end
 
-
-
-@testset "Evaluate functions D=$D P=$P R=$R" for D = 1:Dmax,
+@testset "Evaluate functions D=$D P=$P R=$R" for D in 1:Dmax,
 P in (Pr, Dl),
-R = 0:D
+R in 0:D
 
     # TODO: all R, all P
     (R == 0 && P == Pr) || continue
@@ -227,7 +220,7 @@ R = 0:D
 
             # Interpolating at nodes must give nodal values
             if R == 0 && P == Pr
-                for n = 1:geom.topo.nvertices
+                for n in 1:(geom.topo.nvertices)
                     x = geom.coords.values[n]
                     if !(abs(evaluate(geom, f, x) - f.values[n]) + 1 ≈ 1)
                         @show D P R geom_name fi n
@@ -254,6 +247,9 @@ R = 0:D
             end
         end
     end
+end
+
+@testset "Discretize a function D=$D P=$P R=$R" for D in 1:Dmax
 end
 
 # @testset "Derivative is functorial D=$D R=$R" for D in 1:Dmax, R in 0:D-1

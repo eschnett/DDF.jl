@@ -67,7 +67,7 @@ frank(::F) where {F<:Form} = frank(F)
 
 function Base.show(io::IO, x::Form)
     print(io, "{$(fdim(x)),$(frank(x))}[")
-    for a = 1:length(x)
+    for a in 1:length(x)
         a != 1 && print(io, ",")
         print(io, x.vec[a])
     end
@@ -99,12 +99,12 @@ end
 # Element access
 function _getindex(x::Form{D,R}, is::SVector{R,Int}) where {D,R}
     js, s = sort_perm(is)
-    for r = 2:R
-        js[r] == js[r-1] && return zero(T)
+    for r in 2:R
+        js[r] == js[r - 1] && return zero(T)
     end
 
     B = Λ(Signature(D))
-    r = (x.vec⋅(isempty(is) ? B.v : B.v(is...))).v[1]
+    r = (x.vec ⋅ (isempty(is) ? B.v : B.v(is...))).v[1]
     return isodd(s) ? -r : r
 end
 @inline function _getindex(x::Form{D,R}, is::SVector{R}) where {D,R}

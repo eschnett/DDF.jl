@@ -4,31 +4,29 @@ using SparseArrays
 using StaticArrays
 using Test
 
-
-
-@testset "Topology D=$D" for D = 0:Dmax
+@testset "Topology D=$D" for D in 0:Dmax
     function checkboundary2(topo::Topology{D}) where {D}
-        for R = 2:D
-            boundary2 = dropzeros(topo.boundaries[R-1] * topo.boundaries[R])
+        return for R in 2:D
+            boundary2 = dropzeros(topo.boundaries[R - 1] * topo.boundaries[R])
             @test nnz(boundary2) == 0
         end
     end
 
     topo0 = Topology(Val(D))
-    for R = 0:D
+    for R in 0:D
         @test size(Val(R), topo0) == 0
     end
     checkboundary2(topo0)
 
-    topo1 = Topology(Simplex(SVector{D + 1}(1:D+1)))
-    for R = 0:D
+    topo1 = Topology(Simplex(SVector{D + 1}(1:(D + 1))))
+    for R in 0:D
         @test size(R, topo1) == binomial(D + 1, R + 1)
     end
     checkboundary2(topo1)
 
     if D > 1
         # boundary of the simplex
-        topo2 = Topology("simpliex boundary", topo1.simplices[D-1])
+        topo2 = Topology("simpliex boundary", topo1.simplices[D - 1])
         @test ndims(topo2) == D - 1
         checkboundary2(topo2)
     end
@@ -119,7 +117,7 @@ using Test
     # if D > 0
     if D > 1
         # "boundary" of the hypercube (this is not a manifold)
-        topo7 = Topology("D=$D hypercube boundary", topo6.simplices[D-1])
+        topo7 = Topology("D=$D hypercube boundary", topo6.simplices[D - 1])
         @test ndims(topo7) == D - 1
         checkboundary2(topo7)
     end

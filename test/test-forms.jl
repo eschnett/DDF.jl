@@ -2,10 +2,7 @@ using DDF
 
 using Test
 
-
-
-
-@testset "Form D=$D R=$R" for D = 0:Dmax, R = 0:D
+@testset "Form D=$D R=$R" for D in 0:Dmax, R in 0:D
     # Using === instead of == for comparisons to catch wrong types
     T = Rational{Int64}
     n = zero(Form{D,R,T})
@@ -62,12 +59,10 @@ using Test
     @test map(+, x, y, z) === x + y + z
 end
 
-
-
-@testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D = 1:Dmax,
-R1 = 0:D,
-R2 = 0:D-R1,
-R3 = 0:D-R1-R2
+@testset "Form D=$D R1=$R1 R2=$R2 R3=$R3" for D in 1:Dmax,
+R1 in 0:D,
+R2 in 0:(D - R1),
+R3 in 0:(D - R1 - R2)
     # Using === instead of == for comparisons to catch wrong types
     T = Rational{Int64}
     e = one(Form{D,0,T})
@@ -121,8 +116,6 @@ R3 = 0:D-R1-R2
     # cross product: x × y = ⋆(x ∧ y)
     @test x × y === ⋆(x ∧ y)
 end
-
-
 
 # @testset "Homogenous Geometric Algebra D=$D" for D in 1:Dmax
 #     S = Signature(D)

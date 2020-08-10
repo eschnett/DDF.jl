@@ -108,7 +108,7 @@ function Base.show(io::IO, topo::Topology{D}) where {D}
     for (d, bs) in sort!(OrderedDict(topo.boundaries))
         print(io, "    boundaries[$d]=$bs")
     end
-    print(io, ")")
+    return print(io, ")")
 end
 
 function Defs.invariant(topo::Topology{D})::Bool where {D}
@@ -119,23 +119,23 @@ function Defs.invariant(topo::Topology{D})::Bool where {D}
     isempty(symdiff(keys(topo.simplices), 0:D)) || (@assert false; return false)
     length(topo.simplices[0]) == topo.nvertices || (@assert false; return false)
 
-    for R = 0:D
+    for R in 0:D
         simplices = topo.simplices[R]
-        for i = 1:length(simplices)
+        for i in 1:length(simplices)
             s = simplices[i]
-            for d = 1:(R+1)
+            for d in 1:(R + 1)
                 1 <= s[d] <= topo.nvertices || (@assert false; return false)
             end
-            for d = 2:(R+1)
-                s[d] > s[d-1] || (@assert false; return false)
+            for d in 2:(R + 1)
+                s[d] > s[d - 1] || (@assert false; return false)
             end
             if i > 1
-                s > simplices[i-1] || (@assert false; return false)
+                s > simplices[i - 1] || (@assert false; return false)
             end
         end
     end
 
-    for R = 1:D
+    for R in 1:D
         lookup = topo.lookup[R]
         size(lookup) == (size(R, topo), size(0, topo)) ||
             (@assert false; return false)
@@ -143,7 +143,7 @@ function Defs.invariant(topo::Topology{D})::Bool where {D}
         nnz(lookup) == (R + 1) * length(simplices) ||
             (@assert false; return false)
         rows = rowvals(lookup)
-        for i = 1:size(lookup, 2)
+        for i in 1:size(lookup, 2)
             for j0 in nzrange(lookup, i)
                 j = rows[j0]
                 i in simplices[j].vertices || (@assert false; return false)
@@ -151,7 +151,7 @@ function Defs.invariant(topo::Topology{D})::Bool where {D}
         end
     end
 
-    for R = 1:D
+    for R in 1:D
         boundaries = topo.boundaries[R]
         size(boundaries) == (size(R - 1, topo), size(R, topo)) ||
             (@assert false; return false)
@@ -193,7 +193,7 @@ function Topology(name::String,
     # Count vertices
     nvertices = 0
     for s in simplices
-        for a = 1:N
+        for a in 1:N
             nvertices = max(nvertices, s[a])
         end
     end
@@ -220,9 +220,9 @@ function Topology(name::String,
     faces = Simplex{N - 1,Int}[]
     boundaries1 = Tuple{Simplex{N - 1},Int}[]
     for (i, s) in enumerate(simplices)
-        for a = 1:N
+        for a in 1:N
             # Leave out vertex a
-            v1 = SVector{N - 1}(ntuple(b -> s[b+(b>=a)], N - 1))
+            v1 = SVector{N - 1}(ntuple(b -> s[b + (b >= a)], N - 1))
             s1 = xor(s.signbit, isodd(a - 1))
             face = Simplex{N - 1,Int}(v1)
             # face = Simplex{N-1, Int}(face.vertices, false)
@@ -288,7 +288,7 @@ end
 
 function corner2vertex(c::SVector{D,Bool})::Int where {D}
     D == 0 && return 1
-    return 1 + sum(c[d] << (d - 1) for d = 1:D)
+    return 1 + sum(c[d] << (d - 1) for d in 1:D)
 end
 
 function next_corner!(simplices::Vector{Simplex{N,Int}},
@@ -298,7 +298,7 @@ function next_corner!(simplices::Vector{Simplex{N,Int}},
     if D == 0
         @assert M == 1
     else
-        @assert sum(Int(corner[d]) for d = 1:D) == M - 1
+        @assert sum(Int(corner[d]) for d in 1:D) == M - 1
     end
     if M == D + 1
         # We have all vertices; build the simplex
@@ -306,7 +306,7 @@ function next_corner!(simplices::Vector{Simplex{N,Int}},
         return
     end
     # Loop over all neighbouring corners
-    for d = 1:D
+    for d in 1:D
         if !corner[d]
             new_corner = setindex(corner, true, d)
             new_vertex = corner2vertex(new_corner)

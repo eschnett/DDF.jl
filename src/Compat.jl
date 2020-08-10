@@ -2,8 +2,6 @@ module Compat
 
 using Grassmann
 
-
-
 # Ensure type stability in some methods
 # <https://github.com/chakravala/Grassmann.jl/issues/65>
 function Grassmann.:↑(ω::T) where {T<:TensorAlgebra}

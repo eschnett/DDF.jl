@@ -5,16 +5,13 @@ using SparseArrays
 using ..Defs
 using ..Topologies
 
-
-
 export PrimalDual, Pr, Dl
 @enum PrimalDual::Bool Pr Dl
 
 Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 
-
-
 # TODO: Fun needs to have a Geometry
+# TODO: Field is without Geometry, Fun with with Geometry?
 export Fun
 """
 Function (aka Cochain)
@@ -32,11 +29,11 @@ struct Fun{D,P,R,T}         # <: AbstractVector{T}
         @assert 0 <= R <= D
         fun = new{D,P,R,T}(topo, values)
         @assert invariant(fun)
-        fun
+        return fun
     end
     function Fun{D,P,R}(topo::Topology{D},
                         values::AbstractVector{T}) where {D,P,R,T}
-        Fun{D,P,R,T}(topo, values)
+        return Fun{D,P,R,T}(topo, values)
     end
 end
 
@@ -45,7 +42,7 @@ function Base.show(io::IO, fun::Fun{D,P,R,T}) where {D,P,R,T}
     println(io, "Fun{$D,$P,$R,$T}(")
     println(io, "    topo=$(fun.topo.name)")
     println(io, "    values=$(fun.values)")
-    print(io, ")")
+    return print(io, ")")
 end
 
 function Defs.invariant(fun::Fun{D,P,R,T})::Bool where {D,P,R,T}
@@ -62,7 +59,7 @@ end
 
 function Base.:(==)(f::F, g::F) where {F<:Fun}
     @assert f.topo == g.topo
-    f.values == g.values
+    return f.values == g.values
 end
 
 # Functions are a collection
@@ -76,18 +73,16 @@ Base.eltype(f::Fun) = eltype(f.values)
 
 function Base.map(op, f::Fun{D,P,R}, gs::Fun{D,P,R}...) where {D,P,R}
     @assert all(f.topo == g.topo for g in gs)
-    Fun{D,P,R}(f.topo, map(op, f.values, (g.values for g in gs)...))
+    return Fun{D,P,R}(f.topo, map(op, f.values, (g.values for g in gs)...))
     # r1 = map(op, f.values[1], (g.values[1] for g in gs)...))
     # T = typeof(r1)
     # Fun{D, P, R, T}(f.topo, map(op, f.values, (g.values for g in gs)...))
 end
 
 # Random functions
-Base.rand(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T} = Fun{D,P,R,
-                                                                         T}(topo,
-                                                                                  rand(T,
-                                                                                       size(R,
-                                                                                            topo)))
+function Base.rand(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
+    return Fun{D,P,R,T}(topo, rand(T, size(R, topo)))
+end
 
 # Functions are an abstract vector
 
@@ -105,69 +100,69 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 # Functions are a vector space
 
 function Base.zero(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    Fun{D,P,R}(topo, zeros(T, size(R, topo)))
+    return Fun{D,P,R}(topo, zeros(T, size(R, topo)))
 end
 
 function Defs.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D},
                    n::Int) where {D,P,R,T}
     @assert 1 <= n <= size(R, topo)
-    Fun{D,P,R}(topo, sparsevec([n], [one(T)]))
+    return Fun{D,P,R}(topo, sparsevec([n], [one(T)]))
 end
 
 function Base.:+(f::Fun{D,P,R}) where {D,P,R}
-    Fun{D,P,R}(f.topo, +f.values)
+    return Fun{D,P,R}(f.topo, +f.values)
 end
 
 function Base.:-(f::Fun{D,P,R}) where {D,P,R}
-    Fun{D,P,R}(f.topo, -f.values)
+    return Fun{D,P,R}(f.topo, -f.values)
 end
 
 function Base.:+(f::Fun{D,P,R}, g::Fun{D,P,R}) where {D,P,R}
     @assert f.topo == g.topo
-    Fun{D,P,R}(f.topo, f.values + g.values)
+    return Fun{D,P,R}(f.topo, f.values + g.values)
 end
 
 function Base.:-(f::Fun{D,P,R}, g::Fun{D,P,R}) where {D,P,R}
     @assert f.topo == g.topo
-    Fun{D,P,R}(f.topo, f.values - g.values)
+    return Fun{D,P,R}(f.topo, f.values - g.values)
 end
 
 function Base.:*(a::Number, f::Fun{D,P,R}) where {D,P,R}
-    Fun{D,P,R}(f.topo, a * f.values)
+    return Fun{D,P,R}(f.topo, a * f.values)
 end
 
 function Base.:\(a::Number, f::Fun{D,P,R}) where {D,P,R}
-    Fun{D,P,R}(f.topo, a \ f.values)
+    return Fun{D,P,R}(f.topo, a \ f.values)
 end
 
 function Base.:*(f::Fun{D,P,R}, a::Number) where {D,P,R}
-    Fun{D,P,R}(f.topo, f.values * a)
+    return Fun{D,P,R}(f.topo, f.values * a)
 end
 
 function Base.:/(f::Fun{D,P,R}, a::Number) where {D,P,R}
-    Fun{D,P,R}(f.topo, f.values / a)
+    return Fun{D,P,R}(f.topo, f.values / a)
 end
 
 # Functions have a pointwise product
 
 function Base.zeros(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    Fun{D,P,R}(topo, zeros(T, size(R, topo)))
+    return Fun{D,P,R}(topo, zeros(T, size(R, topo)))
 end
 
 function Base.ones(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    Fun{D,P,R}(topo, ones(T, size(R, topo)))
+    return Fun{D,P,R}(topo, ones(T, size(R, topo)))
 end
 
 # TODO: shouldn't this be defined automatically by being a collection?
 function Base.conj(f::Fun{D,P,R}) where {D,P,R}
-    Fun{D,P,R}(f.topo, conj(f.values))
+    return Fun{D,P,R}(f.topo, conj(f.values))
 end
 
 # Functions are a category
 
 export id
 function id(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    Fun{D,P,R}(topo, [T(i) for i = 1:size(R, topo)])
+    return Fun{D,P,R}(topo, [T(i) for i in 1:size(R, topo)])
 end
 
 # composition?

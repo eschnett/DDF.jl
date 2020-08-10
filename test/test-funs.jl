@@ -3,10 +3,8 @@ using DDF
 using StaticArrays
 using Test
 
-
-
-@testset "Fun D=$D P=$P R=$R" for D = 0:Dmax, P in (Pr, Dl), R = 0:D
-    topo = Topology(Simplex(SVector{D + 1}(1:D+1)))
+@testset "Fun D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
+    topo = Topology(Simplex(SVector{D + 1}(1:(D + 1))))
 
     T = Rational{Int64}
     z = zero(Fun{D,P,R,T}, topo)

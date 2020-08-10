@@ -96,7 +96,7 @@ function Base.show(io::IO, geom::Geometry{D,T}) where {D,T}
     for (d, dvs) in sort!(OrderedDict(geom.dualvolumes))
         println(io, "    dualvolumes[$d]=$dvs")
     end
-    print(io, ")")
+    return print(io, ")")
 end
 
 function Defs.invariant(geom::Geometry{D})::Bool where {D}
@@ -113,11 +113,12 @@ function Geometry(name::String, topo::Topology{D},
 
     # Calculate volumes
     volumes = Dict{Int,Fun{D,Pr,R,T} where {R}}()
-    for R = 0:D
+    for R in 0:D
         values = Array{T}(undef, size(R, topo))
         for (i, s) in enumerate(topo.simplices[R])
             cs = coords.values[s.vertices]
-            xs = SVector{R,fulltype(Form{D,1,T})}(cs[n+1] - cs[1] for n = 1:R)
+            xs = SVector{R,fulltype(Form{D,1,T})}(cs[n + 1] - cs[1]
+                                                  for n in 1:R)
             if length(xs) == 0
                 vol = one(T)
             else
@@ -177,20 +178,20 @@ function Geometry(name::String, topo::Topology{D},
     # Calculate circumcentric dual volumes
     # [1198555.1198667, page 5]
     dualvolumes = Dict{Int,Fun{D,Dl,R,T} where {R}}()
-    for R = D:-1:0
+    for R in D:-1:0
         if R == D
             values = ones(T, size(R, topo))
         else
-            bnds = topo.boundaries[R+1]
+            bnds = topo.boundaries[R + 1]
             values = zeros(T, size(R, topo))
             sis = topo.simplices[R]::Vector{Simplex{R + 1,Int}}
-            sjs = topo.simplices[R+1]::Vector{Simplex{R + 2,Int}}
+            sjs = topo.simplices[R + 1]::Vector{Simplex{R + 2,Int}}
             for (i, si) in enumerate(sis)
                 # TODO: This is expensive
                 js = findnz(bnds[i, :])[1]
                 for j in js
                     sj = sjs[j]
-                    b = dualvolumes[R+1][j]
+                    b = dualvolumes[R + 1][j]
                     # TODO: Calculate lower-rank circumcentres as
                     # intersection between boundary and the line
                     # connecting two simplices?
@@ -307,8 +308,8 @@ function delaunay(name::String,
     nvertices = length(coords)
     # Convert coordinates to 2d array, and add additional coordinate |p|^2
     xs = Array{T}(undef, nvertices, D)
-    for i = 1:nvertices
-        for d = 1:D
+    for i in 1:nvertices
+        for d in 1:D
             xs[i, d] = coords[i][d]
         end
     end
@@ -317,7 +318,7 @@ function delaunay(name::String,
 
     nsimplices = size(mesh.simplices, 1)
     simplices = Array{Simplex{N,Int}}(undef, nsimplices)
-    for j = 1:nsimplices
+    for j in 1:nsimplices
         simplices[j] = Simplex(SVector{N}(mesh.simplices[j, :]))
     end
 
@@ -343,7 +344,7 @@ function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
 
     return Op{D,Dl,R,Pr,R}(geom.topo,
                            Diagonal(T[dualvol[i] / vol[i]
-                                      for i = 1:size(R, geom.topo)]))
+                                      for i in 1:size(R, geom.topo)]))
 end
 function hodge(::Val{Dl}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     # return inv(hodge(Val(Pr), Val(R), geom))
@@ -439,7 +440,7 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
         for (j, sj) in enumerate(topo.simplices[D])
             if j ≠ i && si.vertex[1] ∉ si.vertices
                 ss = geom.coords.values[sj.vertices]
-                s = SMatrix{N,D}(ss[n][a] for n = 1:N, a = 1:D)
+                s = SMatrix{N,D}(ss[n][a] for n in 1:N, a in 1:D)
                 X, W = simplexquad(P, collect(s))
 
                 setup = cartesian2barycentric_setup(s)
@@ -514,11 +515,11 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
             fs = f.values[sj.vertices]
             # Linear interpolation
             # TODO: Use Bernstein polynomials instead
-            val = sum(fs[n] * basis_λ(n, λ) for n = 1:D+1)
+            val = sum(fs[n] * basis_λ(n, λ) for n in 1:(D + 1))
             return val
         end
     end
-    @assert false
+    return @assert false
 end
 
 @fastmath function basis_x(setup, n::Int, x::SVector{D,T}) where {D,T}
@@ -543,9 +544,9 @@ end
     @assert size(X, 1) == size(W, 1)
 
     return @inbounds begin
-        s = zero(W[1] * f(SVector{D}(X[1, a] for a = 1:D)))
-        for n = 1:length(W)
-            s += W[n] * f(SVector{D}(X[n, a] for a = 1:D))
+        s = zero(W[1] * f(SVector{D}(X[1, a] for a in 1:D)))
+        for n in 1:length(W)
+            s += W[n] * f(SVector{D}(X[n, a] for a in 1:D))
         end
         s
     end
