@@ -78,6 +78,21 @@ end
 
 # TODO: use type promotion instead of generic definitions?
 
+# # Equality
+# 
+# function Base.:(==)(x::F, y::F) where {F<:Form}
+#     return x.vec == y.vec
+# end
+# function Base.:(<)(x::F, y::F) where {F<:Form}
+#     return x.vec < y.vec
+# end
+# function Base.isequal(x::F, y::F) where {F<:Form}
+#     return isequal(x.vec, y.vec)
+# end
+# function Base.hash(x::Form, u::UInt)
+#     return hash(x.vec, hash(u, UInt(0x17c8edf0)))
+# end
+
 # Collection
 
 function Base.IteratorSize(::Type{<:Form{D,R,T}}) where {D,R,T}
