@@ -17,8 +17,6 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 [[Bernstein]]
 deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "SimplexQuad", "StaticArrays", "Test"]
 git-tree-sha1 = "7f589792342c2c75d06248a7c94e8a4de1b74a6b"
-repo-rev = "master"
-repo-url = "https://github.com/eschnett/Bernstein.jl.git"
 uuid = "e9b0fb4c-9cb7-4f61-9c14-701a41c684d7"
 version = "0.2.2"
 
@@ -57,9 +55,9 @@ version = "1.0.0"
 
 [[DirectSum]]
 deps = ["AbstractTensors", "Combinatorics", "ComputedFieldTypes", "LinearAlgebra", "Random", "StaticArrays"]
-git-tree-sha1 = "2d862073aef458e6d435707bc5a27c33a69db88a"
+git-tree-sha1 = "ca0d6ae3f8f7ae20511ae8c384737334b32bf03b"
 uuid = "22fd7b30-a8c0-5bf2-aabe-97783860d07c"
-version = "0.6.0"
+version = "0.6.1"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
@@ -73,9 +71,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Grassmann]]
 deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "LinearAlgebra", "Random", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "ccd0101439ac12c22e28183e1e8d019be4e944f2"
+git-tree-sha1 = "878d2b5f57138d0e09c1d300146b31eca6964f95"
 uuid = "4df31cd9-4c27-5bea-88d0-e6a7146666d8"
-version = "0.5.19"
+version = "0.5.20"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
@@ -133,9 +131,9 @@ version = "1.3.0"
 
 [[Parsers]]
 deps = ["Dates", "Test"]
-git-tree-sha1 = "10134f2ee0b1978ae7752c41306e131a684e1f06"
+git-tree-sha1 = "8077624b3c450b15c087944363606a6ba12f925e"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "1.0.7"
+version = "1.0.10"
 
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
