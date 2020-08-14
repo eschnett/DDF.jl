@@ -306,7 +306,7 @@ function delaunay(name::String,
     N = D + 1
 
     nvertices = length(coords)
-    # Convert coordinates to 2d array, and add additional coordinate |p|^2
+    # Convert coordinates to 2d array
     xs = Array{T}(undef, nvertices, D)
     for i in 1:nvertices
         for d in 1:D
@@ -409,10 +409,8 @@ function sample(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     D::Int
     T::Type
     @assert 0 <= R <= D
-    S = Signature(D)
-    V = SubTopology(S)
     f(zero(Form{D,1,T}))::Form{D,R}
-    return Fun{D,Pr,R}(geom.topo, map(f, coords1(Val(Pr), Val(R), geom)))
+    return Fun{D,Pr,R}(geom.topo, map(f, coordinates(Val(Pr), Val(R), geom)))
 end
 
 export project
@@ -420,8 +418,6 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     D::Int
     R::Type
     @assert 0 <= R <= D
-    S = Signature(D)
-    V = SubTopology(S)
 
     N = N
     P = 4                       # Choice
