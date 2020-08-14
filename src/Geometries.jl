@@ -46,6 +46,15 @@ using ..Topologies
 # 
 # Defs.invariant(dom::Domain) = true
 
+export ZeroVolumeException
+struct ZeroVolumeException <: Exception
+    D::Int
+    R::Int
+    i::Int
+    simplex::Simplex            # Simplex{N,Int}
+    cs::AbstractVector          # Vector{Form{D,1,T}}
+end
+
 export Geometry
 @computed struct Geometry{D,T}
     name::String
@@ -127,9 +136,9 @@ function Geometry(name::String, topo::Topology{D},
             vol /= factorial(R)
             # TODO: Why not?
             # vol *= bitsign(s.signbit)
+            vol > 0 || throw(ZeroVolumeException(D, R, i, s, cs))
             values[i] = vol
         end
-        @assert all(>(0), values)
         vols = Fun{D,Pr,R,T}(topo, values)
         volumes[R] = vols
     end
