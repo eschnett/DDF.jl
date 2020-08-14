@@ -70,24 +70,41 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
     end
 
     @testset "Random Delaunay Hypercube" begin
-        coords = fulltype(Form{D,1,T})[]
-        imin = CartesianIndex(ntuple(d -> 0, D))
-        imax = CartesianIndex(ntuple(d -> 1, D))
-        for i in imin:imax
-            push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
-        end
-        for R in 1:D
-            for i in 1:10
-                # Choose a random corner
-                coord = SVector{D,T}(rand(0:1, D))
-                # Choose random coordinates for R directions
-                for d in randperm(D)[1:R]
-                    coord = setindex(coord, rand(T), d)
+        geom = missing
+        while geom === missing
+            coords = fulltype(Form{D,1,T})[]
+            imin = CartesianIndex(ntuple(d -> 0, D))
+            imax = CartesianIndex(ntuple(d -> 1, D))
+            for i in imin:imax
+                push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
+            end
+            for R in 1:D
+                for i in 1:(2 * D)
+                    # coord = zero(SVector{D,T})
+                    coord = zero(Form{D,1,T})
+                    while true
+                        # Choose a random corner
+                        coord1 = SVector{D,T}(rand(0:1, D))
+                        # Choose random coordinates for R directions
+                        for d in randperm(D)[1:R]
+                            # coord1 = setindex(coord1, rand(T), d)
+                            coord1 = setindex(coord1, rand(1:9) / T(10), d)
+                        end
+                        coord = Form{D,1,T}(coord1)
+                        all(!=(coord), coords) && break
+                    end
+                    push!(coords, coord)
                 end
-                push!(coords, Form{D,1,T}(coord))
+            end
+            try
+                geom = delaunay("Random Delaunay Hypercube", coords)
+            catch ex
+                ex isa ZeroVolumeException || rethrow(ex)
+                @show ex
+                println("Found zero-volume $(ex.R)-simplex; retrying...")
             end
         end
-        geom = delaunay("Random Delaunay Hypercube", coords)
+
         geometries[D]["random delaunay hypercube"] = geom
 
         vol = sum(geom.volumes[D].values)
