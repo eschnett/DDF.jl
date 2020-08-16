@@ -230,7 +230,7 @@ end
             # Require Hodge operator to be at least positive semidefinite
             @test all(>=(0), h.values.diag)
             if geom_name ∉ ["orthogonal simplex", "standard hypercube",
-                "delaunay hypercube"]
+                "delaunay hypercube", "random delaunay hypercube"]
                 # We want it to be positive definite, but that's not
                 # true (e.g. for orthogonal corners )
                 @test all(>(0), h.values.diag)
