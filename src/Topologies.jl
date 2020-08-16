@@ -55,6 +55,7 @@ Base.getindex(s::Simplex, i) = s.vertices[i]
 Base.length(::Type{<:Simplex{N}}) where {N} = N
 Base.length(::S) where {S<:Simplex} = length(S)
 
+export Simplices
 const Simplices{N} = Vector{Simplex{N,Int}}
 
 # TODO: Introduce type for operators
@@ -324,7 +325,91 @@ function hypercube_manifold(::Val{D}) where {D}
     vertex = corner2vertex(corner)
     next_corner!(simplices, SVector{1,Int}(vertex), corner)
     @assert length(simplices) == factorial(D)
-    return Topology("D=$D hypercube", simplices)
+
+    coords = SVector{D,Int}[]
+    imin = CartesianIndex(ntuple(d -> 0, D))
+    imax = CartesianIndex(ntuple(d -> 1, D))
+    for i in imin:imax
+        push!(coords, SVector(i.I))
+    end
+
+    return Topology("D=$D hypercube", simplices), coords
+end
+
+"""
+Renumber a list of simplices
+"""
+function renumber(simplices::Simplices, offset::Int, signbit::Bool = false)
+    rn(s) = Simplex(s.vertices .+ offset, xor(s.signbit, signbit))
+    return rn.(simplices)
+end
+
+"""
+Calculate how to compress vertices in a list of simplices
+"""
+function calc_compress(simplices::Simplices)::NTuple{2,Vector{Int}}
+    oldnvertices = maximum(maximum(s.vertices) for s in simplices)
+    used = falses(oldnvertices)
+    for s in simplices
+        used[s.vertices] .= true
+    end
+    old2new = cumsum(used)
+    newnvertices = old2new[end]
+    new2old = zeros(Int, newnvertices)
+    for n in 1:oldnvertices
+        if used[n]
+            new2old[old2new[n]] = n
+        end
+    end
+    @assert all(!=(0), new2old)
+    @assert old2new[new2old] == 1:newnvertices
+    return old2new, new2old
+end
+
+# Note: This does not yield a Delaunay triangulation
+export double_hypercube_manifold
+function double_hypercube_manifold(::Val{D}) where {D}
+    # Define geometry for a single hypercube
+    topo1, coords1 = hypercube_manifold(Val(D))
+    simplices1 = topo1.simplices[D]
+    simplices1::Simplices{D + 1}
+
+    # Reflect the hypercube geometry
+    simplices = Simplices{D + 1}()
+    coords = SVector{D,Int}[]
+    imin = CartesianIndex(ntuple(d -> 0, D))
+    imax = CartesianIndex(ntuple(d -> 1, D))
+    for i in imin:imax
+        offset = length(simplices)
+        signbit = isodd(sum(i.I))
+        append!(simplices, renumber(simplices1, offset, signbit))
+        reflect(j) = SVector{D}(i.I[d] == 0 ? j[d] : 2 - j[d] for d in 1:D)
+        append!(coords, reflect.(coords1))
+    end
+
+    # Create map from coordinates to vertices
+    coord2vertex = Dict{SVector{D,Int},Int}()
+    for (n, x) in enumerate(coords)
+        get!(coord2vertex, x, n)
+    end
+    # Create map from vertices to canonical vertices
+    vertex2vertex = Vector{Int}(undef, length(coords))
+    for (n, x) in enumerate(coords)
+        vertex2vertex[n] = coord2vertex[coords[n]]
+    end
+    # Renumber vertices
+    simplices = map(s -> Simplex(vertex2vertex[s.vertices], s.signbit),
+                    simplices)
+    # Compress vertices
+    old2new, new2old = calc_compress(simplices)
+    oldnvertices = length(old2new)
+    newnvertices = length(new2old)
+    @assert newnvertices <= oldnvertices
+    simplices = map(s -> Simplex(old2new[s.vertices], s.signbit), simplices)
+    coords = coords[new2old]
+    @assert length(coords) == newnvertices
+
+    return Topology("D=$D double hypercube", simplices), coords
 end
 
 end

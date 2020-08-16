@@ -336,6 +336,27 @@ function delaunay(name::String,
     return geom
 end
 
+export refine
+function refine(name::String, geom::Geometry{D})::Geometry{D} where {D}
+    @show typeof(geom.coords.values)
+    return refine(name, geom.topo.nvertices, geom.topo.simplices[D],
+                  geom.coords.values)
+end
+function refine(name::String, nvertices::Int, simplices::Simplices{N},
+                coords::AbstractVector{<:Form{D,1,T}}) where {N,D,T}
+    @assert N == D + 1
+
+    for s in simplices
+        @error "don't add vertices in volumes; add them on edges"
+        x = sum(coords[n] for n in s.vertices) / length(s.vertices)
+        x::Form{D,1}
+        push!(coords, x)
+    end
+
+    @error "don't delaunay; define simplices"
+    return delaunay(name, coords)
+end
+
 ################################################################################
 
 export hodge
@@ -413,13 +434,16 @@ function coordinates(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
                                  length(si.vertices), geom.topo.simplices[R]))
 end
 
+################################################################################
+
 export sample
 function sample(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     D::Int
     T::Type
     @assert 0 <= R <= D
     f(zero(Form{D,1,T}))::Form{D,R}
-    return Fun{D,Pr,R}(geom.topo, map(f, coordinates(Val(Pr), Val(R), geom)))
+    return Fun{D,Pr,R}(geom.topo,
+                       map(f, coordinates(Val(Pr), Val(R), geom).values))
 end
 
 export project

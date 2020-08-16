@@ -42,11 +42,8 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
     end
 
     @testset "Standard Hypercube" begin
-        topo = hypercube_manifold(Val(D))
-        xs = Fun{D,Pr,0}(topo,
-                         [Form{D,1}(SVector{D}(T((n - 1) & (1 << (d - 1)) != 0)
-                                               for d in 1:D))
-                          for n in 1:(1 << D)])
+        topo, coords = hypercube_manifold(Val(D))
+        xs = Fun{D,Pr,0}(topo, map(x -> Form{D,1,T}(x), coords))
         geom = Geometry(topo.name, topo, xs)
         geometries[D]["standard hypercube"] = geom
 
@@ -54,16 +51,43 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
         @test vol ≈ 1
     end
 
+    # @testset "Refined Standard Hypercube" begin
+    #     geom0 = geometries[D]["standard hypercube"]
+    #     geom = refine("Refined Standard Hypercube", geom0)
+    #     geometries[D]["refined standard hypercube"] = geom
+    # 
+    #     vol = sum(geom.volumes[D].values)
+    #     @test vol ≈ 1
+    # end
+
     @testset "Delaunay Hypercube" begin
         coords = fulltype(Form{D,1,T})[]
         imin = CartesianIndex(ntuple(d -> 0, D))
         imax = CartesianIndex(ntuple(d -> 1, D))
         for i in imin:imax
-            push!(coords, Form{D,1,T}(SVector{D,T}(i.I...)))
+            push!(coords, Form{D,1,T}(i.I))
         end
         push!(coords, Form{D,1,T}(SVector{D,T}(T(1) / 2 for d in 1:D)))
         geom = delaunay("Delaunay Hypercube", coords)
         geometries[D]["delaunay hypercube"] = geom
+
+        vol = sum(geom.volumes[D].values)
+        @test vol ≈ 1
+    end
+
+    @testset "Grid Delaunay Hypercube" begin
+        coords = fulltype(Form{D,1,T})[]
+        imin = CartesianIndex(ntuple(d -> 0, D))
+        n = 2
+        imax = CartesianIndex(ntuple(d -> n, D))
+        for i in imin:imax
+            x = SVector{D,T}(T(i[d]) / n +
+                             (i[d] in 1:(n - 1) ? (2 * rand(T) - 1) / 128n : 0)
+                             for d in 1:D)
+            push!(coords, Form{D,1,T}(x))
+        end
+        geom = delaunay("Grid Delaunay Hypercube", coords)
+        geometries[D]["grid delaunay hypercube"] = geom
 
         vol = sum(geom.volumes[D].values)
         @test vol ≈ 1
@@ -150,8 +174,25 @@ end
         @test sum(geom.volumes[D].values) ≈ 1
     end
 
+    # @testset "Refined Standard Hypercube" begin
+    #     geom = geometries[D]["refined standard hypercube"]
+    # 
+    #     geom0 = geometries[D]["standard hypercube"]
+    #     @test length(geom.volumes[0].values) ==
+    #           length(geom0.volumes[0].values) + length(geom.topo.simplices[D])
+    #     @test length(geom.volumes[D].values) ==
+    #           (D + 1) * length(geom0.volumes[D].values)
+    #     @test sum(geom.volumes[D].values) ≈ 1
+    # end
+
     @testset "Delaunay Hypercube" begin
         geom = geometries[D]["delaunay hypercube"]
+
+        @test sum(geom.volumes[D].values) ≈ 1
+    end
+
+    @testset "Grid Delaunay Hypercube" begin
+        geom = geometries[D]["grid delaunay hypercube"]
 
         @test sum(geom.volumes[D].values) ≈ 1
     end
