@@ -12,9 +12,9 @@ jobs:
         # version: ["1.0", "1.4", "1.5", "nightly"]
         # 1.0: package does not work
         # 1.4: package works
-        # 1.5: not yet supported by Actions
+        # 1.5: ??? not yet supported by Actions
         # nightly: package works
-        version: ["1.4", "nightly"]
+        version: ["1.4", "1.5", "nightly"]
         # arch: [x64, x86]
         arch: [x64]
         # <<#HAS_EXCLUDES>>
