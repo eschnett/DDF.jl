@@ -548,6 +548,8 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
             return val
         end
     end
+    @show D Pr R x
+    @show geom f
     return @assert false
 end
 
