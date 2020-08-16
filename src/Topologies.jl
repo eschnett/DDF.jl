@@ -330,7 +330,7 @@ function hypercube_manifold(::Val{D}) where {D}
     imin = CartesianIndex(ntuple(d -> 0, D))
     imax = CartesianIndex(ntuple(d -> 1, D))
     for i in imin:imax
-        push!(coords, SVector(i.I))
+        push!(coords, SVector{D,Int}(i.I))
     end
 
     return Topology("D=$D hypercube", simplices), coords
