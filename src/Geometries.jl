@@ -538,7 +538,9 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
 
         # Calculate barycentric coordinates
         λ = cartesian2barycentric(xs, convert(SVector, x))
-        delta = T(0)            # sqrt(eps(T))
+        # delta = T(0)
+        delta = 10 * eps(T)
+        # delta = sqrt(eps(T))
         if all(λi -> -delta <= λi <= 1 + delta, λ)
             # Function values
             fs = f.values[sj.vertices]
