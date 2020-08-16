@@ -116,7 +116,7 @@ end
 
     topo0 = Topology(Val(D))
     topo1 = Topology(Simplex(SVector{D + 1}(1:(D + 1))))
-    topo2 = hypercube_manifold(Val(D))
+    topo2, _ = hypercube_manifold(Val(D))
     topos = [topo0, topo1, topo2]
 
     for topo in topos
