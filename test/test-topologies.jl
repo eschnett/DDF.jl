@@ -108,7 +108,7 @@ using Test
     end
 
     # a hypercube
-    topo6 = hypercube_manifold(Val(D))
+    topo6, _ = hypercube_manifold(Val(D))
     @test ndims(topo6) == D
     checkboundary2(topo6)
 

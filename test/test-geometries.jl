@@ -307,7 +307,19 @@ R in 0:D
     end
 end
 
-@testset "Discretize a function D=$D P=$P R=$R" for D in 1:Dmax
+@testset "Sample a function D=$D P=$P R=$R" for D in 1:Dmax,
+P in (Pr, Dl),
+R in 0:D
+
+    # TODO: all R, all P
+    (R == 0 && P == Pr) || continue
+
+    T = Float64
+    geom = geometries[D]["standard hypercube"]
+
+    f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
+    f′ = sample(Val(Pr), Val(R), f, geom)
+    # f′ = project(Pr, R, f, geom)
 end
 
 # @testset "Derivative is functorial D=$D R=$R" for D in 1:Dmax, R in 0:D-1
