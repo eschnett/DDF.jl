@@ -464,23 +464,44 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     # Loop over all vertices
     values = Array{U}(undef, size(0, geom.topo))
     for (i, si) in enumerate(geom.topo.simplices[0])
-        s = zero(U)
+        value = zero(U)
         # Loop over all neighbouring simplices
         # TODO: Improve this
-        for (j, sj) in enumerate(topo.simplices[D])
-            if j ≠ i && si.vertex[1] ∉ si.vertices
+        for (j, sj) in enumerate(geom.topo.simplices[D])
+            if si.vertices[1] ∈ sj.vertices
                 ss = geom.coords.values[sj.vertices]
                 s = SMatrix{N,D}(ss[n][a] for n in 1:N, a in 1:D)
                 X, W = simplexquad(P, collect(s))
 
                 setup = cartesian2barycentric_setup(s)
-                n = findfirst(j, si.vertices)
+                n = findfirst(==(si.vertices[1]), sj.vertices)
                 @assert n !== nothing
-                kernel(x) = basis_x(setup, n, x) * f(x.v)
-                s += integratex(kernel, X, W)
+
+                xs = SVector{N,SVector{D,T}}(convert(SVector{D,T}, ss[n])
+                                             for n in 1:N)
+                B = basis_products(xs)
+
+                bf = zero(SVector{N,U})
+                for m in 1:N
+                    function kernel(x)
+                        x::SVector{D,T}
+                        return (basis_x(setup, m, x) * f(Form{D,1}(x)))::U
+                    end
+                    # TODO signbit???
+                    # value += integrate_x(kernel, Val(D), X, W)::U
+                    I = integrate_x(kernel, Val(D), X, W)::U
+                    bf = Base.setindex(bf, I, m)
+                end
+
+                bf′ = B \ bf
+
+                @show i si j sj bf′[n]
+                value += bf′[n]
+
+                @error "AVERAGE VALUES? GLOBAL METRIC?"
             end
         end
-        values[i] = s
+        values[i] = value
     end
     return Fun{D,Pr,R}(geom.topo, values)
 end
@@ -554,6 +575,27 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
     @show D Pr R x
     @show geom f
     return @assert false
+end
+
+function basis_products(xs::SVector{N,SVector{D,T}})::SMatrix{N,N,
+                                                              T} where {N,D,T}
+    D::Int
+    N::Int
+    @assert N == D + 1
+    setup = cartesian2barycentric_setup(xs)
+    XS = SMatrix{N,D,T}(xs[n][d] for n in 1:N, d in 1:D)
+    P = 2   # P=2 suffices because we only have linear basis functions
+    X, W = simplexquad(P, XS)
+    B = zero(SMatrix{N,N,T})
+    for n in 1:N, m in n:N
+        f(x) = basis_x(setup, m, x) * basis_x(setup, n, x)
+        bmn = integrate_x(f, Val(D), X, W)
+        B = setindex(B, bmn, m, n)
+    end
+    for n in 1:N, m in 1:(n - 1)
+        B = setindex(B, B[n, m], m, n)
+    end
+    return B
 end
 
 @fastmath function basis_x(setup, n::Int, x::SVector{D,T}) where {D,T}

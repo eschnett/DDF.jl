@@ -280,9 +280,6 @@ R in 0:D
             if R == 0 && P == Pr
                 for n in 1:(geom.topo.nvertices)
                     x = geom.coords.values[n]
-                    if !(abs(evaluate(geom, f, x) - f.values[n]) + 1 ≈ 1)
-                        @show D P R geom_name fi n
-                    end
                     @test abs(evaluate(geom, f, x) - f.values[n]) + 1 ≈ 1
                 end
             end
@@ -317,9 +314,55 @@ R in 0:D
     T = Float64
     geom = geometries[D]["standard hypercube"]
 
-    f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
+    # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
+    b = rand(Form{D,0,T})
+    m = rand(Form{D,1,T})
+    f(x) = m ⋅ x + b
     f′ = sample(Val(Pr), Val(R), f, geom)
-    # f′ = project(Pr, R, f, geom)
+
+    coords = geometries[D]["random delaunay hypercube"].coords.values
+    for x in coords
+        fx = f(x)
+        f′x = evaluate(geom, f′, x)
+        Ex = abs(f′x - fx)
+        @test 1 + Ex ≈ 1
+    end
+end
+
+@DISABLED @testset "Project a function D=$D P=$P R=$R" for D in 1:Dmax,
+P in (Pr, Dl),
+R in 0:D
+
+    # TODO: all R, all P
+    (R == 0 && P == Pr) || continue
+
+    T = Float64
+    geom = geometries[D]["standard hypercube"]
+
+    # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
+    # b = rand(Form{D,R,T})
+    # m = rand(Form{D,1,T})
+    b = Form{D,R,T}(SVector(0))
+    m = Form{D,1,T}(SVector{D}(d for d in 1:D))
+    f(x) = (m ⋅ (x::Form{D,1,T}) + b)::Form{D,R,T}
+    f′ = project(Val(Pr), Val(R), f, geom)
+    f′′ = sample(Val(Pr), Val(R), f, geom)
+    if reduce(max, map(abs, f′ - f′′)) > 1.0e-10
+        @show D P R
+        @show b m
+        @show f′
+        @show f′′
+        @error "stop"
+    end
+
+    coords = geometries[D]["random delaunay hypercube"].coords.values
+    for x in coords
+        fx = f(x)
+        f′x = evaluate(geom, f′, x)
+        Ex = abs(f′x - fx)
+        @show D P R x fx f′x
+        @test 1 + Ex ≈ 1
+    end
 end
 
 # @testset "Derivative is functorial D=$D R=$R" for D in 1:Dmax, R in 0:D-1
