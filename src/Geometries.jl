@@ -426,7 +426,6 @@ end
 export coordinates
 function coordinates(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     D::Int
-    @assert D >= 0
     R::Int
     @assert 0 <= R <= D
     return Fun{D,Pr,R}(geom.topo,
@@ -439,6 +438,7 @@ end
 export sample
 function sample(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     D::Int
+    R::Int
     T::Type
     @assert 0 <= R <= D
     f(zero(Form{D,1,T}))::Form{D,R}
@@ -449,10 +449,11 @@ end
 export project
 function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     D::Int
-    R::Type
+    R::Int
+    T::Type
     @assert 0 <= R <= D
 
-    N = N
+    N = D + 1
     P = 4                       # Choice
 
     @assert R == 0              # TODO
