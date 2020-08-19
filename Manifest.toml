@@ -71,9 +71,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Grassmann]]
 deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "LinearAlgebra", "Random", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "878d2b5f57138d0e09c1d300146b31eca6964f95"
+git-tree-sha1 = "ad5e985f296466058f0bfad394b7d18f3efec038"
 uuid = "4df31cd9-4c27-5bea-88d0-e6a7146666d8"
-version = "0.5.20"
+version = "0.5.21"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
