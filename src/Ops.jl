@@ -1,5 +1,6 @@
 module Ops
 
+using DifferentialForms: Forms
 using LinearAlgebra
 using SparseArrays
 
@@ -118,8 +119,8 @@ function Base.zero(::Type{Op{D,P1,R1,P2,R2,T}},
     return Op{D,P1,R1,P2,R2}(topo, spzeros(T, size(R1, topo), size(R2, topo)))
 end
 
-function Defs.unit(::Type{Op{D,P1,R1,P2,R2,T}}, topo::Topology{D}, m::Int,
-                   n::Int) where {D,P1,R1,P2,R2,T}
+function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, topo::Topology{D}, m::Int,
+                    n::Int) where {D,P1,R1,P2,R2,T}
     @assert 1 <= m <= size(R1, topo)
     @assert 1 <= n <= size(R2, topo)
     return Op{D,P1,R1,P2,R2}(topo, sparse([m], [n], [one(T)]))

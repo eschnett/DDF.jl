@@ -1,5 +1,6 @@
 module Funs
 
+using DifferentialForms: Forms
 using SparseArrays
 
 using ..Defs
@@ -103,8 +104,8 @@ function Base.zero(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
     return Fun{D,P,R}(topo, zeros(T, size(R, topo)))
 end
 
-function Defs.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D},
-                   n::Int) where {D,P,R,T}
+function Forms.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D},
+                    n::Int) where {D,P,R,T}
     @assert 1 <= n <= size(R, topo)
     return Fun{D,P,R}(topo, sparsevec([n], [one(T)]))
 end

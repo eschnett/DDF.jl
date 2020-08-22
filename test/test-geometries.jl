@@ -1,6 +1,7 @@
 using DDF
 
 using ComputedFieldTypes
+using DifferentialForms
 using Random
 using StaticArrays
 using Test

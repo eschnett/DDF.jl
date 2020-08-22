@@ -3,6 +3,7 @@ module Geometries
 using Bernstein
 using ComputedFieldTypes
 using Delaunay
+using DifferentialForms
 using Distances
 using LinearAlgebra
 using NearestNeighbors
@@ -13,7 +14,6 @@ using StaticArrays
 
 using ..Algorithms
 using ..Defs
-using ..Forms
 using ..Funs
 using ..Ops
 using ..Topologies
@@ -359,10 +359,8 @@ end
 
 ################################################################################
 
-export hodge
-
 # Circumcentric (diagonal) hodge operator
-function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
+function Forms.hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     D::Int
     T::Type
     @assert 0 <= R <= D
@@ -376,7 +374,7 @@ function hodge(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
                            Diagonal(T[dualvol[i] / vol[i]
                                       for i in 1:size(R, geom.topo)]))
 end
-function hodge(::Val{Dl}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
+function Forms.hodge(::Val{Dl}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
     # return inv(hodge(Val(Pr), Val(R), geom))
     h = hodge(Val(Pr), Val(R), geom)
     h.values::Diagonal

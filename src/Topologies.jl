@@ -1,5 +1,6 @@
 module Topologies
 
+using DifferentialForms
 using LinearAlgebra
 using OrderedCollections
 using SparseArrays

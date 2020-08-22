@@ -1,16 +1,5 @@
 # This file is machine-generated - editing it directly is not advised
 
-[[AbstractLattices]]
-git-tree-sha1 = "f35684b7349da49fcc8a9e520e30e45dbb077166"
-uuid = "398f06c4-4d28-53ec-89ca-5b2656b7603d"
-version = "0.2.1"
-
-[[AbstractTensors]]
-deps = ["AbstractLattices", "LinearAlgebra"]
-git-tree-sha1 = "35bacf892ce1d1cf12dc733f2f6e9483780e9eea"
-uuid = "a8e43f4a-99b7-5565-8bf1-0165161caaea"
-version = "0.5.0"
-
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
@@ -19,17 +8,6 @@ deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "SimplexQuad", "StaticA
 git-tree-sha1 = "7f589792342c2c75d06248a7c94e8a4de1b74a6b"
 uuid = "e9b0fb4c-9cb7-4f61-9c14-701a41c684d7"
 version = "0.2.2"
-
-[[BitIntegers]]
-deps = ["Random"]
-git-tree-sha1 = "858e8265e3f16a825fad0c2bc6f2134941d8816d"
-uuid = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
-version = "0.2.3"
-
-[[Combinatorics]]
-git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
-uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
-version = "1.0.2"
 
 [[ComputedFieldTypes]]
 deps = ["Test"]
@@ -53,11 +31,13 @@ git-tree-sha1 = "15bba00861f9ddbe2c71e4591fbbb061667e247d"
 uuid = "07eb4e4e-0c6d-46ef-bc4e-83d5e5d860a9"
 version = "1.0.0"
 
-[[DirectSum]]
-deps = ["AbstractTensors", "Combinatorics", "ComputedFieldTypes", "LinearAlgebra", "Random", "StaticArrays"]
-git-tree-sha1 = "ca0d6ae3f8f7ae20511ae8c384737334b32bf03b"
-uuid = "22fd7b30-a8c0-5bf2-aabe-97783860d07c"
-version = "0.6.1"
+[[DifferentialForms]]
+deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "Reexport", "StaticArrays", "Test"]
+git-tree-sha1 = "e54e1bf60069383cc009c35e13c33a8367f53de4"
+repo-rev = "master"
+repo-url = "https://github.com/eschnett/DifferentialForms.jl"
+uuid = "9e54b8bf-1ae4-4c45-8656-f6b46e7970a3"
+version = "0.1.0"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
@@ -69,12 +49,6 @@ version = "0.9.0"
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
-[[Grassmann]]
-deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "LinearAlgebra", "Random", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "ad5e985f296466058f0bfad394b7d18f3efec038"
-uuid = "4df31cd9-4c27-5bea-88d0-e6a7146666d8"
-version = "0.5.21"
-
 [[InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -84,12 +58,6 @@ deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.0"
-
-[[Leibniz]]
-deps = ["AbstractTensors", "DirectSum", "LinearAlgebra", "StaticArrays"]
-git-tree-sha1 = "631f33990730847cc570a67d4a85427326c2ebb6"
-uuid = "edad4870-8a01-11e9-2d75-8f02e448fc59"
-version = "0.0.5"
 
 [[LibGit2]]
 deps = ["Printf"]
@@ -162,12 +130,6 @@ deps = ["Pkg"]
 git-tree-sha1 = "7b1d07f411bc8ddb7977ec7f377b97b158514fe0"
 uuid = "189a3867-3050-52da-a836-e630ba90ab69"
 version = "0.2.0"
-
-[[Requires]]
-deps = ["UUIDs"]
-git-tree-sha1 = "d37400976e98018ee840e0ca4f9d20baa231dc6b"
-uuid = "ae029012-a4dd-5104-9daa-d747884805df"
-version = "1.0.1"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
