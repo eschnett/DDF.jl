@@ -511,32 +511,6 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
 
     coords = coordinates(Val(Pr), Val(R), geom)
 
-    # nvals = 0
-    # val = zero(U)
-    # # Loop over all simplices
-    # # TODO: Use <https://github.com/KristofferC/NearestNeighbors.jl>
-    # # TODO: Generalize this
-    # @assert R == 0
-    # for (i, si) in enumerate(geom.topo.simplices[D])
-    #     xs = coords.values[si.vertices]
-    #     xsm = SMatrix{D,D + 1}(xs[n][a] for a = 1:D, n = 1:D+1)
-    #     # setup = cartesian2barycentric_setup(xsm)
-    #     λ = cartesian2barycentric(xsm, convert(SVector, x))
-    #     delta = sqrt(eps(T))
-    #     if all(λi -> -delta <= λi <= 1 + delta, λ)
-    #         # point is inside simplex
-    #         fs = f.values[si.vertices]
-    #         for n = 1:D+1
-    #             val += fs[n] * basis_λ(n, λ)
-    #         end
-    #         nvals += 1
-    #     end
-    # end
-    # # @assert nvals == 1    # there should be exactly one containing simplex
-    # # return val
-    # @assert nvals > 0
-    # return val / nvals
-
     # Find nearest vertex
     i, dist = nn(geom.simplex_tree, convert(SVector, x))
     # Search all neighbouring simplices to find containing simplex
