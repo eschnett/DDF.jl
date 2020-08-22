@@ -1,3 +1,4 @@
+#TODO: Rename to "metric spaces"
 module Geometries
 
 using Bernstein
@@ -439,9 +440,10 @@ function sample(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     R::Int
     T::Type
     @assert 0 <= R <= D
-    f(zero(Form{D,1,T}))::Form{D,R}
-    return Fun{D,Pr,R}(geom.topo,
-                       map(f, coordinates(Val(Pr), Val(R), geom).values))
+    U = typeof(f(zero(Form{D,1,T})))
+    @assert U <: Form{D,R}
+    values = map(f, coordinates(Val(Pr), Val(R), geom).values)
+    Fun{D,Pr,R}(geom.topo, values)::Fun{D,Pr,R,U}
 end
 
 export project
@@ -454,10 +456,12 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
     N = D + 1
     P = 4                       # Choice
 
+    B = basis_products(Val(Pr), Val(R), geom)
+
     @assert R == 0              # TODO
 
-    # TODO: Support chains as return values
     U = typeof(f(zero(Form{D,1,T})))
+    @assert U <: Form{D,R}
 
     # Loop over all vertices
     values = Array{U}(undef, size(0, geom.topo))
@@ -477,31 +481,22 @@ function project(::Val{Pr}, ::Val{R}, f::F, geom::Geometry{D,T}) where {R,F,D,T}
 
                 xs = SVector{N,SVector{D,T}}(convert(SVector{D,T}, ss[n])
                                              for n in 1:N)
-                B = basis_products(xs)
-
-                bf = zero(SVector{N,U})
-                for m in 1:N
-                    function kernel(x)
-                        x::SVector{D,T}
-                        return (basis_x(setup, m, x) * f(Form{D,1}(x)))::U
-                    end
-                    # TODO signbit???
-                    # value += integrate_x(kernel, Val(D), X, W)::U
-                    I = integrate_x(kernel, Val(D), X, W)::U
-                    bf = Base.setindex(bf, I, m)
+                function kernel(x)
+                    x::SVector{D,T}
+                    return (basis_x(setup, n, x) * f(Form{D,1}(x)))::U
                 end
+                # TODO signbit???
+                bf = integrate_x(kernel, Val(D), X, W)::U
 
-                bf′ = B \ bf
-
-                @show i si j sj bf′[n]
-                value += bf′[n]
-
-                @error "AVERAGE VALUES? GLOBAL METRIC?"
+                value += bf
             end
         end
         values[i] = value
     end
-    return Fun{D,Pr,R}(geom.topo, values)
+
+    values′ = map(y -> U((y,)), B \ values)
+
+    return Fun{D,Pr,R}(geom.topo, values′)::Fun{D,Pr,R,U}
 end
 
 # TODO: evaluate many points simultaneously
@@ -572,7 +567,63 @@ function evaluate(geom::Geometry{D,T}, f::Fun{D,Pr,R,U},
     end
     @show D Pr R x
     @show geom f
-    return @assert false
+    @assert false
+end
+
+function basis_products(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {D,T,R}
+    # Check arguments
+    D::Int
+    R::Int
+    @assert 0 <= R <= D
+
+    N = D + 1
+
+    # Lookup table from R-simplices to simplices
+    lookup = containing_simplices(geom.topo, Val(R))
+    # Lookup table from D-simplices to R-simplices
+    lookup′ = sparse(transpose(lookup))
+
+    # Result: sparse matrix
+    I = Int[]
+    J = Int[]
+    V = T[]
+
+    # Loop over all R-simplices
+    for (i, si) in enumerate(geom.topo.simplices[R])
+        # Loop over all neighbouring D-simplices
+        for k in sparse_column_rows(lookup, i)
+            sk = geom.topo.simplices[D][k]
+
+            # Loop over all neighbouring R-simplices
+            for j in sparse_column_rows(lookup′, k)
+                sj = geom.topo.simplices[R][j]
+                @assert k ∈ sparse_column_rows(lookup, j)
+
+                # Find basis functions for simplices i and j
+                @assert R == 0
+                ni = findfirst(==(i), sk.vertices)
+                nj = findfirst(==(j), sk.vertices)
+
+                # Calculate overlap integral
+                xs = map(x -> x.elts, geom.coords.values[sk.vertices])
+                xs::SVector{N,SVector{D,T}}
+                # P=2 suffices because we only have linear basis functions
+                P = 2
+                XS = SMatrix{N,D,T}(xs[n][d] for n in 1:N, d in 1:D)
+                X, W = simplexquad(P, XS)
+                setup = cartesian2barycentric_setup(xs)
+                kernel(x) = basis_x(setup, ni, x) * basis_x(setup, nj, x)
+                b = integrate_x(kernel, Val(D), X, W)
+
+                push!(I, i)
+                push!(J, j)
+                push!(V, b)
+            end
+        end
+    end
+
+    n = length(geom.topo.simplices[R])
+    return sparse(I, J, V, n, n)
 end
 
 function basis_products(xs::SVector{N,SVector{D,T}})::SMatrix{N,N,

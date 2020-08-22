@@ -1,3 +1,4 @@
+#TODO: Rename to "topological spaces"
 module Topologies
 
 using DifferentialForms
@@ -5,6 +6,7 @@ using LinearAlgebra
 using OrderedCollections
 using SparseArrays
 using StaticArrays
+using ZeroRing
 
 using ..Defs
 
@@ -73,13 +75,14 @@ struct Topology{D}
     # simplices[R]::Vector{Simplex{R+1, Int}}
     simplices::Dict{Int,Simplices}
     # map from vertices to containing simplices
-    lookup::Dict{Int,SparseMatrixCSC{Nothing,Int}}
+    # lookup[R][i,j] present means R-simplex i contains vertex j
+    lookup::Dict{Int,SparseMatrixCSC{ZeroElem,Int}}
     # The boundary ∂ of 0-forms vanishes and is not stored
     boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}
 
     function Topology{D}(name::String, nvertices::Int,
                          simplices::Dict{Int,Simplices},
-                         lookup::Dict{Int,SparseMatrixCSC{Nothing,Int}},
+                         lookup::Dict{Int,SparseMatrixCSC{ZeroElem,Int}},
                          boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}) where {D}
         D::Int
         @assert D >= 0
@@ -92,7 +95,7 @@ struct Topology{D}
     end
     function Topology(name::String, nvertices::Int,
                       simplices::Dict{Int,Simplices},
-                      lookup::Dict{Int,SparseMatrixCSC{Nothing,Int}},
+                      lookup::Dict{Int,SparseMatrixCSC{ZeroElem,Int}},
                       boundaries::Dict{Int,SparseMatrixCSC{Int8,Int}}) where {D}
         return Topology{D}(name, nvertices, simplices, lookup, boundaries)
     end
@@ -213,7 +216,7 @@ function Topology(name::String,
     unique!(simplices)
     if D == 0
         return Topology{D}(name, nvertices, Dict{Int,Simplices}(0 => simplices),
-                           Dict{Int,SparseMatrixCSC{Nothing,Int}}(),
+                           Dict{Int,SparseMatrixCSC{ZeroElem,Int}}(),
                            Dict{Int,SparseMatrixCSC{Int8,Int}}())
     end
 
@@ -224,7 +227,7 @@ function Topology(name::String,
     for (i, s) in enumerate(simplices)
         for a in 1:N
             # Leave out vertex a
-            v1 = SVector{N - 1}(ntuple(b -> s[b + (b >= a)], N - 1))
+            v1 = SVector{N - 1}(s[b + (b >= a)] for b in 1:(N - 1))
             s1 = xor(s.signbit, isodd(a - 1))
             face = Simplex{N - 1,Int}(v1)
             # face = Simplex{N-1, Int}(face.vertices, false)
@@ -239,12 +242,12 @@ function Topology(name::String,
 
     I = Int[]
     J = Int[]
-    V = Nothing[]
+    V = ZeroElem[]
     for (i, si) in enumerate(simplices)
         for j in si.vertices
             push!(I, i)
             push!(J, j)
-            push!(V, nothing)
+            push!(V, zeroelem)
         end
     end
     lookup = sparse(I, J, V)
@@ -274,6 +277,45 @@ function Topology(name::String,
     return Topology{D}(name, nvertices, topo1.simplices, topo1.lookup,
                        topo1.boundaries)
 end
+
+export containing_simplices
+"""
+Create a sparse matrix lookup table from `R`-simplices to `D`-simplices
+"""
+function containing_simplices(topo::Topology{D}, ::Val{R}) where {D,R}
+    # Lookup table from R-simplices to D-simplices
+    I = Int[]
+    J = Int[]
+    V = ZeroElem[]
+
+    # Loop over all R-simplices
+    for (i, si) in enumerate(topo.simplices[R])
+        # Loop over the domain of the basis function, i.e. all
+        # neighbouring D-simplices
+        js = Int[]
+        for k in si.vertices
+            for j in sparse_column_rows(topo.lookup[D], k)
+                push!(js, j)
+            end
+        end
+        sort!(js)
+        unique!(js)
+        for j in js
+            sj = topo.simplices[D][j]
+            if issubset(si.vertices, sj.vertices)
+
+                push!(I, i)
+                push!(J, j)
+                push!(V, zeroelem)
+
+            end
+        end
+    end
+
+    return sparse(J, I, V)
+end
+
+# Various topologies
 
 function Topology(name::String,
                   simplices::Vector{SVector{N,Int}})::Topology{N - 1} where {N}

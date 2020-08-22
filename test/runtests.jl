@@ -3,8 +3,6 @@ using Test
 using Random
 using SparseArrays
 
-const Dmax = 5
-
 # Ignore a statement
 macro DISABLED(expr)
     return quote end
@@ -13,6 +11,8 @@ end
 # macro DISABLED(expr)
 #     expr
 # end
+
+const Dmax = 5
 
 # Random rationals
 function Base.rand(rng::AbstractRNG,

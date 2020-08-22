@@ -330,7 +330,7 @@ R in 0:D
     end
 end
 
-@DISABLED @testset "Project a function D=$D P=$P R=$R" for D in 1:Dmax,
+@testset "Project a function D=$D P=$P R=$R" for D in 1:Dmax,
 P in (Pr, Dl),
 R in 0:D
 
@@ -341,27 +341,16 @@ R in 0:D
     geom = geometries[D]["standard hypercube"]
 
     # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
-    # b = rand(Form{D,R,T})
-    # m = rand(Form{D,1,T})
-    b = Form{D,R,T}(SVector(0))
-    m = Form{D,1,T}(SVector{D}(d for d in 1:D))
+    b = rand(Form{D,R,T})
+    m = rand(Form{D,1,T})
     f(x) = (m ⋅ (x::Form{D,1,T}) + b)::Form{D,R,T}
     f′ = project(Val(Pr), Val(R), f, geom)
-    f′′ = sample(Val(Pr), Val(R), f, geom)
-    if reduce(max, map(abs, f′ - f′′)) > 1.0e-10
-        @show D P R
-        @show b m
-        @show f′
-        @show f′′
-        @error "stop"
-    end
 
     coords = geometries[D]["random delaunay hypercube"].coords.values
     for x in coords
         fx = f(x)
         f′x = evaluate(geom, f′, x)
         Ex = abs(f′x - fx)
-        @show D P R x fx f′x
         @test 1 + Ex ≈ 1
     end
 end
