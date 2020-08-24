@@ -15,7 +15,7 @@ export empty_manifold
 The empty manifold
 """
 function empty_manifold(::Val{D}, ::Type{S}) where {D,S}
-    return Manifold("empty manifold", zero(SparseOp{Rank{0},Rank{D},One}, 0, 0),
+    return Manifold("empty manifold", zero(SparseOp{0,D,One}, 0, 0),
                     zeros(S, 0, D))
 end
 
@@ -36,7 +36,7 @@ function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
         push!(J, 1)
         push!(V, One())
     end
-    simplices = SparseOp{Rank{0},Rank{D},One}(sparse(I, J, V, N, 1))
+    simplices = SparseOp{0,D,One}(sparse(I, J, V, N, 1))
     return Manifold("simplex manifold", simplices, coords)
 end
 
@@ -113,8 +113,7 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
         end
     end
 
-    simplices = SparseOp{Rank{0},Rank{D},One}(sparse(I, J, V, nvertices,
-                                                     nsimplices))
+    simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, nsimplices))
     coords = S[coords[i][d] for i in 1:nvertices, d in 1:D]
 
     return Manifold("hypercube manifold", simplices, coords)

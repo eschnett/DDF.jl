@@ -15,15 +15,9 @@ export PrimalDual, Pr, Dl
 
 Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 
-export Rank
-struct Rank{N} end
-
-export PRank
-struct PRank{PrDl,N} end
-
 ################################################################################
 
-const OpDict{K,T} = Dict{K,SparseOp{<:Rank,<:Rank,T}} where {K,T}
+const OpDict{K,T} = Dict{K,SparseOp{<:Any,<:Any,T}} where {K,T}
 
 export Manifold
 """
@@ -99,7 +93,7 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
     # Check simplices
     Set(keys(mfd.simplices)) == Set(0:D) || (@assert false; return false)
     for R in 0:D
-        simplices = mfd.simplices[R]::SparseOp{Rank{0},Rank{R},One}
+        simplices = mfd.simplices[R]::SparseOp{0,R,One}
         size(simplices) == (nsimplices(mfd, 0), nsimplices(mfd, R)) ||
             (@assert false; return false)
         for j in 1:size(simplices, 2)
@@ -111,7 +105,7 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
     # Check boundaries
     Set(keys(mfd.boundaries)) == Set(1:D) || (@assert false; return false)
     for R in 1:D
-        boundaries = mfd.boundaries[R]::SparseOp{Rank{R - 1},Rank{R},Int8}
+        boundaries = mfd.boundaries[R]::SparseOp{R - 1,R,Int8}
         size(boundaries) == (nsimplices(mfd, R - 1), nsimplices(mfd, R)) ||
             (@assert false; return false)
         for j in 1:size(boundaries, 2) # R-simplex
@@ -131,7 +125,7 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
     Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 1:D for Rj in (Ri + 1):D) ||
         (@assert false; return false)
     for Ri in 1:D, Rj in (Ri + 1):D
-        lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Rank{Ri},Rank{Rj},One}
+        lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
         size(lookup) == (nsimplices(mfd, Ri), nsimplices(mfd, Rj)) ||
             (@assert false; return false)
         for j in 1:size(lookup, 2) # Rj-simplex
@@ -177,7 +171,7 @@ struct Face{N}
     parity::Int8
 end
 
-function Manifold(name::String, simplices::SparseOp{Rank{0},Rank{D},One},
+function Manifold(name::String, simplices::SparseOp{0,D,One},
                   coords::Array{S,2}) where {D,S}
     @assert 0 <= D
     N = D + 1
@@ -233,9 +227,8 @@ function Manifold(name::String, simplices::SparseOp{Rank{0},Rank{D},One},
         push!(bV, f.parity)
     end
 
-    faces = SparseOp{Rank{0},Rank{D - 1}}(sparse(fI, fJ, fV, nvertices, nfaces))
-    boundaries = SparseOp{Rank{D - 1},Rank{D}}(sparse(bI, bJ, bV, nfaces,
-                                                      nsimplices))
+    faces = SparseOp{0,D - 1}(sparse(fI, fJ, fV, nvertices, nfaces))
+    boundaries = SparseOp{D - 1,D}(sparse(bI, bJ, bV, nfaces, nsimplices))
 
     # Recursively create lower-dimensional (D-1)-manifold
     mfd1 = Manifold(name, faces, coords)

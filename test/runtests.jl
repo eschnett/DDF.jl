@@ -24,8 +24,8 @@ end
 Base.show(io::IO, A::SparseMatrixCSC) = show_sparse(io, A)
 Base.show(io::IOContext, A::SparseMatrixCSC) = show_sparse(io, A)
 
-@DISABLED include("test-defs.jl")
-@DISABLED include("test-algorithms.jl")
+include("test-defs.jl")
+include("test-algorithms.jl")
 # include("test-topologies.jl")
 # include("test-funs.jl")
 # include("test-ops.jl")

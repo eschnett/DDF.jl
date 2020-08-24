@@ -42,8 +42,8 @@ end
 
 @testset "SparseOp vector space operations" begin
     T = Rational{Int64}
-    R1 = Rank{1}
-    R2 = Rank{2}
+    R1 = 1
+    R2 = 2
 
     nelts1 = rand(5:10)
     nelts2 = rand(5:10)
@@ -103,10 +103,10 @@ end
 
 @testset "SparseOp category operations" begin
     T = Rational{Int64}
-    R1 = Rank{1}
-    R2 = Rank{2}
-    R3 = Rank{3}
-    R4 = Rank{4}
+    R1 = 1
+    R2 = 2
+    R3 = 3
+    R4 = 4
 
     nelts1 = rand(5:10)
     nelts2 = rand(5:10)
