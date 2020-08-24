@@ -14,7 +14,7 @@ export empty_manifold
 """
 The empty manifold
 """
-function empty_manifold(::Val{D}, ::Type{T}) where {D,T}
+function empty_manifold(::Val{D}, ::Type{S}) where {D,S}
     return Manifold("empty manifold", zero(SparseOp{Rank{0},Rank{D},One}, 0, 0),
                     zeros(T, 0, D))
 end
@@ -25,9 +25,9 @@ export simplex_manifold
 """
 Manifold with one standard simplex
 """
-function simplex_manifold(::Val{D}, ::Type{T}) where {D,T}
+function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     N = D + 1
-    coords = regular_simplex(D, T)
+    coords = regular_simplex(D, S)
     I = Int[]
     J = Int[]
     V = One[]
@@ -48,19 +48,24 @@ The algorithm proceeds recursively. A 0-simplex is a point. A
 D-simplex is a (D-1)-simplex that is shifted down along the new axis,
 plus a new point on the new axis.
 """
-function regular_simplex(D::Int, ::Type{T}) where {T}
+function regular_simplex(D::Int, ::Type{S}) where {S}
     @assert D >= 0
     N = D + 1
-    s = Array{T}(undef, N, D)
+    s = Array{S}(undef, N, D)
     if D == 0
         # do nothing
     else
-        s0 = regular_simplex(D - 1, T)
+        s0 = regular_simplex(D - 1, S)
         # Choose height so that edge length is 1
         if D == 1
             z = T(1)
         else
-            z = sqrt(1 - norm(s0[1, :]))
+            z0 = sqrt(1 - norm(s0[1, :]))
+            if S <: Rational
+                z = rationalize(S, z0; tol = eps(z0))
+            else
+                z = z0::S
+            end
         end
         z0 = -z / (D + 1)
         s[1:(N - 1), 1:(D - 1)] .= s0[:, :]
@@ -77,7 +82,7 @@ export hypercube_manifold
 """
 Standard simplification of a hypercube
 """
-function hypercube_manifold(::Val{D}, ::Type{T}) where {D,T}
+function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     @assert D >= 0
     N = D + 1
 
@@ -112,7 +117,7 @@ function hypercube_manifold(::Val{D}, ::Type{T}) where {D,T}
 
     simplices = SparseOp{Rank{0},Rank{D},One}(sparse(I, J, V, nvertices,
                                                      nsimplices))
-    coords = T[coords[i][d] for i in 1:nvertices, d in 1:D]
+    coords = S[coords[i][d] for i in 1:nvertices, d in 1:D]
 
     return Manifold("hypercube manifold", simplices, coords)
 end

@@ -92,14 +92,14 @@ Base.length(A::SparseOp) = length(A.op)
 #     end
 #     SparseOp{Tag1,Tag2}(map(f, A.op, map(B -> B.op, Bs)...))
 # end
-function Base.map(f::F, A::SparseOp{Tag1,Tag2}) where {F,Tag1,Tag2}
+function Base.map(f, A::SparseOp{Tag1,Tag2}) where {Tag1,Tag2}
     U = typeof(f(one(eltype(A))))
     Bop = SparseMatrixCSC{U,Int}(A.op.m, A.op.n, A.op.colptr, A.op.rowval,
                                  map(f, A.op.nzval))
     SparseOp{Tag1,Tag2}(Bop)
 end
-function Base.reduce(f::F, A::SparseOp{Tag1,Tag2}, Bs::SparseOp{Tag1,Tag2}...;
-                     kw...) where {F,Tag1,Tag2}
+function Base.reduce(f, A::SparseOp{Tag1,Tag2}, Bs::SparseOp{Tag1,Tag2}...;
+                     kw...) where {Tag1,Tag2}
     reduce(f, A.op, map(B -> B.op, Bs)...; kw...)
 end
 

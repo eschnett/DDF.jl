@@ -1,88 +1,118 @@
 module Funs
 
+using ComputedFieldTypes
 using DifferentialForms: Forms
 using SparseArrays
+using StaticArrays
 
 using ..Defs
-using ..Topologies
+using ..Manifolds
 
 export PrimalDual, Pr, Dl
 @enum PrimalDual::Bool Pr Dl
 
 Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 
-# TODO: Fun needs to have a Geometry
-# TODO: Field is without Geometry, Fun with with Geometry?
 export Fun
 """
 Function (aka Cochain)
 """
-struct Fun{D,P,R,T}         # <: AbstractVector{T}
-    topo::Topology{D}
-    values::AbstractVector{T}
+struct Fun{D,P,R,S,T}         # <: AbstractVector{T}
+    manifold::Manifold{D,S}
+    values::Vector{T}
 
-    function Fun{D,P,R,T}(topo::Topology{D},
-                          values::AbstractVector{T}) where {D,P,R,T}
+    function Fun{D,P,R,S,T}(manifold::Manifold{D,S},
+                            values::AbstractVector{T}) where {D,P,R,S,T}
         D::Int
         @assert D >= 0
         P::PrimalDual
         R::Int
         @assert 0 <= R <= D
-        fun = new{D,P,R,T}(topo, values)
+        fun = new{D,P,R,S,T}(manifold, values)
         @assert invariant(fun)
         return fun
     end
-    function Fun{D,P,R}(topo::Topology{D},
-                        values::AbstractVector{T}) where {D,P,R,T}
-        return Fun{D,P,R,T}(topo, values)
+    function Fun{D,P,R,S}(manifold::Manifold{D,S},
+                          values::AbstractVector{T}) where {D,P,R,S,T}
+        return Fun{D,P,R,S,T}(manifold, values)
+    end
+    function Fun{D,P,R}(manifold::Manifold{D,S},
+                        values::AbstractVector{T}) where {D,P,R,S,T}
+        return Fun{D,P,R,S,T}(manifold, values)
     end
 end
 
-function Base.show(io::IO, fun::Fun{D,P,R,T}) where {D,P,R,T}
+function Base.show(io::IO, fun::Fun{D,P,R,S,T}) where {D,P,R,S,T}
     println(io)
-    println(io, "Fun{$D,$P,$R,$T}(")
-    println(io, "    topo=$(fun.topo.name)")
+    println(io, "Fun{$D,$P,$R,$S,$T}(")
+    println(io, "    manifold=$(fun.manifold.name)")
     println(io, "    values=$(fun.values)")
     return print(io, ")")
 end
 
-function Defs.invariant(fun::Fun{D,P,R,T})::Bool where {D,P,R,T}
+function Defs.invariant(fun::Fun{D,P,R,S,T})::Bool where {D,P,R,S,T}
     D::Int
     P::PrimalDual
     R::Int
     0 <= R <= D || return false
-    invariant(fun.topo) || return false
-    length(fun.values) == size(R, fun.topo) || return false
+    invariant(fun.manifold) || return false
+    length(fun.values) == nsimplices(fun.manifold, R) || return false
     return true
 end
 
 # Comparison
 
 function Base.:(==)(f::F, g::F) where {F<:Fun}
-    @assert f.topo == g.topo
+    @assert f.manifold == g.manifold
     return f.values == g.values
+end
+function Base.:(<)(f::F, g::F) where {F<:Fun}
+    @assert f.manifold == g.manifold
+    return f.values < g.values
+end
+function Base.isequal(f::F, g::F) where {F<:Fun}
+    @assert f.manifold == g.manifold
+    return isequal(f.values, g.values)
+end
+function Base.hash(f::Fun, h::UInt)
+    return hash(0xfc734743, hash(f.manifold, hash(f.values, h)))
+end
+
+# Random functions
+function Base.rand(::Type{Fun{D,P,R,S,T}},
+                   manifold::Manifold{D,S}) where {D,P,R,S,T}
+    return Fun{D,P,R,S}(manifold, rand(T, nsimplices(manifold, R)))
 end
 
 # Functions are a collection
 
-Base.iterate(f::Fun, state...) = iterate(f.values, state...)
-Base.IteratorSize(f::Fun) = Base.IteratorSize(f.values)
-Base.IteratorEltype(f::Fun) = Base.IteratorEltype(f.values)
-Base.isempty(f::Fun) = isempty(f.values)
-Base.length(f::Fun) = length(f.values)
-Base.eltype(f::Fun) = eltype(f.values)
-
-function Base.map(op, f::Fun{D,P,R}, gs::Fun{D,P,R}...) where {D,P,R}
-    @assert all(f.topo == g.topo for g in gs)
-    return Fun{D,P,R}(f.topo, map(op, f.values, (g.values for g in gs)...))
-    # r1 = map(op, f.values[1], (g.values[1] for g in gs)...))
-    # T = typeof(r1)
-    # Fun{D, P, R, T}(f.topo, map(op, f.values, (g.values for g in gs)...))
+Base.IteratorEltype(::Type{<:Fun{<:Any,<:Any,<:Any,<:Any,T}}) where {T} = T
+function Base.IteratorSize(::Type{<:Fun{<:Any,<:Any,<:Any,<:Any,T}}) where {T}
+    Base.IteratorSize(Vector{T})
 end
+Base.eltype(::Type{<:Fun{<:Any,<:Any,<:Any,<:Any,T}}) where {T} = T
+Base.eltype(f::Fun) = eltype(typeof(f))
+Base.isempty(f::Fun) = isempty(f.values)
+Base.iterate(f::Fun, state...) = iterate(f.values, state...)
+Base.length(f::Fun) = length(f.values)
 
-# Random functions
-function Base.rand(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    return Fun{D,P,R,T}(topo, rand(T, size(R, topo)))
+# function Base.map(op, f::Fun{D,P,R}, gs::Fun{D,P,R}...) where {D,P,R}
+#     @assert all(f.manifold == g.manifold for g in gs)
+#     return Fun{D,P,R}(f.manifold,
+#                         map(op, f.values, (g.values for g in gs)...))
+#     # r1 = map(op, f.values[1], (g.values[1] for g in gs)...))
+#     # T = typeof(r1)
+#     # Fun{D, P, R, S, T}(f.manifold, map(op, f.values, (g.values for g in gs)...))
+# end
+function Base.map(op, f::Fun{D,P,R,S}, gs::Fun{D,P,R,S}...) where {D,P,R,S}
+    @assert all(g.manifold == f.manifold for g in gs)
+    U = typeof(op(zero(eltype(f)), (zero(eltype(g)) for g in gs)...))
+    Fun{D,P,R,S,U}(f.manifold, map(op, f.values, (g.values for g in gs)...))
+end
+function Base.reduce(op, f::Fun{D,P,R,S}, gs::Fun{D,P,R,S}...;
+                     kw...) where {D,P,R,S}
+    @assert all(g.manifold == f.manifold for g in gs)
+    reduce(op, f.values, (g.values for g in gs)...; kw...)
 end
 
 # Functions are an abstract vector
@@ -100,70 +130,64 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 # Functions are a vector space
 
-function Base.zero(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    return Fun{D,P,R}(topo, zeros(T, size(R, topo)))
+function Base.zero(::Type{Fun{D,P,R,S,T}},
+                   manifold::Manifold{D,S}) where {D,P,R,S,T}
+    return Fun{D,P,R}(manifold, zeros(T, nsimplices(manifold, R)))
 end
 
-function Forms.unit(::Type{Fun{D,P,R,T}}, topo::Topology{D},
-                    n::Int) where {D,P,R,T}
-    @assert 1 <= n <= size(R, topo)
-    return Fun{D,P,R}(topo, sparsevec([n], [one(T)]))
+function Forms.unit(::Type{Fun{D,P,R,S,T}}, manifold::Manifold{D,S},
+                    n::Int) where {D,P,R,S,T}
+    @assert 1 <= n <= nsimplices(manifold, R)
+    # return Fun{D,P,R,S}(manifold, sparsevec([n], [one(T)]))
+    return Fun{D,P,R,S}(manifold, T[i == n for i in 1:nsimplices(manifold, R)])
 end
 
-function Base.:+(f::Fun{D,P,R}) where {D,P,R}
-    return Fun{D,P,R}(f.topo, +f.values)
+function Base.:+(f::Fun{D,P,R,S}) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, +f.values)
 end
 
-function Base.:-(f::Fun{D,P,R}) where {D,P,R}
-    return Fun{D,P,R}(f.topo, -f.values)
+function Base.:-(f::Fun{D,P,R,S}) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, -f.values)
 end
 
-function Base.:+(f::Fun{D,P,R}, g::Fun{D,P,R}) where {D,P,R}
-    @assert f.topo == g.topo
-    return Fun{D,P,R}(f.topo, f.values + g.values)
+function Base.:+(f::Fun{D,P,R,S}, g::Fun{D,P,R,S}) where {D,P,R,S}
+    @assert f.manifold == g.manifold
+    return Fun{D,P,R,S}(f.manifold, f.values + g.values)
 end
 
-function Base.:-(f::Fun{D,P,R}, g::Fun{D,P,R}) where {D,P,R}
-    @assert f.topo == g.topo
-    return Fun{D,P,R}(f.topo, f.values - g.values)
+function Base.:-(f::Fun{D,P,R,S}, g::Fun{D,P,R,S}) where {D,P,R,S}
+    @assert f.manifold == g.manifold
+    return Fun{D,P,R,S}(f.manifold, f.values - g.values)
 end
 
-function Base.:*(a::Number, f::Fun{D,P,R}) where {D,P,R}
-    return Fun{D,P,R}(f.topo, a * f.values)
+function Base.:*(a::Number, f::Fun{D,P,R,S}) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, a * f.values)
 end
 
-function Base.:\(a::Number, f::Fun{D,P,R}) where {D,P,R}
-    return Fun{D,P,R}(f.topo, a \ f.values)
+function Base.:\(a::Number, f::Fun{D,P,R,S}) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, a \ f.values)
 end
 
-function Base.:*(f::Fun{D,P,R}, a::Number) where {D,P,R}
-    return Fun{D,P,R}(f.topo, f.values * a)
+function Base.:*(f::Fun{D,P,R,S}, a::Number) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, f.values * a)
 end
 
-function Base.:/(f::Fun{D,P,R}, a::Number) where {D,P,R}
-    return Fun{D,P,R}(f.topo, f.values / a)
-end
-
-# Functions have a pointwise product
-
-function Base.zeros(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    return Fun{D,P,R}(topo, zeros(T, size(R, topo)))
-end
-
-function Base.ones(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    return Fun{D,P,R}(topo, ones(T, size(R, topo)))
-end
-
-# TODO: shouldn't this be defined automatically by being a collection?
-function Base.conj(f::Fun{D,P,R}) where {D,P,R}
-    return Fun{D,P,R}(f.topo, conj(f.values))
+function Base.:/(f::Fun{D,P,R,S}, a::Number) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, f.values / a)
 end
 
 # Functions are a category
 
 export id
-function id(::Type{Fun{D,P,R,T}}, topo::Topology{D}) where {D,P,R,T}
-    return Fun{D,P,R}(topo, [T(i) for i in 1:size(R, topo)])
+function id(::Type{<:Fun{D,P,0,S,SVector{D,S}}},
+            manifold::Manifold{D,S}) where {D,P,S}
+    values = [SVector{D,S}(@view manifold.coords[n, :])
+              for n in 1:nsimplices(manifold, 0)]
+    return Fun{D,P,0,S}(manifold, values)
+end
+
+function Base.conj(f::Fun{D,P,R,S}) where {D,P,R,S}
+    return Fun{D,P,R,S}(f.manifold, conj(f.values))
 end
 
 # composition?

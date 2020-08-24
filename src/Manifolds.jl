@@ -17,7 +17,7 @@ export Manifold
 """
 A discrete mfdfold 
 """
-struct Manifold{D,T}
+struct Manifold{D,S}
     name::String
 
     # If `simplices[R][i,j]` is present, then vertex `i` is part of
@@ -37,12 +37,12 @@ struct Manifold{D,T}
     lookup::OpDict{Tuple{Int,Int},One}
     # lookup::Dict{Tuple{Int,Int},Array{Int,2}}
 
-    coords::Array{T,2}
+    coords::Array{S,2}
 
-    function Manifold{D,T}(name::String, simplices::OpDict{Int,One},
+    function Manifold{D,S}(name::String, simplices::OpDict{Int,One},
                            boundaries::OpDict{Int,Int8},
                            lookup::OpDict{Tuple{Int,Int},One},
-                           coords::Array{T,2}) where {D,T}
+                           coords::Array{S,2}) where {D,S}
         D::Int
         @assert D >= 0
         @assert Set(keys(simplices)) == Set(0:D)
@@ -51,16 +51,16 @@ struct Manifold{D,T}
                 Set((Ri, Rj) for Ri in 1:D for Rj in (Ri + 1):D)
         @assert size(coords, 1) == size(simplices[0], 2)
         @assert size(coords, 2) >= D
-        mfd = new{D,T}(name, simplices, boundaries, lookup, coords)
+        mfd = new{D,S}(name, simplices, boundaries, lookup, coords)
         @assert invariant(mfd)
         return mfd
     end
     function Manifold(name::String, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8},
                       lookup::OpDict{Tuple{Int,Int},One},
-                      coords::Array{T,2}) where {T}
+                      coords::Array{S,2}) where {S}
         D = maximum(keys(simplices))
-        return Manifold{D,T}(name, simplices, boundaries, lookup, coords)
+        return Manifold{D,S}(name, simplices, boundaries, lookup, coords)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -72,12 +72,10 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
     println(io, "Manifold{$D}(")
     println(io, "    name=$(mfd.name)")
     for R in 0:D
-        simplices = mfd.simplices[R]
-        println(io, "    simplices[$R]=$simplices")
+        println(io, "    simplices[$R]=$(mfd.simplices[R])")
     end
     for R in 1:D
-        boundaries = mfd.boundaries[R]
-        print(io, "    boundaries[$R]=$boundaries")
+        print(io, "    boundaries[$R]=$(mfd.boundaries[R])")
     end
     print(io, "    coords=$(mfd.coords)")
     return print(io, ")")
@@ -168,7 +166,7 @@ struct Face{N}
 end
 
 function Manifold(name::String, simplices::SparseOp{Rank{0},Rank{D},One},
-                  coords::Array{T,2}) where {D,T}
+                  coords::Array{S,2}) where {D,S}
     @assert 0 <= D
     N = D + 1
 
