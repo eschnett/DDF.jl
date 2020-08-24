@@ -10,11 +10,17 @@ using DDF
 end
 
 @testset "simplex Manifolds D=$D" for D in 0:Dmax
-    S = Float64
+    S = Rational{Int128}
     mfd = simplex_manifold(Val(D), S)
     @test invariant(mfd)
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
+    end
+
+    N = D + 1
+    for i in 1:N, j in (i + 1):N
+        @test isapprox(sum(((@view mfd.coords[i, :]) - (@view mfd.coords[j, :])) .^
+                           2), 1; atol = sqrt(sqrt(eps())))
     end
 end
 

@@ -8,14 +8,26 @@ using ..Defs
 using ..SparseOps
 using ..ZeroOrOne
 
+################################################################################
+
+export PrimalDual, Pr, Dl
+@enum PrimalDual::Bool Pr Dl
+
+Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
+
 export Rank
 struct Rank{N} end
+
+export PRank
+struct PRank{PrDl,N} end
+
+################################################################################
 
 const OpDict{K,T} = Dict{K,SparseOp{<:Rank,<:Rank,T}} where {K,T}
 
 export Manifold
 """
-A discrete mfdfold 
+A discrete manifold 
 """
 struct Manifold{D,S}
     name::String

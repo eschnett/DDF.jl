@@ -7,6 +7,61 @@ using ..Defs
 
 ################################################################################
 
+# Sparse matrix iterators
+
+export sparse_column
+"""
+All nonzero row indices and values for a column in a sparse matrix
+"""
+function sparse_column(A::SparseMatrixCSC, col::Integer)
+    return SparseMatrixCSCColumnIter(Val(:RowVal), A, col)
+end
+
+export sparse_column_rows
+"""
+All row indices of nonzero values for a column in a sparse matrix
+"""
+function sparse_column_rows(A::SparseMatrixCSC, col::Integer)
+    return SparseMatrixCSCColumnIter(Val(:Row), A, col)
+end
+
+export sparse_column_values
+"""
+All nonzero values for a column in a sparse matrix
+"""
+function sparse_column_values(A::SparseMatrixCSC, col::Integer)
+    return SparseMatrixCSCColumnIter(Val(:Val), A, col)
+end
+
+struct SparseMatrixCSCColumnIter{F,T,I}
+    rowvals::Vector{I}
+    nonzeros::Vector{T}
+    nzrange::UnitRange{Int}
+    function SparseMatrixCSCColumnIter(::F, A::SparseMatrixCSC{T,I},
+                                       col::Integer) where {F,T,I}
+        new{F,T,I}(rowvals(A), nonzeros(A), nzrange(A, col))
+    end
+end
+
+function process(iter::SparseMatrixCSCColumnIter{Val{:RowVal}}, ind)
+    iter.rowvals[ind], iter.nonzeros[ind]
+end
+process(iter::SparseMatrixCSCColumnIter{Val{:Row}}, ind) = iter.rowvals[ind]
+process(iter::SparseMatrixCSCColumnIter{Val{:Val}}, ind) = iter.nonzeros[ind]
+
+Base.first(iter::SparseMatrixCSCColumnIter) = process(iter, first(iter.nzrange))
+Base.last(iter::SparseMatrixCSCColumnIter) = process(iter, last(iter.nzrange))
+Base.length(iter::SparseMatrixCSCColumnIter) = length(iter.nzrange)
+
+function Base.iterate(iter::SparseMatrixCSCColumnIter, state...)
+    ind_next = iterate(iter.nzrange, state...)
+    ind_next === nothing && return nothing
+    ind, next = ind_next
+    return process(iter, ind), next
+end
+
+################################################################################
+
 export SparseOp
 """
 A type-tagged sparse operator
@@ -103,11 +158,9 @@ function Base.reduce(f, A::SparseOp{Tag1,Tag2}, Bs::SparseOp{Tag1,Tag2}...;
     reduce(f, A.op, map(B -> B.op, Bs)...; kw...)
 end
 
-Defs.sparse_column(A::SparseOp, col::Integer) = sparse_column(A.op, col)
-function Defs.sparse_column_rows(A::SparseOp, col::Integer)
-    sparse_column_rows(A.op, col)
-end
-function Defs.sparse_column_values(A::SparseOp, col::Integer)
+sparse_column(A::SparseOp, col::Integer) = sparse_column(A.op, col)
+sparse_column_rows(A::SparseOp, col::Integer) = sparse_column_rows(A.op, col)
+function sparse_column_values(A::SparseOp, col::Integer)
     sparse_column_values(A.op, col)
 end
 

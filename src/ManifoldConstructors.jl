@@ -58,15 +58,15 @@ function regular_simplex(D::Int, ::Type{S}) where {S}
         if D == 1
             z = S(1)
         else
-            z0 = sqrt(1 - norm(s0[1, :]))
+            z0 = sqrt(1 - sum((@view s0[1, :]) .^ 2))
             if S <: Rational
-                z = rationalize(S, z0; tol = eps(z0))
+                z = rationalize(typeof(zero(S).den), z0; tol = sqrt(eps(z0)))
             else
                 z = z0::S
             end
         end
         z0 = -z / (D + 1)
-        s[1:(N - 1), 1:(D - 1)] .= s0[:, :]
+        s[1:(N - 1), 1:(D - 1)] .= @view s0[:, :]
         s[1:(N - 1), D] .= z0
         s[N, 1:(D - 1)] .= 0
         s[N, D] = z + z0

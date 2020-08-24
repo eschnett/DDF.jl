@@ -8,11 +8,6 @@ using StaticArrays
 using ..Defs
 using ..Manifolds
 
-export PrimalDual, Pr, Dl
-@enum PrimalDual::Bool Pr Dl
-
-Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
-
 export Fun
 """
 Function (aka Cochain)
