@@ -48,35 +48,6 @@ The algorithm proceeds recursively. A 0-simplex is a point. A
 D-simplex is a (D-1)-simplex that is shifted down along the new axis,
 plus a new point on the new axis.
 """
-function regular_simplex(::Val{D}, ::Type{T}) where {D,T}
-    D::Int
-    @assert D >= 0
-    N = D + 1
-    if D == 0
-        s = SVector{N}((SVector{D,T}(),))
-    else
-        s0 = regular_simplex(Val(D - 1), T)
-        # Choose height so that edge length is 1
-        if D == 1
-            z = T(1)
-        else
-            z = sqrt(1 - abs2(s0[1]))
-        end
-        z0 = -z / (D + 1)
-        s = SVector{N}((map(x -> SVector{D}(x..., z0), s0)...,
-                        SVector{D}(zero(SVector{D - 1,T})..., z + z0)))
-    end
-    return s::SVector{N,SVector{D,T}}
-end
-
-"""
-Generate the coordinate positions for a regular D-simplex with edge
-length 1.
-
-The algorithm proceeds recursively. A 0-simplex is a point. A
-D-simplex is a (D-1)-simplex that is shifted down along the new axis,
-plus a new point on the new axis.
-"""
 function regular_simplex(D::Int, ::Type{T}) where {T}
     @assert D >= 0
     N = D + 1
@@ -98,6 +69,86 @@ function regular_simplex(D::Int, ::Type{T}) where {T}
         s[N, D] = z + z0
     end
     return s
+end
+
+################################################################################
+
+export hypercube_manifold
+"""
+Standard simplification of a hypercube
+"""
+function hypercube_manifold(::Val{D}, ::Type{T}) where {D,T}
+    @assert D >= 0
+    N = D + 1
+
+    # Find simplices
+    simplices = SVector{N,Int}[]
+    corner = zeros(SVector{D,Bool})
+    vertices = [corner2vertex(corner)]
+    next_corner!(simplices, vertices, corner)
+    nsimplices = length(simplices)
+    @assert nsimplices == factorial(D)
+
+    # Set up coordinates
+    coords = SVector{D,Int}[]
+    imin = CartesianIndex(ntuple(d -> 0, D))
+    imax = CartesianIndex(ntuple(d -> 1, D))
+    for i in imin:imax
+        push!(coords, SVector{D,Int}(i.I))
+    end
+    nvertices = length(coords)
+    @assert nvertices == 2^D
+
+    I = Int[]
+    J = Int[]
+    V = One[]
+    for (j, sj) in enumerate(simplices)
+        for i in sj
+            push!(I, i)
+            push!(J, j)
+            push!(V, One())
+        end
+    end
+
+    simplices = SparseOp{Rank{0},Rank{D},One}(sparse(I, J, V, nvertices,
+                                                     nsimplices))
+    coords = T[coords[i][d] for i in 1:nvertices, d in 1:D]
+
+    return Manifold("hypercube manifold", simplices, coords)
+end
+
+"""
+- Accumulate the simplices in `simplices`.
+- `vertices` is the current set of vertices as we sweep from the
+  origin to diagonally opposide vertex.
+- `corner` is the current corner.
+"""
+function next_corner!(simplices::Vector{SVector{N,Int}}, vertices::Vector{Int},
+                      corner::SVector{D,Bool})::Nothing where {N,D}
+    @assert N == D + 1
+    if D == 0
+        @assert length(vertices) == 1
+    end
+    @assert count(corner) == length(vertices) - 1
+    if length(vertices) == D + 1
+        # We have all vertices; build the simplex
+        push!(simplices, SVector{N}(vertices))
+        return
+    end
+    # Loop over all neighbouring corners
+    for d in 1:D
+        if !corner[d]
+            new_corner = setindex(corner, true, d)
+            new_vertex = corner2vertex(new_corner)
+            new_vertices = [vertices; new_vertex]
+            next_corner!(simplices, new_vertices, new_corner)
+        end
+    end
+end
+
+function corner2vertex(c::SVector{D,Bool})::Int where {D}
+    D == 0 && return 1
+    return 1 + sum(c[d] << (d - 1) for d in 1:D)
 end
 
 end
