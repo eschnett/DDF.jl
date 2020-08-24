@@ -1,5 +1,6 @@
 module ManifoldConstructors
 
+using LinearAlgebra
 using SparseArrays
 using StaticArrays
 
@@ -13,8 +14,9 @@ export empty_manifold
 """
 The empty manifold
 """
-function empty_manifold(::Val{D}) where {D}
-    return Manifold("empty manifold", zero(SparseOp{Rank{0},Rank{D},One}, 0, 0))
+function empty_manifold(::Val{D}, ::Type{T}) where {D,T}
+    return Manifold("empty manifold", zero(SparseOp{Rank{0},Rank{D},One}, 0, 0),
+                    zeros(T, 0, D))
 end
 
 ################################################################################
@@ -25,7 +27,7 @@ Manifold with one standard simplex
 """
 function simplex_manifold(::Val{D}, ::Type{T}) where {D,T}
     N = D + 1
-    # s = regular_simplex(D, T)
+    coords = regular_simplex(D, T)
     I = Int[]
     J = Int[]
     V = One[]
@@ -35,7 +37,7 @@ function simplex_manifold(::Val{D}, ::Type{T}) where {D,T}
         push!(V, One())
     end
     simplices = SparseOp{Rank{0},Rank{D},One}(sparse(I, J, V, N, 1))
-    return Manifold("simplex manifold", simplices)
+    return Manifold("simplex manifold", simplices, coords)
 end
 
 """
@@ -67,6 +69,14 @@ function regular_simplex(::Val{D}, ::Type{T}) where {D,T}
     return s::SVector{N,SVector{D,T}}
 end
 
+"""
+Generate the coordinate positions for a regular D-simplex with edge
+length 1.
+
+The algorithm proceeds recursively. A 0-simplex is a point. A
+D-simplex is a (D-1)-simplex that is shifted down along the new axis,
+plus a new point on the new axis.
+"""
 function regular_simplex(D::Int, ::Type{T}) where {T}
     @assert D >= 0
     N = D + 1

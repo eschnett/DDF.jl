@@ -23,6 +23,7 @@ struct Manifold{D,T}
     # If `simplices[R][i,j]` is present, then vertex `i` is part of
     # the `R`-simplex `j`. `R ∈ 0:D`. We could omit `R=0`.
     simplices::OpDict{Int,One}
+    # simplices::Dict{Int,Array{Int,2}}
 
     # The boundary ∂ of `0`-forms vanishes and is not stored. If
     # `boundaries[R][i,j] = s`, then `R`-simplex `j` has
@@ -34,25 +35,32 @@ struct Manifold{D,T}
     # contains `Ri`-simplex `i`. `Ri ∈ 1:D, Rj ∈ Ri+1:D`. We could
     # omit `Rj=Ri+1`.
     lookup::OpDict{Tuple{Int,Int},One}
+    # lookup::Dict{Tuple{Int,Int},Array{Int,2}}
 
-    function Manifold{D}(name::String, simplices::OpDict{Int,One},
-                         boundaries::OpDict{Int,Int8},
-                         lookup::OpDict{Tuple{Int,Int},One}) where {D}
+    coords::Array{T,2}
+
+    function Manifold{D,T}(name::String, simplices::OpDict{Int,One},
+                           boundaries::OpDict{Int,Int8},
+                           lookup::OpDict{Tuple{Int,Int},One},
+                           coords::Array{T,2}) where {D,T}
         D::Int
         @assert D >= 0
         @assert Set(keys(simplices)) == Set(0:D)
         @assert Set(keys(boundaries)) == Set(1:D)
         @assert Set(keys(lookup)) ==
                 Set((Ri, Rj) for Ri in 1:D for Rj in (Ri + 1):D)
-        mfd = new{D,Rational}(name, simplices, boundaries, lookup)
+        @assert size(coords, 1) == size(simplices[0], 2)
+        @assert size(coords, 2) >= D
+        mfd = new{D,T}(name, simplices, boundaries, lookup, coords)
         @assert invariant(mfd)
         return mfd
     end
     function Manifold(name::String, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8},
-                      lookup::OpDict{Tuple{Int,Int},One})
+                      lookup::OpDict{Tuple{Int,Int},One},
+                      coords::Array{T,2}) where {T}
         D = maximum(keys(simplices))
-        return Manifold{D}(name, simplices, boundaries, lookup)
+        return Manifold{D,T}(name, simplices, boundaries, lookup, coords)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -71,6 +79,7 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
         boundaries = mfd.boundaries[R]
         print(io, "    boundaries[$R]=$boundaries")
     end
+    print(io, "    coords=$(mfd.coords)")
     return print(io, ")")
 end
 
@@ -123,12 +132,15 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
                 (@assert false; return false)
             for i in sj         # Ri-simplex
                 si = sparse_column_rows(mfd.simplices[Ri], i)
-                for k in si
+                for k in si     # vertices
                     k ∈ vj || (@assert false; return false)
                 end
             end
         end
     end
+
+    size(mfd.coords, 1) == nsimplices(mfd, 0) || (@assert false; return false)
+    size(mfd.coords, 2) >= D || (@assert false; return false)
 
     return true
 end
@@ -155,14 +167,15 @@ struct Face{N}
     parity::Int8
 end
 
-function Manifold{D}(name::String,
-                     simplices::SparseOp{Rank{0},Rank{D},One})::Manifold{D} where {D}
+function Manifold(name::String, simplices::SparseOp{Rank{0},Rank{D},One},
+                  coords::Array{T,2}) where {D,T}
     @assert 0 <= D
     N = D + 1
 
     if D == 0
         return Manifold(name, OpDict{Int,One}(0 => simplices),
-                        OpDict{Int,Int8}(), OpDict{Tuple{Int,Int},One}())
+                        OpDict{Int,Int8}(), OpDict{Tuple{Int,Int},One}(),
+                        coords)
     end
 
     nvertices, nsimplices = size(simplices)
@@ -214,8 +227,8 @@ function Manifold{D}(name::String,
     boundaries = SparseOp{Rank{D - 1},Rank{D}}(sparse(bI, bJ, bV, nfaces,
                                                       nsimplices))
 
-    # Recursively create lower-dimensional (D-1)-mfdfold
-    mfd1 = Manifold{D - 1}(name, faces)
+    # Recursively create lower-dimensional (D-1)-manifold
+    mfd1 = Manifold(name, faces, coords)
 
     # Extend lookup table
     if D > 1
@@ -234,12 +247,7 @@ function Manifold{D}(name::String,
     # Create D-manifold
     mfd1.simplices[D] = simplices
     mfd1.boundaries[D] = boundaries
-    return Manifold{D}(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup)
-end
-
-function Manifold(name::String,
-                  simplices::SparseOp{Rank{0},Rank{D},One})::Manifold{D} where {D}
-    return Manifold{D}(name, simplices)
+    return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords)
 end
 
 end

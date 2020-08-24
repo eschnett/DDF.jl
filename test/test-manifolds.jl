@@ -1,7 +1,8 @@
 using DDF
 
 @testset "empty Manifolds D=$D" for D in 0:Dmax
-    mempty = empty_manifold(Val(D))
+    T = Float64
+    mempty = empty_manifold(Val(D), T)
     @test invariant(mempty)
     for R in 0:D
         @test nsimplices(mempty, R) == 0
@@ -9,7 +10,8 @@ using DDF
 end
 
 @testset "simplex Manifolds D=$D" for D in 0:Dmax
-    msimplex = simplex_manifold(Val(D), Float64)
+    T = Float64
+    msimplex = simplex_manifold(Val(D), T)
     @test invariant(msimplex)
     @test nsimplices(msimplex, D) == 1
     # more
