@@ -5,7 +5,8 @@ using StaticArrays
 using Test
 
 # Dmax-1 since these tests are expensive
-@testset "Op D=$D P2=$P2 R2=$R2 P1=$P1 R1=$R1" for D in 0:(Dmax - 1),
+const Dmax1 = max(0, Dmax - 1)
+@testset "Op D=$D P2=$P2 R2=$R2 P1=$P1 R1=$R1" for D in 0:Dmax1,
 P2 in (Pr, Dl),
 R2 in 0:D,
 P1 in (Pr, Dl),
@@ -110,36 +111,3 @@ R1 in 0:D
     gscale = max(1, maxabs(g1), maxabs(g2))
     @test maxabs(g1 - g2) <= 1.0e-11 * gscale
 end
-
-# @testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-#     T = Rational{Int64}
-# 
-#     mfd0 = Mfdlogy(Val(D))
-#     mfd1 = Mfdlogy(Simplex(SVector{D + 1}(1:(D + 1))))
-#     mfd2, _ = hypercube_manifold(Val(D))
-#     mfds = [mfd0, mfd1, mfd2]
-# 
-#     for mfd in mfds
-#         f0 = ones(Fun{D,P,R,T}, mfd)
-#         f1 = id(Fun{D,P,R,T}, mfd)
-#         fs = [f0, f1]
-# 
-#         R1 = P == Pr ? R - 1 : R + 1
-#         if 0 <= R1 <= D
-#             b = boundary(Val(P), Val(R), mfd)
-#             for f in fs
-#                 bf = b * f
-#                 bf::Fun{D,P,R1,T}
-#             end
-#         end
-# 
-#         R1 = P == Pr ? R + 1 : R - 1
-#         if 0 <= R1 <= D
-#             d = deriv(Val(P), Val(R), mfd)
-#             for f in fs
-#                 df = d * f
-#                 df::Fun{D,P,R1,T}
-#             end
-#         end
-#     end
-# end

@@ -11,6 +11,7 @@ include("Manifolds.jl")
 include("ManifoldConstructors.jl")
 include("Funs.jl")
 include("Ops.jl")
+include("ManifoldOps.jl")
 # include("Topologies.jl")
 # include("Geometries.jl")
 
@@ -18,6 +19,7 @@ include("Ops.jl")
 @reexport using .Defs
 @reexport using .Funs
 @reexport using .ManifoldConstructors
+@reexport using .ManifoldOps
 @reexport using .Manifolds
 @reexport using .Ops
 @reexport using .SparseOps

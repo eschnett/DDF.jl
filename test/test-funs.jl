@@ -8,6 +8,7 @@ using Test
     mfd = hypercube_manifold(Val(D), T)
 
     z = zero(Fun{D,P,R,T,T}, mfd)
+    e = id(Fun{D,P,0,T,SVector{D,T}}, mfd)
     f = rand(Fun{D,P,R,T,T}, mfd)
     g = rand(Fun{D,P,R,T,T}, mfd)
     h = rand(Fun{D,P,R,T,T}, mfd)
@@ -55,11 +56,8 @@ using Test
 
     # Nonlinear transformations
 
-    if D > 0
-        e = id(Fun{D,P,0,T,SVector{D,T}}, mfd)
-        e2 = map(x -> 2x, e)
-        @test [2x for x in e] == [x for x in e2]
-    end
+    e2 = map(x -> 2x, e)
+    @test [2x for x in e] == [x for x in e2]
 
     @test map(+, f, g) == f + g
 end

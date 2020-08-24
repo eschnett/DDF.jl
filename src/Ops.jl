@@ -252,38 +252,4 @@ function Base.:\(A::Op{D,P1,R1,P2,R2}, f::Fun{D,P1,R1}) where {D,P1,R1,P2,R2}
     return Fun{D,P2,R2}(f.manifold, A.values \ f.values)
 end
 
-# Boundary
-
-export boundary
-function boundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 < R <= D
-    return Op{D,Pr,R - 1,Pr,R}(manifold, manifold.boundaries[R])
-end
-function boundary(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 <= R < D
-    return Op{D,Dl,R + 1,Dl,R}(manifold, manifold.boundaries[R + 1]')
-end
-
-export coboundary
-function coboundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 <= R < D
-    return adjoint(boundary(Val(Pr), Val(R + 1), manifold))::Op{D,Pr,R + 1,Pr,R}
-end
-function coboundary(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 < R <= D
-    return adjoint(boundary(Val(Dl), Val(R - 1), manifold))::Op{D,Dl,R - 1,Dl,R}
-end
-
-# Derivative
-
-export deriv
-function deriv(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 <= R < D
-    return coboundary(Val(Pr), Val(R), manifold)::Op{D,Pr,R + 1,Pr,R}
-end
-function deriv(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 < R <= D
-    return coboundary(Val(Dl), Val(R), manifold)::Op{D,Dl,R - 1,Dl,R}
-end
-
 end
