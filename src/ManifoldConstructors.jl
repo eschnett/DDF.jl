@@ -52,9 +52,7 @@ function regular_simplex(D::Int, ::Type{S}) where {S}
     @assert D >= 0
     N = D + 1
     s = Array{S}(undef, N, D)
-    if D == 0
-        # do nothing
-    else
+    if D > 0
         s0 = regular_simplex(D - 1, S)
         # Choose height so that edge length is 1
         if D == 1
