@@ -16,7 +16,7 @@ The empty manifold
 """
 function empty_manifold(::Val{D}, ::Type{S}) where {D,S}
     return Manifold("empty manifold", zero(SparseOp{Rank{0},Rank{D},One}, 0, 0),
-                    zeros(T, 0, D))
+                    zeros(S, 0, D))
 end
 
 ################################################################################
@@ -58,7 +58,7 @@ function regular_simplex(D::Int, ::Type{S}) where {S}
         s0 = regular_simplex(D - 1, S)
         # Choose height so that edge length is 1
         if D == 1
-            z = T(1)
+            z = S(1)
         else
             z0 = sqrt(1 - norm(s0[1, :]))
             if S <: Rational
