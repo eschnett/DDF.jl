@@ -120,7 +120,7 @@ end
 
 function Base.rand(::Type{SparseOp{Tag1,Tag2,T}}, nrows::Integer,
                    ncols::Integer) where {Tag1,Tag2,T}
-    p = 4 / ncols
+    p = clamp(4 / min(nrows, ncols), 0, 1)
     return SparseOp{Tag1,Tag2}(sprand(T, nrows, ncols, p))
 end
 

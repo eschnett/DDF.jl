@@ -1,6 +1,5 @@
 module Funs
 
-using ComputedFieldTypes
 using DifferentialForms: Forms
 using SparseArrays
 using StaticArrays
@@ -127,14 +126,16 @@ Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 function Base.zero(::Type{Fun{D,P,R,S,T}},
                    manifold::Manifold{D,S}) where {D,P,R,S,T}
-    return Fun{D,P,R}(manifold, zeros(T, nsimplices(manifold, R)))
+    nelts = nsimplices(manifold, R)
+    return Fun{D,P,R}(manifold, zeros(T, nelts))
 end
 
 function Forms.unit(::Type{Fun{D,P,R,S,T}}, manifold::Manifold{D,S},
                     n::Int) where {D,P,R,S,T}
-    @assert 1 <= n <= nsimplices(manifold, R)
-    # return Fun{D,P,R,S}(manifold, sparsevec([n], [one(T)]))
-    return Fun{D,P,R,S}(manifold, T[i == n for i in 1:nsimplices(manifold, R)])
+    nelts = nsimplices(manifold, R)
+    @assert 1 <= n <= nelts
+    # return Fun{D,P,R,S}(manifold, sparsevec([n], [one(T)],nelts))
+    return Fun{D,P,R,S}(manifold, T[i == n for i in 1:nelts])
 end
 
 function Base.:+(f::Fun{D,P,R,S}) where {D,P,R,S}

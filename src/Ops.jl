@@ -6,50 +6,44 @@ using SparseArrays
 
 using ..Defs
 using ..Funs
-using ..Topologies
+using ..Manifolds
 
-# Operators
-
-# TODO: Define these in Ops (or Funs?)
-# TODO: Test them (similar to Funs)
-
-# Drop non-structural zeros if we can do that without losing accuracy
-const ExactType = Union{Integer,Rational}
-compress(A) = A
-compress(A::AbstractSparseMatrix{<:ExactType}) = dropzeros(A)
-compress(A::AbstractSparseMatrix{Complex{<:ExactType}}) = dropzeros(A)
-compress(A::Adjoint) = adjoint(compress(adjoint(A)))
-compress(A::Transpose) = transpose(compress(transpose(A)))
-# compress(A::Union{LowerTriangular, UpperTriangular}) =
-#     typeof(A)(compress(A.data))
-
+# TODO: Add type `S` from `Manifold{D,S}`?
 export Op
 struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
-    topo::Topology{D}
+    manifold::Manifold{D}
     values::Union{AbstractMatrix{T},UniformScaling{T}}
-    # TODO: Check invariant
 
-    function Op{D,P1,R1,P2,R2,T}(topo::Topology{D},
+    function Op{D,P1,R1,P2,R2,T}(manifold::Manifold{D},
                                  values::Union{AbstractMatrix{T},
                                                UniformScaling{T}}) where {D,P1,
                                                                           R1,P2,
                                                                           R2,T}
-        op = new{D,P1,R1,P2,R2,T}(topo, compress(values))
+        op = new{D,P1,R1,P2,R2,T}(manifold, dnz(values))
         @assert invariant(op)
         return op
     end
-    function Op{D,P1,R1,P2,R2}(topo::Topology{D},
+    function Op{D,P1,R1,P2,R2}(manifold::Manifold{D},
                                values::Union{AbstractMatrix{T},
                                              UniformScaling{T}}) where {D,P1,R1,
                                                                         P2,R2,T}
-        return Op{D,P1,R1,P2,R2,T}(topo, values)
+        return Op{D,P1,R1,P2,R2,T}(manifold, values)
     end
 end
+
+# Drop non-structural zeros if we can do that without losing accuracy
+const ExactType = Union{Integer,Rational}
+dnz(A) = A
+dnz(A::AbstractSparseMatrix{<:ExactType}) = dropzeros(A)
+dnz(A::AbstractSparseMatrix{Complex{<:ExactType}}) = dropzeros(A)
+dnz(A::Adjoint) = adjoint(dnz(adjoint(A)))
+dnz(A::Transpose) = transpose(dnz(transpose(A)))
+# dnz(A::Union{LowerTriangular, UpperTriangular}) = typeof(A)(dnz(A.data))
 
 function Base.show(io::IO, op::Op{D,P1,R1,P2,R2,T}) where {D,P1,R1,P2,R2,T}
     println(io)
     println(io, "Op{$D,$P1,$R1,$P2,$R2,$T}(")
-    println(io, "    topo=$(op.topo.name)")
+    println(io, "    manifold=$(op.manifold.name)")
     println(io, "    values=$(op.values)")
     return print(io, ")")
 end
@@ -64,7 +58,8 @@ function Defs.invariant(op::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     R2::Int
     @assert 0 <= R2 <= D
     if !(op.values isa UniformScaling)
-        @assert size(op.values) == (size(R1, op.topo), size(R2, op.topo))
+        @assert size(op.values) ==
+                (nsimplices(op.manifold, R1), nsimplices(op.manifold, R2))
     end
     return true
 end
@@ -72,31 +67,55 @@ end
 # Comparison
 
 function Base.:(==)(A::M, B::M) where {M<:Op}
-    @assert A.topo == B.topo
+    @assert A.manifold == B.manifold
     return A.values == B.values
 end
-
-# Operators are a collection
-
-Base.iterate(A::Op, state...) = iterate(A.values, state...)
-Base.IteratorSize(A::Op) = Base.IteratorSize(A.values)
-Base.IteratorEltype(A::Op) = Base.IteratorEltype(A.values)
-Base.isempty(A::Op) = isempty(A.values)
-Base.length(A::Op) = length(A.values)
-Base.eltype(A::Op) = eltype(A.values)
-
-function Base.map(op, A::Op{D,P1,R1,P2,R2},
-                  Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
-    @assert all(A.topo == B.topo for B in Bs)
-    return Fun{D,R}(A.topo, map(op, A.values, (B.values for B in Bs)...))
+function Base.:(<)(A::M, B::M) where {M<:Op}
+    @assert A.manifold == B.manifold
+    return A.values < B.values
+end
+function Base.isequal(A::M, B::M) where {M<:Op}
+    @assert A.manifold == B.manifold
+    return isequal(A.values, B.values)
+end
+function Base.hash(A::Op, h::UInt)
+    return hash(0xfc734743, hash(A.manifold, hash(A.values, h)))
 end
 
 # Random operators
 function Base.rand(::Type{Op{D,P1,R1,P2,R2,T}},
-                   topo::Topology{D}) where {D,P1,R1,P2,R2,T}
-    m, n = size(R1, topo), size(R2, topo)
-    p = clamp(4 / min(m, n), 0, 1)
-    return Op{D,P1,R1,P2,R2}(topo, sprand(T, m, n, p))
+                   manifold::Manifold{D}) where {D,P1,R1,P2,R2,T}
+    nrows, ncols = nsimplices(manifold, R1), nsimplices(manifold, R2)
+    p = clamp(4 / min(nrows, ncols), 0, 1)
+    return Op{D,P1,R1,P2,R2}(manifold, sprand(T, nrows, ncols, p))
+end
+
+# Operators are a collection
+
+# Base.IteratorEltype(::Type{<:Op}) = ???
+# Base.IteratorSize(::Type{<:Op}) = ???
+Base.eltype(::Type{<:Op{<:Any,<:Any,<:Any,<:Any,<:Any,T}}) where {T} = T
+Base.eltype(A::Op) = eltype(typeof(A))
+Base.isempty(A::Op) = isempty(A.values)
+Base.iterate(A::Op, state...) = iterate(A.values, state...)
+Base.length(A::Op) = length(A.values)
+
+# function Base.map(op, A::Op{D,P1,R1,P2,R2},
+#                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
+#     @assert all(A.manifold == B.manifold for B in Bs)
+#     return Fun{D,R}(A.manifold, map(op, A.values, (B.values for B in Bs)...))
+# end
+function Base.map(fop, A::Op{D,P1,R1,P2,R2},
+                  Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
+    @assert all(B.manifold == A.manifold for B in Bs)
+    U = typeof(op(zero(eltype(A)), (zero(eltype(B)) for B in Bs)...))
+    Op{D,P1,R1,P2,R2,U}(A.manifold,
+                        map(op, A.values, (B.values for B in Bs)...))
+end
+function Base.reduce(op, A::Op{D,P1,R1,P2,R2}, Bs::Op{D,P1,R1,P2,R2}...;
+                     kw...) where {D,P1,R1,P2,R2}
+    @assert all(B.manifold == A.manifold for B in Bs)
+    reduce(op, A.values, (B.values for B in Bs)...; kw...)
 end
 
 # Operators are an abstract matrix
@@ -115,66 +134,72 @@ Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
 # Operators are a vector space
 
 function Base.zero(::Type{Op{D,P1,R1,P2,R2,T}},
-                   topo::Topology{D}) where {D,P1,R1,P2,R2,T}
-    return Op{D,P1,R1,P2,R2}(topo, spzeros(T, size(R1, topo), size(R2, topo)))
+                   manifold::Manifold{D}) where {D,P1,R1,P2,R2,T}
+    nrows = nsimplices(manifold, R1)
+    ncols = nsimplices(manifold, R2)
+    return Op{D,P1,R1,P2,R2}(manifold, spzeros(T, nrows, ncols))
 end
 
-function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, topo::Topology{D}, m::Int,
-                    n::Int) where {D,P1,R1,P2,R2,T}
-    @assert 1 <= m <= size(R1, topo)
-    @assert 1 <= n <= size(R2, topo)
-    return Op{D,P1,R1,P2,R2}(topo, sparse([m], [n], [one(T)]))
+function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, manifold::Manifold{D},
+                    row::Int, col::Int) where {D,P1,R1,P2,R2,T}
+    nrows = nsimplices(manifold, R1)
+    ncols = nsimplices(manifold, R2)
+    @assert 1 <= row <= nrows
+    @assert 1 <= col <= ncols
+    return Op{D,P1,R1,P2,R2}(manifold,
+                             sparse([row], [col], [one(T)], nrows, ncols))
 end
 
 function Base.:+(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, +A.values)
+    return Op{D,P1,R1,P2,R2}(A.manifold, +A.values)
 end
 
 function Base.:-(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, -A.values)
+    return Op{D,P1,R1,P2,R2}(A.manifold, -A.values)
 end
 
 function Base.:+(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    @assert A.topo == B.topo
-    return Op{D,P1,R1,P2,R2}(A.topo, A.values + B.values)
+    @assert A.manifold == B.manifold
+    return Op{D,P1,R1,P2,R2}(A.manifold, A.values + B.values)
 end
 
 function Base.:-(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    @assert A.topo == B.topo
-    return Op{D,P1,R1,P2,R2}(A.topo, A.values - B.values)
+    @assert A.manifold == B.manifold
+    return Op{D,P1,R1,P2,R2}(A.manifold, A.values - B.values)
 end
 
 function Base.:*(a::Number, A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, a * A.values)
+    return Op{D,P1,R1,P2,R2}(A.manifold, a * A.values)
 end
 
 function Base.:\(a::Number, A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, a \ A.values)
+    return Op{D,P1,R1,P2,R2}(A.manifold, a \ A.values)
 end
 
 function Base.:*(A::Op{D,P1,R1,P2,R2}, a::Number) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, A.values * a)
+    return Op{D,P1,R1,P2,R2}(A.manifold, A.values * a)
 end
 
 function Base.:/(A::Op{D,P1,R1,P2,R2}, a::Number) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, A.values / a)
+    return Op{D,P1,R1,P2,R2}(A.manifold, A.values / a)
 end
 
 # Operators are a ring
 
-function Base.one(::Type{Op{D,R,P,R,P}}, topo::Topology{D}) where {D,R,P}
-    return Op{D,R,P,R,P}(topo, I)
+function Base.one(::Type{Op{D,R,P,R,P}}, manifold::Manifold{D}) where {D,R,P}
+    return Op{D,R,P,R,P}(manifold, I)
 end
-function Base.one(::Type{Op{D,R,P,R,P,T}}, topo::Topology{D}) where {D,R,P,T}
-    return Op{D,R,P,R,P}(topo, one(T) * I)
+function Base.one(::Type{Op{D,R,P,R,P,T}},
+                  manifold::Manifold{D}) where {D,R,P,T}
+    return Op{D,R,P,R,P}(manifold, one(T) * I)
 end
 
 function Base.:*(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P2,R2,P3,R3}) where {D,P1,R1,P2,R2,P3,R3}
-    @assert A.topo == B.topo
-    return Op{D,P1,R1,P3,R3}(A.topo, A.values * B.values)
+    @assert A.manifold == B.manifold
+    return Op{D,P1,R1,P3,R3}(A.manifold, A.values * B.values)
 end
 
 # Operators are a groupoid ("division ring")
@@ -183,82 +208,82 @@ end
 # matrix representations
 function Base.inv(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     @assert R1 == R2
-    @assert size(R1, A.topo) == size(R2, A.topo)
-    return Op{D,P2,R2,P1,R1}(A.topo, inv(A.values))
+    @assert size(R1, A.manifold) == size(R2, A.manifold)
+    return Op{D,P2,R2,P1,R1}(A.manifold, inv(A.values))
 end
 
 function Base.:/(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P3,R3,P2,R2}) where {D,P1,R1,P2,R2,P3,R3}
-    @assert A.topo == B.topo
-    return Op{D,P1,R1,P3,R3}(A.topo, A.values / B.values)
+    @assert A.manifold == B.manifold
+    return Op{D,P1,R1,P3,R3}(A.manifold, A.values / B.values)
 end
 
 function Base.:\(A::Op{D,P2,R2,P1,R1},
                  B::Op{D,P2,R2,P3,R3}) where {D,P1,R1,P2,R2,P3,R3}
-    @assert A.topo == B.topo
-    return Op{D,P1,R1,P3,R3}(A.topo, A.values \ B.values)
+    @assert A.manifold == B.manifold
+    return Op{D,P1,R1,P3,R3}(A.manifold, A.values \ B.values)
 end
 
 # There are adjoints
 
 function Base.adjoint(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P2,R2,P1,R1}(A.topo, adjoint(A.values))
+    return Op{D,P2,R2,P1,R1}(A.manifold, adjoint(A.values))
 end
 
 function Base.transpose(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P2,R2,P1,R1}(A.topo, transpose(A.values))
+    return Op{D,P2,R2,P1,R1}(A.manifold, transpose(A.values))
 end
 
 # TODO: shouldn't this be defined automatically by being a collection?
 function Base.conj(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    return Op{D,P1,R1,P2,R2}(A.topo, conj(A.values))
+    return Op{D,P1,R1,P2,R2}(A.manifold, conj(A.values))
 end
 
 # Operators act on functions
 
 function Base.:*(A::Op{D,P1,R1,P2,R2}, f::Fun{D,P2,R2}) where {D,P1,R1,P2,R2}
-    @assert A.topo == f.topo
-    return Fun{D,P1,R1}(f.topo, A.values * f.values)
+    @assert A.manifold == f.manifold
+    return Fun{D,P1,R1}(f.manifold, A.values * f.values)
 end
 
 function Base.:\(A::Op{D,P1,R1,P2,R2}, f::Fun{D,P1,R1}) where {D,P1,R1,P2,R2}
-    @assert A.topo == f.topo
+    @assert A.manifold == f.manifold
     # Note: \ converts rationals to Float64
-    return Fun{D,P2,R2}(f.topo, A.values \ f.values)
+    return Fun{D,P2,R2}(f.manifold, A.values \ f.values)
 end
 
 # Boundary
 
 export boundary
-function boundary(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R,D}
+function boundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 < R <= D
-    return Op{D,Pr,R - 1,Pr,R}(topo, topo.boundaries[R])
+    return Op{D,Pr,R - 1,Pr,R}(manifold, manifold.boundaries[R])
 end
-function boundary(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R,D}
+function boundary(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 <= R < D
-    return Op{D,Dl,R + 1,Dl,R}(topo, topo.boundaries[R + 1]')
+    return Op{D,Dl,R + 1,Dl,R}(manifold, manifold.boundaries[R + 1]')
 end
 
 export coboundary
-function coboundary(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R,D}
+function coboundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 <= R < D
-    return adjoint(boundary(Val(Pr), Val(R + 1), topo))::Op{D,Pr,R + 1,Pr,R}
+    return adjoint(boundary(Val(Pr), Val(R + 1), manifold))::Op{D,Pr,R + 1,Pr,R}
 end
-function coboundary(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R,D}
+function coboundary(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 < R <= D
-    return adjoint(boundary(Val(Dl), Val(R - 1), topo))::Op{D,Dl,R - 1,Dl,R}
+    return adjoint(boundary(Val(Dl), Val(R - 1), manifold))::Op{D,Dl,R - 1,Dl,R}
 end
 
 # Derivative
 
 export deriv
-function deriv(::Val{Pr}, ::Val{R}, topo::Topology{D}) where {R,D}
+function deriv(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 <= R < D
-    return coboundary(Val(Pr), Val(R), topo)::Op{D,Pr,R + 1,Pr,R}
+    return coboundary(Val(Pr), Val(R), manifold)::Op{D,Pr,R + 1,Pr,R}
 end
-function deriv(::Val{Dl}, ::Val{R}, topo::Topology{D}) where {R,D}
+function deriv(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 < R <= D
-    return coboundary(Val(Dl), Val(R), topo)::Op{D,Dl,R - 1,Dl,R}
+    return coboundary(Val(Dl), Val(R), manifold)::Op{D,Dl,R - 1,Dl,R}
 end
 
 end
