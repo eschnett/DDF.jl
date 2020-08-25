@@ -1,6 +1,6 @@
 module Manifolds
 
-using DifferentialForms: bitsign
+using DifferentialForms
 using SparseArrays
 using StaticArrays
 
@@ -44,11 +44,19 @@ struct Manifold{D,S}
     # lookup::Dict{Tuple{Int,Int},Array{Int,2}}
 
     coords::Array{S,2}
+    # coords::Vector{SVector{C,S}}
+    volumes::Dict{Int,Vector{S}}
+    # Coordinates of vertices of dual grid, i.e. circumcentres of
+    # primal top-simplices
+    dualcoords::Array{S,2}
+    # dualcoords::Vector{SVector{C,S}}
+    dualvolumes::Dict{Int,Vector{S}}
 
     function Manifold{D,S}(name::String, simplices::OpDict{Int,One},
                            boundaries::OpDict{Int,Int8},
                            lookup::OpDict{Tuple{Int,Int},One},
-                           coords::Array{S,2}) where {D,S}
+                           coords::Array{S,2},
+                           volumes::Dict{Int,Vector{S}}) where {D,S}
         D::Int
         @assert D >= 0
         @assert Set(keys(simplices)) == Set(0:D)
@@ -57,16 +65,21 @@ struct Manifold{D,S}
                 Set((Ri, Rj) for Ri in 1:D for Rj in (Ri + 1):D)
         @assert size(coords, 1) == size(simplices[0], 2)
         @assert size(coords, 2) >= D
-        mfd = new{D,S}(name, simplices, boundaries, lookup, coords)
+        @assert Set(keys(volumes)) == Set(0:D)
+        for R in 0:D
+            @assert length(volumes[R]) == size(simplices[R], 2)
+        end
+        mfd = new{D,S}(name, simplices, boundaries, lookup, coords, volumes)
         @assert invariant(mfd)
         return mfd
     end
     function Manifold(name::String, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8},
-                      lookup::OpDict{Tuple{Int,Int},One},
-                      coords::Array{S,2}) where {S}
+                      lookup::OpDict{Tuple{Int,Int},One}, coords::Array{S,2},
+                      volumes::Dict{Int,Vector{S}}) where {S}
         D = maximum(keys(simplices))
-        return Manifold{D,S}(name, simplices, boundaries, lookup, coords)
+        return Manifold{D,S}(name, simplices, boundaries, lookup, coords,
+                             volumes)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -84,6 +97,9 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
         print(io, "    boundaries[$R]=$(mfd.boundaries[R])")
     end
     print(io, "    coords=$(mfd.coords)")
+    for R in 0:D
+        print(io, "    volumes=$(mfd.volumes[R])")
+    end
     return print(io, ")")
 end
 
@@ -146,6 +162,12 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
     size(mfd.coords, 1) == nsimplices(mfd, 0) || (@assert false; return false)
     size(mfd.coords, 2) >= D || (@assert false; return false)
 
+    Set(keys(mfd.volumes)) == Set(0:D) || (@assert false; return false)
+    for R in 0:D
+        length(mfd.volumes[R]) == nsimplices(mfd, R) ||
+            (@assert false; return false)
+    end
+
     return true
 end
 
@@ -165,6 +187,14 @@ nsimplices(mfd::Manifold, R::Integer) = size(mfd.simplices[R], 2)
 
 # Outer constructor
 
+export ZeroVolumeException
+struct ZeroVolumeException <: Exception
+    D::Int
+    i::Int
+    simplex::Vector{Int}
+    cs::Vector                  # Vector{SVector{D,T}}
+end
+
 struct Face{N}
     vertices::SVector{N,Int}
     parent::Int
@@ -176,13 +206,16 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     @assert 0 <= D
     N = D + 1
 
+    nvertices, nsimplices = size(simplices)
+    @assert size(coords, 1) == nvertices
+    @assert size(coords, 2) >= D
+
     if D == 0
+        volumes = fill(S(1), nsimplices)
         return Manifold(name, OpDict{Int,One}(0 => simplices),
                         OpDict{Int,Int8}(), OpDict{Tuple{Int,Int},One}(),
-                        coords)
+                        coords, Dict{Int,Vector{S}}(0 => volumes))
     end
-
-    nvertices, nsimplices = size(simplices)
 
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076v2 [cs.NA], section 7
@@ -247,10 +280,41 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         @assert haskey(mfd1.lookup, (Ri, Rj))
     end
 
+    # Calculate volumes
+    C = size(coords, 2)
+    volumes = calc_volumes(Val(D), Val(C), simplices, coords)
+
     # Create D-manifold
     mfd1.simplices[D] = simplices
     mfd1.boundaries[D] = boundaries
-    return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords)
+    mfd1.volumes[D] = volumes
+    return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords,
+                    mfd1.volumes)
+end
+
+"""
+Calculate volumes
+"""
+function calc_volumes(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
+                      coords::Array{S,2}) where {D,C,S}
+    nvertices, nsimplices = size(simplices)
+    volumes = Array{S}(undef, nsimplices)
+    for i in 1:nsimplices
+        si = sparse_column_rows(simplices, i)
+        @assert length(si) == D + 1
+        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}((@view coords[i, :])))
+                            for i in si)
+        ys = map(x -> x - xs[1], deleteat(xs, 1))
+        if isempty(ys)
+            vol = one(S)
+        else
+            vol = abs(∧(ys...))
+        end
+        vol /= factorial(D)
+        vol > 0 || throw(ZeroVolumeException(D, i, collect(si), xs))
+        volumes[i] = vol
+    end
+    return volumes
 end
 
 end
