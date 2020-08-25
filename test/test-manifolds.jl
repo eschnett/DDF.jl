@@ -26,6 +26,9 @@ end
         #                    2), 1; atol = sqrt(sqrt(eps())))
         @test norm((@view mfd.coords[i, :]) - (@view mfd.coords[j, :])) ≈ 1
     end
+
+    # <https://en.wikipedia.org/wiki/Simplex#Volume>
+    @test sum(mfd.volumes[D]) ≈ sqrt(S(D + 1) / 2^D) / factorial(D)
 end
 
 @testset "hypercube Manifolds D=$D" for D in 0:Dmax
@@ -35,4 +38,6 @@ end
     @test nsimplices(mfd, D) == factorial(D)
     @test nsimplices(mfd, 0) == 2^D
     # TODO: Find rule for other dimensions
+
+    @test sum(mfd.volumes[D]) ≈ 1
 end
