@@ -10,8 +10,8 @@ using Test
     cc = circumcentre(xs)
     cc::Form{D,1,T}
     # Check that circumcentre has same distance from all vertices
-    r2 = abs2(xs[1] - cc)
-    @test all(==(r2), abs2(xs[n] - cc) for n in 1:N)
+    r2 = norm2(xs[1] - cc)
+    @test all(==(r2), norm2(xs[n] - cc) for n in 1:N)
     # Check that circumcentre lies in hyperplane spanned by vertices
     if sum(frank.(xs)) > D
         @test true

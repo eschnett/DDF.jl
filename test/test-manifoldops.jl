@@ -18,7 +18,27 @@ using Test
             push!(funs, e)
         end
 
-        R1 = P == Pr ? R - 1 : R + 1
+        s = P == Pr ? +1 : -1
+
+        R2 = R - 2s
+        if 0 <= R2 <= D
+            b1 = boundary(Val(P), Val(R), mfd)
+            b2 = boundary(Val(P), Val(R - s), mfd)
+            b21 = b2 * b1
+            b21::Op{D,P,R2,P,R,Int8}
+            @test iszero(b21)
+        end
+
+        R2 = R + 2s
+        if 0 <= R2 <= D
+            d1 = deriv(Val(P), Val(R), mfd)
+            d2 = deriv(Val(P), Val(R + s), mfd)
+            d21 = d2 * d1
+            d21::Op{D,P,R2,P,R,Int8}
+            @test iszero(d21)
+        end
+
+        R1 = R - s
         if 0 <= R1 <= D
             b = boundary(Val(P), Val(R), mfd)
             for f in funs
@@ -28,7 +48,7 @@ using Test
             end
         end
 
-        R1 = P == Pr ? R + 1 : R - 1
+        R1 = R + s
         if 0 <= R1 <= D
             d = deriv(Val(P), Val(R), mfd)
             for f in funs

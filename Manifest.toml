@@ -33,9 +33,9 @@ version = "1.0.0"
 
 [[DifferentialForms]]
 deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "Reexport", "StaticArrays", "Test"]
-git-tree-sha1 = "b1574e6372213788c96cdb9522d979750cc79f44"
+git-tree-sha1 = "4d3105157543167e3c42107369f892ba26a6b615"
 uuid = "9e54b8bf-1ae4-4c45-8656-f6b46e7970a3"
-version = "0.1.4"
+version = "0.2.0"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]

@@ -60,7 +60,7 @@ function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     if isempty(ys)
         vol = one(S)
     else
-        vol0 = abs(∧(ys...))
+        vol0 = norm(∧(ys...))
         if T <: Rational
             vol = rationalize(typeof(zero(T).den), vol0; tol = sqrt(eps(vol0)))
         else

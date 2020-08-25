@@ -20,9 +20,9 @@ function Base.rand(rng::AbstractRNG,
     return Rational{T}(T(rand(rng, -1000:1000)) // 1000)
 end
 
-# Improved debug output for sparse matrices
-Base.show(io::IO, A::SparseMatrixCSC) = show_sparse(io, A)
-Base.show(io::IOContext, A::SparseMatrixCSC) = show_sparse(io, A)
+# # Improved debug output for sparse matrices
+# Base.show(io::IO, A::SparseMatrixCSC) = show_sparse(io, A)
+# Base.show(io::IOContext, A::SparseMatrixCSC) = show_sparse(io, A)
 
 include("test-defs.jl")
 include("test-algorithms.jl")

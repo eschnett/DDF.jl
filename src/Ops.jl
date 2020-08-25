@@ -139,6 +139,7 @@ function Base.zero(::Type{Op{D,P1,R1,P2,R2,T}},
     ncols = nsimplices(manifold, R2)
     return Op{D,P1,R1,P2,R2}(manifold, spzeros(T, nrows, ncols))
 end
+Base.iszero(A::Op) = iszero(A.values)
 
 function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, manifold::Manifold{D},
                     row::Int, col::Int) where {D,P1,R1,P2,R2,T}
