@@ -4,7 +4,8 @@ using StaticArrays
 using Test
 
 @testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-    S = Rational{Int128}
+    # S = Rational{Int128}
+    S = Float64
 
     mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
             hypercube_manifold(Val(D), S)]

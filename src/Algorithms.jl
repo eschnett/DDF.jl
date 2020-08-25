@@ -34,6 +34,11 @@ using StaticArrays
 
 export circumcentre
 function circumcentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
+    D::Int
+    @assert D >= 0
+    N::Int
+    @assert N >= 1
+    @assert N <= D + 1
     # See arXiv:1103.3076v2 [cs.RA], section 10.1
     A = SMatrix{N + 1,N + 1}(i <= N && j <= N ? 2 * (xs[i] ⋅ xs[j])[] :
                              i == j ? zero(T) : one(T)
@@ -42,6 +47,29 @@ function circumcentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     c = A \ b
     cc = sum(c[i] * xs[i] for i in 1:N)
     return cc::Form{D,1,T}
+end
+
+export volume
+function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
+    D::Int
+    @assert D >= 0
+    N::Int
+    @assert N >= 1
+    @assert N <= D + 1
+    ys = map(x -> x - xs[1], deleteat(xs, 1))
+    if isempty(ys)
+        vol = one(S)
+    else
+        vol0 = abs(∧(ys...))
+        if T <: Rational
+            vol = rationalize(typeof(zero(T).den), vol0; tol = sqrt(eps(vol0)))
+        else
+            vol = vol0
+        end
+        vol::T
+    end
+    vol /= factorial(D)
+    return vol::T
 end
 
 end

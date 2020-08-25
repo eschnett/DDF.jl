@@ -1,5 +1,7 @@
 using DDF
 
+using LinearAlgebra
+
 @testset "empty Manifolds D=$D" for D in 0:Dmax
     S = Rational{Int64}
     mfd = empty_manifold(Val(D), S)
@@ -10,7 +12,8 @@ using DDF
 end
 
 @testset "simplex Manifolds D=$D" for D in 0:Dmax
-    S = Rational{Int128}
+    # S = Rational{Int128}
+    S = Float64
     mfd = simplex_manifold(Val(D), S)
     @test invariant(mfd)
     for R in 0:D
@@ -19,8 +22,9 @@ end
 
     N = D + 1
     for i in 1:N, j in (i + 1):N
-        @test isapprox(sum(((@view mfd.coords[i, :]) - (@view mfd.coords[j, :])) .^
-                           2), 1; atol = sqrt(sqrt(eps())))
+        # @test isapprox(sum(((@view mfd.coords[i, :]) - (@view mfd.coords[j, :])) .^
+        #                    2), 1; atol = sqrt(sqrt(eps())))
+        @test norm((@view mfd.coords[i, :]) - (@view mfd.coords[j, :])) ≈ 1
     end
 end
 

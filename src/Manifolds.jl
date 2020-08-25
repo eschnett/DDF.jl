@@ -4,6 +4,7 @@ using DifferentialForms
 using SparseArrays
 using StaticArrays
 
+using ..Algorithms
 using ..Defs
 using ..SparseOps
 using ..ZeroOrOne
@@ -55,8 +56,8 @@ struct Manifold{D,S}
     function Manifold{D,S}(name::String, simplices::OpDict{Int,One},
                            boundaries::OpDict{Int,Int8},
                            lookup::OpDict{Tuple{Int,Int},One},
-                           coords::Array{S,2},
-                           volumes::Dict{Int,Vector{S}}) where {D,S}
+                           coords::Array{S,2}, volumes::Dict{Int,Vector{S}},
+                           dualcoords::Array{S,2}) where {D,S}
         D::Int
         @assert D >= 0
         @assert Set(keys(simplices)) == Set(0:D)
@@ -69,17 +70,21 @@ struct Manifold{D,S}
         for R in 0:D
             @assert length(volumes[R]) == size(simplices[R], 2)
         end
-        mfd = new{D,S}(name, simplices, boundaries, lookup, coords, volumes)
+        @assert size(dualcoords, 1) == size(simplices[D], 2)
+        @assert size(dualcoords, 2) >= D
+        mfd = new{D,S}(name, simplices, boundaries, lookup, coords, volumes,
+                       dualcoords)
         @assert invariant(mfd)
         return mfd
     end
     function Manifold(name::String, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8},
                       lookup::OpDict{Tuple{Int,Int},One}, coords::Array{S,2},
-                      volumes::Dict{Int,Vector{S}}) where {S}
+                      volumes::Dict{Int,Vector{S}},
+                      dualcoords::Array{S,2}) where {S}
         D = maximum(keys(simplices))
         return Manifold{D,S}(name, simplices, boundaries, lookup, coords,
-                             volumes)
+                             volumes, dualcoords)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -100,6 +105,7 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
     for R in 0:D
         print(io, "    volumes=$(mfd.volumes[R])")
     end
+    print(io, "    dualcoords=$(mfd.dualcoords)")
     return print(io, ")")
 end
 
@@ -168,13 +174,17 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
             (@assert false; return false)
     end
 
+    size(mfd.dualcoords, 1) == nsimplices(mfd, D) ||
+        (@assert false; return false)
+    size(mfd.dualcoords, 2) >= D || (@assert false; return false)
+
     return true
 end
 
 # Comparison
 
 function Base.:(==)(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
-    return mfd1.simplices == mfd2.simplices
+    return mfd1.simplices == mfd2.simplices && mfd1.coords == mfd1.coords
 end
 
 Base.ndims(::Manifold{D}) where {D} = D
@@ -212,9 +222,10 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
 
     if D == 0
         volumes = fill(S(1), nsimplices)
+        dualcoords = coords
         return Manifold(name, OpDict{Int,One}(0 => simplices),
                         OpDict{Int,Int8}(), OpDict{Tuple{Int,Int},One}(),
-                        coords, Dict{Int,Vector{S}}(0 => volumes))
+                        coords, Dict{Int,Vector{S}}(0 => volumes), dualcoords)
     end
 
     # Calculate lower-dimensional simplices
@@ -280,16 +291,18 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         @assert haskey(mfd1.lookup, (Ri, Rj))
     end
 
-    # Calculate volumes
+    # Calculate volumes and dual coordinates
     C = size(coords, 2)
     volumes = calc_volumes(Val(D), Val(C), simplices, coords)
+    dualcoords = calc_dualcoords(Val(D), Val(C), simplices, coords)
 
     # Create D-manifold
     mfd1.simplices[D] = simplices
     mfd1.boundaries[D] = boundaries
     mfd1.volumes[D] = volumes
+    # ignoring `mfd1` dual coordinates
     return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords,
-                    mfd1.volumes)
+                    mfd1.volumes, dualcoords)
 end
 
 """
@@ -304,17 +317,26 @@ function calc_volumes(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
         @assert length(si) == D + 1
         xs = SVector{D + 1}(Form{C,1}(SVector{C,S}((@view coords[i, :])))
                             for i in si)
-        ys = map(x -> x - xs[1], deleteat(xs, 1))
-        if isempty(ys)
-            vol = one(S)
-        else
-            vol = abs(∧(ys...))
-        end
-        vol /= factorial(D)
-        vol > 0 || throw(ZeroVolumeException(D, i, collect(si), xs))
-        volumes[i] = vol
+        volumes[i] = volume(xs)
     end
     return volumes
+end
+
+"""
+Calculate dual coordinates (circumcentres)
+"""
+function calc_dualcoords(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
+                         coords::Array{S,2}) where {D,C,S}
+    nvertices, nsimplices = size(simplices)
+    dualcoords = Array{S}(undef, nsimplices, C)
+    for i in 1:nsimplices
+        si = sparse_column_rows(simplices, i)
+        @assert length(si) == D + 1
+        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}((@view coords[i, :])))
+                            for i in si)
+        dualcoords[i, :] .= circumcentre(xs)
+    end
+    return dualcoords
 end
 
 end
