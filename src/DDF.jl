@@ -7,6 +7,7 @@ include("Defs.jl")
 include("Algorithms.jl")
 include("ZeroOrOne.jl")
 include("SparseOps.jl")
+include("Meshing.jl")
 include("Manifolds.jl")
 include("ManifoldConstructors.jl")
 include("Funs.jl")
@@ -21,6 +22,7 @@ include("ManifoldOps.jl")
 @reexport using .ManifoldConstructors
 @reexport using .ManifoldOps
 @reexport using .Manifolds
+@reexport using .Meshing
 @reexport using .Ops
 @reexport using .SparseOps
 @reexport using .ZeroOrOne

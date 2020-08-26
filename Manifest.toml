@@ -27,15 +27,15 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [[Delaunay]]
 deps = ["LinearAlgebra", "PyCall", "SparseArrays", "Test"]
-git-tree-sha1 = "15bba00861f9ddbe2c71e4591fbbb061667e247d"
+git-tree-sha1 = "921f1f3d71d4f990a3f7689ee5e65677a135ad65"
 uuid = "07eb4e4e-0c6d-46ef-bc4e-83d5e5d860a9"
-version = "1.0.0"
+version = "1.0.1"
 
 [[DifferentialForms]]
 deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "Reexport", "StaticArrays", "Test"]
-git-tree-sha1 = "4d3105157543167e3c42107369f892ba26a6b615"
+git-tree-sha1 = "d507aff9d9594e123a39e15e42f2182c75517154"
 uuid = "9e54b8bf-1ae4-4c45-8656-f6b46e7970a3"
-version = "0.2.0"
+version = "0.2.1"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]

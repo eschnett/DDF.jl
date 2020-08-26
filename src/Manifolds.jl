@@ -327,6 +327,37 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
                                           dualvolumes[R + 1])
     end
 
+    # TODO: move this into a function
+    if C == D
+        # Check Delaunay condition:
+        # No vertex must lie in the circumcentre of a simplex
+        # (Only test for the final manifold.)
+        for i in 1:size(simplices, 2)
+            si = sparse_column_rows(simplices, i)
+            @assert length(si) == D + 1
+            x1i = Form{C,1}(SVector{C,S}(@view coords[first(si), :]))
+            cci = Form{C,1}(SVector{C,S}(@view dualcoords[i, :]))
+            cri2 = norm2(x1i - cci)
+            # Loop over all faces
+            for j in sparse_column_rows(mfd1.lookup[(D - 1, D)], i)
+                # Loop over all simplices (except i)
+                for k in sparse_column_rows(mfd1.lookup[(D - 1, D)]', j)
+                    if k != i
+                        # Loop over all vertices
+                        for l in sparse_column_rows(simplices, k)
+                            # Ignore vertices of simplex i
+                            if l ∉ si
+                                xl = Form{C,1}(SVector{C,S}(@view coords[l, :]))
+                                d2 = norm2(xl - cci)
+                                @assert d2 >= cri2 || d2 ≈ cri2
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     # Create D-manifold
     mfd1.simplices[D] = simplices
     mfd1.boundaries[D] = boundaries
@@ -336,6 +367,8 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords,
                     mfd1.volumes, dualcoords, dualvolumes)
 end
+
+################################################################################
 
 """
 Calculate volumes
@@ -347,7 +380,7 @@ function calc_volumes(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         @assert length(si) == D + 1
-        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}((@view coords[i, :])))
+        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}(@view coords[i, :]))
                             for i in si)
         volumes[i] = volume(xs)
     end
@@ -364,7 +397,7 @@ function calc_dualcoords(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         @assert length(si) == D + 1
-        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}((@view coords[i, :])))
+        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}(@view coords[i, :]))
                             for i in si)
         dualcoords[i, :] .= circumcentre(xs)
     end
@@ -388,13 +421,14 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
     @assert R1 == R + 1
     @assert size(coords, 2) == C
     nvertices, nsimplices = size(simplices)
-    dualvolumes = zeros(S, nsimplices)
+    dualvolumes = Array{S}(undef, nsimplices)
     # Loop over all `R`-simplices
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         @assert length(si) == R + 1
-        xsi = SVector{R + 1}(Form{C,1}(SVector{C,S}((@view coords[i, :])))
+        xsi = SVector{R + 1}(Form{C,1}(SVector{C,S}(@view coords[i, :]))
                              for i in si)
+        # bci = sum(xsi) / length(xsi)
         # TODO: this could be dualcoords
         cci = circumcentre(xsi)
         vol = zero(S)
@@ -408,17 +442,24 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
             # between boundary and the line connecting two simplices?
             # TODO: Cache circumcentres ahead of time
             # TODO: could be dualcoords
-            xsj = SVector{R + 2}(Form{C,1}(SVector{C,S}((@view coords[j, :])))
+            xsj = SVector{R + 2}(Form{C,1}(SVector{C,S}(@view coords[j, :]))
                                  for j in sj)
+            bcj = sum(xsj) / length(xsj)
             ccj = circumcentre(xsj)
-            # TODO: Handle case where the volume should be negative
-            # (i.e. when the volume circumcentre ccj is on the "other"
-            # side of the face circumcentre cci) (Is the previous
-            # statement correct?)
+            # Handle case where the volume should be negative, i.e.
+            # when the volume circumcentre cci is on the "other" side
+            # of the face circumcentre ccj. See [arXiv:1204.0747
+            # [cs.CG]].
+            ysi = map(x -> x - xsi[1], deleteat(xsi, 1))
+            v1 = ∧(ysi..., bcj - xsi[1])
+            v2 = ∧(ysi..., ccj - xsi[1])
+            s = v1 ⋅ v2
+            s = sign(s[])
             h = norm(cci - ccj)
-            vol += b * h
+            vol += b * s * h
         end
-        @assert vol >= 0
+        # We want well-centred meshes
+        # @assert vol > 0
         dualvolumes[i] = vol / (D - R)
     end
     return dualvolumes

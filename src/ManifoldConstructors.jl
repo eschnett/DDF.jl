@@ -5,6 +5,7 @@ using SparseArrays
 using StaticArrays
 
 using ..Manifolds
+using ..Meshing
 using ..SparseOps
 using ..ZeroOrOne
 
@@ -70,6 +71,43 @@ function regular_simplex(D::Int, ::Type{S}) where {S}
         s[1:(N - 1), D] .= z0
         s[N, 1:(D - 1)] .= 0
         s[N, D] = z + z0
+    end
+    return s
+end
+
+################################################################################
+
+export orthogonal_simplex_manifold
+"""
+Manifold with one orthogonal simplex
+"""
+function orthogonal_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
+    N = D + 1
+    coords = orthogonal_simplex(D, S)
+    I = Int[]
+    J = Int[]
+    V = One[]
+    for i in 1:N
+        push!(I, i)
+        push!(J, 1)
+        push!(V, One())
+    end
+    simplices = SparseOp{0,D,One}(sparse(I, J, V, N, 1))
+    return Manifold("orthogonal simplex manifold", simplices, coords)
+end
+
+"""
+Generate the coordinate positions for an orthogonal D-simplex with
+edge lengths 1.
+"""
+function orthogonal_simplex(D::Int, ::Type{S}) where {S}
+    @assert D >= 0
+    N = D + 1
+    s = Array{S}(undef, N, D)
+    s[1, :] .= 0
+    for d in 1:D
+        s[d + 1, :] .= 0
+        s[d + 1, d] = 1
     end
     return s
 end
@@ -151,6 +189,33 @@ end
 function corner2vertex(c::SVector{D,Bool})::Int where {D}
     D == 0 && return 1
     return 1 + sum(c[d] << (d - 1) for d in 1:D)
+end
+
+################################################################################
+
+export delaunay_hypercube_manifold
+"""
+Delaunay triangulation of a hypercube
+"""
+function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
+    @assert D >= 0
+    N = D + 1
+
+    # Set up coordinates
+    coords = SVector{D,Int}[]
+    imin = CartesianIndex(ntuple(d -> 0, D))
+    imax = CartesianIndex(ntuple(d -> 1, D))
+    for i in imin:imax
+        push!(coords, SVector{D,Int}(i.I))
+    end
+    nvertices = length(coords)
+    @assert nvertices == 2^D
+    coords = S[coords[i][d] for i in 1:nvertices, d in 1:D]
+
+    simplices = delaunay_mesh(coords)
+    simplices = SparseOp{0,D,One}(simplices)
+
+    return Manifold("delaunay hypercube manifold", simplices, coords)
 end
 
 end
