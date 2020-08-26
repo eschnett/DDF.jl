@@ -26,6 +26,11 @@ R1 in 0:D
     a = rand(T)
     b = rand(T)
 
+    @test iszero(z)
+    @test !iszero(e)
+    @test isone(e)
+    @test !isone(z)
+
     # Vector space
 
     @test +A == A

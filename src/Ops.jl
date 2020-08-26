@@ -139,6 +139,7 @@ function Base.zero(::Type{Op{D,P1,R1,P2,R2,T}},
     ncols = nsimplices(manifold, R2)
     return Op{D,P1,R1,P2,R2}(manifold, spzeros(T, nrows, ncols))
 end
+Base.zero(A::Op) = zero(typeof(A), A.manifold)
 Base.iszero(A::Op) = iszero(A.values)
 
 function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, manifold::Manifold{D},
@@ -196,6 +197,9 @@ function Base.one(::Type{Op{D,R,P,R,P,T}},
                   manifold::Manifold{D}) where {D,R,P,T}
     return Op{D,R,P,R,P}(manifold, one(T) * I)
 end
+Base.one(A::Op) = one(typeof(A), A.manifold)
+Base.isone(A::Op{D,P,R,P,R}) where {D,P,R} = A.values == I
+Base.isone(A::Op) = false
 
 function Base.:*(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P2,R2,P3,R3}) where {D,P1,R1,P2,R2,P3,R3}
