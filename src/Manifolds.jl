@@ -327,35 +327,10 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
                                           dualvolumes[R + 1])
     end
 
-    # TODO: move this into a function
+    # Only test for the final manifold
     if C == D
-        # Check Delaunay condition:
-        # No vertex must lie in the circumcentre of a simplex
-        # (Only test for the final manifold.)
-        for i in 1:size(simplices, 2)
-            si = sparse_column_rows(simplices, i)
-            @assert length(si) == D + 1
-            x1i = Form{C,1}(SVector{C,S}(@view coords[first(si), :]))
-            cci = Form{C,1}(SVector{C,S}(@view dualcoords[i, :]))
-            cri2 = norm2(x1i - cci)
-            # Loop over all faces
-            for j in sparse_column_rows(mfd1.lookup[(D - 1, D)], i)
-                # Loop over all simplices (except i)
-                for k in sparse_column_rows(mfd1.lookup[(D - 1, D)]', j)
-                    if k != i
-                        # Loop over all vertices
-                        for l in sparse_column_rows(simplices, k)
-                            # Ignore vertices of simplex i
-                            if l ∉ si
-                                xl = Form{C,1}(SVector{C,S}(@view coords[l, :]))
-                                d2 = norm2(xl - cci)
-                                @assert d2 >= cri2 || d2 ≈ cri2
-                            end
-                        end
-                    end
-                end
-            end
-        end
+        check_delaunay(Val(D), Val(C), simplices, mfd1.lookup[(D - 1, D)],
+                       mfd1.lookup[(D - 1, D)]', coords, dualcoords)
     end
 
     # Create D-manifold
@@ -417,6 +392,7 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
     D::Int
     R::Int
     R1::Int
+    C::Int
     @assert 0 <= R <= R1 <= D
     @assert R1 == R + 1
     @assert size(coords, 2) == C
@@ -463,6 +439,45 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
         dualvolumes[i] = vol / (D - R)
     end
     return dualvolumes
+end
+
+"""
+Check Delaunay condition: No vertex must lie in the circumcentre of a
+simplex
+"""
+function check_delaunay(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
+                        lookup::SparseOp{D1,D,One}, lookup1::SparseOp{D,D1,One},
+                        coords::Array{S,2},
+                        dualcoords::Array{S,2}) where {D,D1,C,S}
+    D::Int
+    D1::Int
+    @assert 0 <= D1 <= D
+    @assert D1 == D - 1
+    C::Int
+    for i in 1:size(simplices, 2)
+        si = sparse_column_rows(simplices, i)
+        @assert length(si) == D + 1
+        x1i = Form{C,1}(SVector{C,S}(@view coords[first(si), :]))
+        cci = Form{C,1}(SVector{C,S}(@view dualcoords[i, :]))
+        cri2 = norm2(x1i - cci)
+        # Loop over all faces
+        for j in sparse_column_rows(lookup, i)
+            # Loop over all simplices (except i)
+            for k in sparse_column_rows(lookup1, j)
+                if k != i
+                    # Loop over all vertices
+                    for l in sparse_column_rows(simplices, k)
+                        # Ignore vertices of simplex i
+                        if l ∉ si
+                            xl = Form{C,1}(SVector{C,S}(@view coords[l, :]))
+                            d2 = norm2(xl - cci)
+                            @assert d2 >= cri2 || d2 ≈ cri2
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 
 end
