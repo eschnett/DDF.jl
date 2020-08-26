@@ -88,11 +88,25 @@ function Base.show(io::IO, A::SparseOp{Tag1,Tag2,T}) where {Tag1,Tag2,T}
             "with $(nnz(A.op)) stored entries:")
     Aop′ = permutedims(A.op)
     for j in 1:size(Aop′, 2)
-        print(io, "  [$j]")
-        sep = ":"
-        for (i, v) in sparse_column(Aop′, j)
-            print(io, "$sep [$i=$v]")
-            sep = ","
+        print(io, "  [$j]: ")
+        if !T.mutable && sizeof(T) == 0
+            # Immutable types with size 0 have always the same value,
+            # hence we don't need to output it
+            print(io, "[")
+            didoutput = false
+            for i in sparse_column_rows(Aop′, j)
+                didoutput && print(io, ", ")
+                didoutput = true
+                print(io, "$i")
+            end
+            print(io, "]")
+        else
+            didoutput = false
+            for (i, v) in sparse_column(Aop′, j)
+                didoutput && print(io, ", ")
+                didoutput = true
+                print(io, "[$i=$v]")
+            end
         end
         println(io)
     end
