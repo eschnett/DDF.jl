@@ -10,9 +10,12 @@ using Test
 
     mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
             hypercube_manifold(Val(D), S),
-            delaunay_hypercube_manifold(Val(D), S)]
+            delaunay_hypercube_manifold(Val(D), S),
+            large_delaunay_hypercube_manifold(Val(D), S)]
 
     for mfd in mfds
+        @show mfd.name
+
         funs = Fun{D,P,R,S}[]
         push!(funs, zero(Fun{D,P,R,S,S}, mfd))
         e = id(Fun{D,P,0,S,SVector{D,S}}, mfd)

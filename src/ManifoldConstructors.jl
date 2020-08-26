@@ -218,4 +218,37 @@ function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     return Manifold("delaunay hypercube manifold", simplices, coords)
 end
 
+################################################################################
+
+export large_delaunay_hypercube_manifold
+"""
+Delaunay triangulation of a large hypercube
+"""
+function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
+    @assert D >= 0
+    N = D + 1
+
+    ns = Dict{Int,Int}(0 => 1, 1 => 1024, 2 => 32, 3 => 16, 4 => 4, 5 => 2)
+    n = ns[D]
+
+    # Set up coordinates
+    coords = SVector{D,S}[]
+    imin = CartesianIndex(ntuple(d -> 0, D))
+    imax = CartesianIndex(ntuple(d -> n, D))
+    for i in imin:imax
+        dx = SVector{D,S}(i[d] == 0 || i[d] == n ? 0 : S(rand(-16:16)) / 128
+                          for d in 1:D)
+        x = SVector{D,S}(i[d] + dx[d] for d in 1:D)
+        push!(coords, x)
+    end
+    nvertices = length(coords)
+    @assert nvertices == (n + 1)^D
+    coords = S[coords[i][d] for i in 1:nvertices, d in 1:D]
+
+    simplices = delaunay_mesh(coords)
+    simplices = SparseOp{0,D,One}(simplices)
+
+    return Manifold("large delaunay hypercube manifold", simplices, coords)
+end
+
 end

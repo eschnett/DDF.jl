@@ -126,3 +126,24 @@ end
     @test sum(mfd.dualvolumes[0]) ≈ vol
     @test all(==(1), mfd.dualvolumes[D])
 end
+
+@testset "Large delaunay hypercube manifolds D=$D" for D in 0:Dmax
+    S = Float64
+    mfd = large_delaunay_hypercube_manifold(Val(D), S)
+    @test invariant(mfd)
+    n = D == 0 ? 1 : round(Int, nsimplices(mfd, 0)^(1 / D)) - 1
+    @test nsimplices(mfd, 0) == (n + 1)^D
+    if D > 0
+        @test mfd.lookup[(0, D)] === mfd.simplices[D]
+    end
+    for R in 0:D
+        # Not completely well-centred
+        @test all(>=(0), mfd.dualvolumes[R])
+    end
+
+    vol = n^D
+    @test all(==(1), mfd.volumes[0])
+    @test sum(mfd.volumes[D]) ≈ vol
+    @test sum(mfd.dualvolumes[0]) ≈ vol
+    @test all(==(1), mfd.dualvolumes[D])
+end
