@@ -1,6 +1,6 @@
 module ManifoldOps
 
-using DifferentialForms: Forms, hodge, invhodge
+using DifferentialForms: Forms, bitsign, hodge, invhodge, ⋆
 using LinearAlgebra
 
 using ..Funs
@@ -23,31 +23,30 @@ function boundary(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     return Op{D,Dl,R + 1,Dl,R}(manifold, manifold.boundaries[R + 1].op')
 end
 
+boundary(f::Fun{D,P,R}) where {D,P,R} = boundary(Val(P), Val(R), f.manifold) * f
+
 # Derivative (coboundary)
 
 export deriv
-function deriv(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 <= R < D
-    return adjoint(boundary(Val(Pr), Val(R + 1), manifold))::Op{D,Pr,R + 1,Pr,R}
+function deriv(::Val{P}, ::Val{R}, manifold::Manifold{D}) where {P,R,D}
+    P::PrimalDual
+    s = P == Pr ? +1 : -1
+    @assert 0 <= R <= D
+    @assert 0 <= R + s <= D
+    return adjoint(boundary(Val(P), Val(R + s), manifold))::Op{D,P,R + s,P,R}
 end
-function deriv(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
-    @assert 0 < R <= D
-    return adjoint(boundary(Val(Dl), Val(R - 1), manifold))::Op{D,Dl,R - 1,Dl,R}
-end
+
+deriv(f::Fun{D,P,R}) where {D,P,R} = deriv(Val(P), Val(R), f.manifold) * f
 
 ################################################################################
 
 # Geometric operators
 
-# Hodge dual
+# Hodge dual (circumcentric (diagonal) hodge operator)
 
-# Circumcentric (diagonal) hodge operator
-export hodge
+export hodge, ⋆
 function Forms.hodge(::Val{Pr}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
-    D::Int
-    R::Int
     @assert 0 <= R <= D
-
     vol = manifold.volumes[R]
     dualvol = manifold.dualvolumes[R]
     if isempty(vol)
@@ -55,12 +54,8 @@ function Forms.hodge(::Val{Pr}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
     end
     return Op{D,Dl,R,Pr,R,S}(manifold, Diagonal(dualvol ./ vol))
 end
-
 function Forms.hodge(::Val{Dl}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
-    D::Int
-    R::Int
     @assert 0 <= R <= D
-
     vol = manifold.volumes[R]
     dualvol = manifold.dualvolumes[R]
     if isempty(vol)
@@ -70,40 +65,49 @@ function Forms.hodge(::Val{Dl}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
 end
 
 export invhodge
-function Forms.invhodge(::Val{P}, ::Val{R}, manifold::Manifold) where {P,R}
-    return hodge(Val(!P), Val(R), manifold)
+function Forms.invhodge(::Val{P}, ::Val{R},
+                        manifold::Manifold{D,S}) where {P,R,D,S}
+    R::Int
+    @assert 0 <= R <= D
+    op = hodge(Val(!P), Val(R), manifold)
+    return op::Op{D,P,R,!P,R,S}
 end
 
 Forms.hodge(f::Fun{D,P,R}) where {D,P,R} = hodge(Val(P), Val(R), f.manifold) * f
 
-# # Derivatives
-# 
-# export coderiv
-# function coderiv(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
-#     D::Int
-#     T::Type
-#     @assert 0 < R <= D
-#     op = hodge(Val(Dl), Val(R - 1), geom) *
-#          deriv(Val(Dl), Val(R), geom.topo) *
-#          hodge(Val(Pr), Val(R), geom)
-#     return op::Op{D,Pr,R - 1,Pr,R,T}
-# end
-# 
-# export laplace
-# function laplace(::Val{Pr}, ::Val{R}, geom::Geometry{D,T}) where {R,D,T}
-#     D::Int
-#     T::Type
-#     @assert 0 <= R <= D
-#     op = zero(Op{D,Pr,R,Pr,R,T}, geom.topo)
-#     if R > 0
-#         op += deriv(Val(Pr), Val(R - 1), geom.topo) *
-#               coderiv(Val(Pr), Val(R), geom)
-#     end
-#     if R < D
-#         op += coderiv(Val(Pr), Val(R + 1), geom) *
-#               deriv(Val(Pr), Val(R), geom.topo)
-#     end
-#     return op::Op{D,Pr,R,Pr,R,T}
-# end
+# Derivatives
+
+export coderiv
+function coderiv(::Val{P}, ::Val{R}, manifold::Manifold{D,S}) where {P,R,D,S}
+    P::PrimalDual
+    s = P == Pr ? +1 : -1
+    @assert 0 <= R <= D
+    @assert 0 <= R - s <= D
+    return (bitsign(R) *
+            hodge(Val(!P), Val(R - s), manifold) *
+            deriv(Val(!P), Val(R), manifold) *
+            hodge(Val(P), Val(R), manifold))::Op{D,P,R - s,P,R,S}
+end
+
+coderiv(f::Fun{D,P,R}) where {D,P,R} = coderiv(Val(P), Val(R), f.manifold) * f
+
+export laplace
+function laplace(::Val{P}, ::Val{R}, manifold::Manifold{D,S}) where {P,R,D,S}
+    P::PrimalDual
+    s = P == Pr ? +1 : -1
+    @assert 0 <= R <= D
+    op = zero(Op{D,P,R,P,R,S}, manifold)
+    if 0 <= R - s <= D
+        op += deriv(Val(P), Val(R - s), manifold) *
+              coderiv(Val(P), Val(R), manifold)
+    end
+    if 0 <= R + s <= D
+        op += coderiv(Val(P), Val(R + s), manifold) *
+              deriv(Val(P), Val(R), manifold)
+    end
+    return op::Op{D,P,R,P,R,S}
+end
+
+laplace(f::Fun{D,P,R}) where {D,P,R} = laplace(Val(P), Val(R), f.manifold) * f
 
 end

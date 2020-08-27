@@ -32,13 +32,24 @@ struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
 end
 
 # Drop non-structural zeros if we can do that without losing accuracy
-const ExactType = Union{Integer,Rational}
+const ExactTypes = Union{Union{Integer,Rational},
+                         Complex{<:Union{Integer,Rational}}}
+const FloatTypes = Union{AbstractFloat,Complex{<:AbstractFloat}}
 dnz(A) = A
-dnz(A::AbstractSparseMatrix{<:ExactType}) = dropzeros(A)
-dnz(A::AbstractSparseMatrix{Complex{<:ExactType}}) = dropzeros(A)
+dnz(A::AbstractSparseMatrix{<:ExactTypes}) = dropzeros(A)
+dnz(A::AbstractSparseMatrix{<:FloatTypes}) = dropzeros!(chop.(A))
 dnz(A::Adjoint) = adjoint(dnz(adjoint(A)))
 dnz(A::Transpose) = transpose(dnz(transpose(A)))
 # dnz(A::Union{LowerTriangular, UpperTriangular}) = typeof(A)(dnz(A.data))
+
+chop(f::ExactTypes) = f
+chop(f::FloatTypes) = ifelse(abs2(f) < eps34sq(typeof(f)), zero(f), f)
+function chop(f::Complex{T}) where {T<:AbstractFloat}
+    Complex{T}(chop(real(f)), chop(imag(f)))
+end
+
+eps34sq(::Type{T}) where {T} = sqrt(eps(T)^3)::T
+eps34(::Type{T}) where {T} = sqrt(eps34(T))::T
 
 function Base.show(io::IO, op::Op{D,P1,R1,P2,R2,T}) where {D,P1,R1,P2,R2,T}
     println(io)
