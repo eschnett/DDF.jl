@@ -445,7 +445,7 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
             if !(s == 1)
                 @show D R simplices coords i j xsi cci xsj ccj ysi v1 v2 s
             end
-            @assert s == 1
+            # @assert s == 1
             h = norm(cci - ccj)
             vol += b * s * h
         end

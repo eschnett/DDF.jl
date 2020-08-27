@@ -59,8 +59,7 @@ function plot_manifold(filename::String, mfd::Manifold{D,S}) where {D,S}
         xs1 = SVector{D,S}(mfd.coords[si[1], :])
         push!(vertices, xs1)
     end
-    scene = scatter!(scene, vertices, color = :red, linestyle = :solid,
-                     linewidth = 5)
+    scene = scatter!(scene, vertices, strokecolor = :red, strokewidth = 5)
 
     save(filename, scene)
     return scene
