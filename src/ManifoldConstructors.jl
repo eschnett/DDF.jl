@@ -251,4 +251,30 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     return Manifold("large delaunay hypercube manifold", simplices, coords)
 end
 
+################################################################################
+
+export refined_manifold
+"""
+Refined a manifold
+"""
+function refined_manifold(mfd0::Manifold{D,S}) where {D,S}
+    D == 0 && return mfd0
+    coords = refine_coords(Val(D), mfd0.lookup[(0, 1)], mfd0.coords)
+    simplices = SparseOp{0,D}(delaunay_mesh(coords))
+    mfd = Manifold("refined $(mfd0.name)", simplices, coords)
+    return mfd
+end
+
+################################################################################
+
+export refined_simplex_manifold
+"""
+Refined simplex manifold
+"""
+function refined_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
+    mfd0 = simplex_manifold(Val(D), S)
+    mfd = refined_manifold(mfd0)
+    return mfd
+end
+
 end

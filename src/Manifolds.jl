@@ -271,7 +271,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     bV = Int8[]
 
     nfaces = 0
-    oldvertices = SVector{N - 1,Int}(0 for n in 1:(N - 1))
+    oldvertices = zero(SVector{N - 1,Int})
     for f in facelist
         if f.vertices != oldvertices
             oldvertices = f.vertices
@@ -313,18 +313,28 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     # Calculate volumes, dual coordinates, and dual volumes
     C = size(coords, 2)
     volumes = calc_volumes(Val(D), Val(C), simplices, coords)
+
     dualcoords = calc_dualcoords(Val(D), Val(C), simplices, coords)
 
     # TODO: re-use dualvolumes from mfd1 (is this possible?)
     dualvolumes = Dict{Int,Vector{S}}()
-    dualvolumes[D] = fill(S(1), nsimplices)
-    for R in (D - 1):-1:0
-        dualvolumes[R] = calc_dualvolumes(Val(D), Val(R), Val(C),
-                                          mfd1.simplices[R],
-                                          R + 1 == D ? simplices :
-                                          mfd1.simplices[R + 1],
-                                          mfd1.lookup[(R, R + 1)]', coords,
-                                          dualvolumes[R + 1])
+    if C == D
+        # Only set correctly for the final manifold
+        dualvolumes[D] = fill(S(1), nsimplices)
+        for R in (D - 1):-1:0
+            dualvolumes[R] = calc_dualvolumes(Val(D), Val(R), Val(C),
+                                              mfd1.simplices[R],
+                                              R + 1 == D ? simplices :
+                                              mfd1.simplices[R + 1],
+                                              mfd1.lookup[(R, R + 1)]', coords,
+                                              dualvolumes[R + 1])
+        end
+    else
+        # dummy data, won't be used
+        dualvolumes[D] = zeros(S, nsimplices)
+        for R in 0:(D - 1)
+            dualvolumes[R] = zeros(S, size(mfd1.simplices[R], 2))
+        end
     end
 
     # Only test for the final manifold
@@ -431,6 +441,11 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
             v2 = ∧(ysi..., ccj - xsi[1])
             s = v1 ⋅ v2
             s = sign(s[])
+            # TODO
+            if !(s == 1)
+                @show D R simplices coords i j xsi cci xsj ccj ysi v1 v2 s
+            end
+            @assert s == 1
             h = norm(cci - ccj)
             vol += b * s * h
         end

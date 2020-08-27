@@ -86,7 +86,9 @@ function Base.show(io::IO, A::SparseOp{Tag1,Tag2,T}) where {Tag1,Tag2,T}
     # Convert to CSR -- this is expensive!
     println(io, "$(size(A.op,1))×$(size(A.op,2)) SparseOp{$Tag1,$Tag2,$T} ",
             "with $(nnz(A.op)) stored entries:")
-    Aop′ = permutedims(A.op)
+    println(io, "  col: rows")
+    # Aop′ = permutedims(A.op)
+    Aop′ = A.op
     for j in 1:size(Aop′, 2)
         print(io, "  [$j]: ")
         if !T.mutable && sizeof(T) == 0
