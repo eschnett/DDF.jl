@@ -103,8 +103,6 @@ end
 
 # Operators are a collection
 
-# Base.IteratorEltype(::Type{<:Op}) = ???
-# Base.IteratorSize(::Type{<:Op}) = ???
 Base.eltype(::Type{<:Op{<:Any,<:Any,<:Any,<:Any,<:Any,T}}) where {T} = T
 Base.eltype(A::Op) = eltype(typeof(A))
 Base.isempty(A::Op) = isempty(A.values)

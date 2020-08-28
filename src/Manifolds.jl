@@ -1,6 +1,7 @@
 module Manifolds
 
 using DifferentialForms
+using NearestNeighbors
 using SparseArrays
 using StaticArrays
 
@@ -55,12 +56,18 @@ struct Manifold{D,S}
     # primal `R`-simplices
     dualvolumes::Dict{Int,Vector{S}}
 
+    # Nearest neighbour tree for simplex vertices
+    simplex_tree::Union{Nothing,KDTree{SVector{D,S},Euclidean,S}}
+
     function Manifold{D,S}(name::String, simplices::OpDict{Int,One},
                            boundaries::OpDict{Int,Int8},
                            lookup::OpDict{Tuple{Int,Int},One},
                            coords::Array{S,2}, volumes::Dict{Int,Vector{S}},
                            dualcoords::Array{S,2},
-                           dualvolumes::Dict{Int,Vector{S}}) where {D,S}
+                           dualvolumes::Dict{Int,Vector{S}},
+                           simplex_tree::Union{Nothing,
+                                               KDTree{SVector{D,S},Euclidean,S}}) where {D,
+                                                                                         S}
         D::Int
         @assert D >= 0
         @assert Set(keys(simplices)) == Set(0:D)
@@ -80,7 +87,7 @@ struct Manifold{D,S}
             @assert length(dualvolumes[R]) == size(simplices[R], 2)
         end
         mfd = new{D,S}(name, simplices, boundaries, lookup, coords, volumes,
-                       dualcoords, dualvolumes)
+                       dualcoords, dualvolumes, simplex_tree)
         @assert invariant(mfd)
         return mfd
     end
@@ -88,10 +95,14 @@ struct Manifold{D,S}
                       boundaries::OpDict{Int,Int8},
                       lookup::OpDict{Tuple{Int,Int},One}, coords::Array{S,2},
                       volumes::Dict{Int,Vector{S}}, dualcoords::Array{S,2},
-                      dualvolumes::Dict{Int,Vector{S}}) where {S}
+                      dualvolumes::Dict{Int,Vector{S}},
+                      simplex_tree::Union{Nothing,
+                                          KDTree{SVector{D0,S},Euclidean,S}}) where {D0,
+                                                                                     S}
         D = maximum(keys(simplices))
+        simplex_tree::Union{Nothing,KDTree{SVector{D,S},Euclidean,S}}
         return Manifold{D,S}(name, simplices, boundaries, lookup, coords,
-                             volumes, dualcoords, dualvolumes)
+                             volumes, dualcoords, dualvolumes, simplex_tree)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -251,7 +262,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         return Manifold(name, OpDict{Int,One}(0 => simplices),
                         OpDict{Int,Int8}(), OpDict{Tuple{Int,Int},One}(),
                         coords, Dict{Int,Vector{S}}(0 => volumes), dualcoords,
-                        Dict{Int,Vector{S}}(0 => dualvolumes))
+                        Dict{Int,Vector{S}}(0 => dualvolumes), nothing)
     end
 
     # Calculate lower-dimensional simplices
@@ -357,8 +368,16 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     mfd1.volumes[D] = volumes
     # ignoring `mfd1` dual coordinates
     # ignoring 'mfd1` dual volumes
+
+    if C == D
+        simplex_tree = KDTree([SVector{D,S}(@view coords[i, :])
+                               for i in 1:nvertices])
+    else
+        simplex_tree = nothing
+    end
+
     return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords,
-                    mfd1.volumes, dualcoords, dualvolumes)
+                    mfd1.volumes, dualcoords, dualvolumes, simplex_tree)
 end
 
 ################################################################################

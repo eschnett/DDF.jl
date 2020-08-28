@@ -80,10 +80,6 @@ end
 
 # Functions are a collection
 
-Base.IteratorEltype(::Type{<:Fun{<:Any,<:Any,<:Any,<:Any,T}}) where {T} = T
-function Base.IteratorSize(::Type{<:Fun{<:Any,<:Any,<:Any,<:Any,T}}) where {T}
-    Base.IteratorSize(Vector{T})
-end
 Base.eltype(::Type{<:Fun{<:Any,<:Any,<:Any,<:Any,T}}) where {T} = T
 Base.eltype(f::Fun) = eltype(typeof(f))
 Base.isempty(f::Fun) = isempty(f.values)

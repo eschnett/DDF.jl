@@ -14,7 +14,7 @@ export sparse_column
 All nonzero row indices and values for a column in a sparse matrix
 """
 function sparse_column(A::SparseMatrixCSC, col::Integer)
-    return SparseMatrixCSCColumnIter(Val(:RowVal), A, col)
+    return SparseMatrixCSCColumn(Val(:RowVal), A, col)
 end
 
 export sparse_column_rows
@@ -22,7 +22,7 @@ export sparse_column_rows
 All row indices of nonzero values for a column in a sparse matrix
 """
 function sparse_column_rows(A::SparseMatrixCSC, col::Integer)
-    return SparseMatrixCSCColumnIter(Val(:Row), A, col)
+    return SparseMatrixCSCColumn(Val(:Row), A, col)
 end
 
 export sparse_column_values
@@ -30,30 +30,34 @@ export sparse_column_values
 All nonzero values for a column in a sparse matrix
 """
 function sparse_column_values(A::SparseMatrixCSC, col::Integer)
-    return SparseMatrixCSCColumnIter(Val(:Val), A, col)
+    return SparseMatrixCSCColumn(Val(:Val), A, col)
 end
 
-struct SparseMatrixCSCColumnIter{F,T,I}
+struct SparseMatrixCSCColumn{F,T,I}
     rowvals::Vector{I}
     nonzeros::Vector{T}
     nzrange::UnitRange{Int}
-    function SparseMatrixCSCColumnIter(::F, A::SparseMatrixCSC{T,I},
-                                       col::Integer) where {F,T,I}
+    function SparseMatrixCSCColumn(::F, A::SparseMatrixCSC{T,I},
+                                   col::Integer) where {F,T,I}
         new{F,T,I}(rowvals(A), nonzeros(A), nzrange(A, col))
     end
 end
 
-function process(iter::SparseMatrixCSCColumnIter{Val{:RowVal}}, ind)
+function process(iter::SparseMatrixCSCColumn{Val{:RowVal}}, ind)
     iter.rowvals[ind], iter.nonzeros[ind]
 end
-process(iter::SparseMatrixCSCColumnIter{Val{:Row}}, ind) = iter.rowvals[ind]
-process(iter::SparseMatrixCSCColumnIter{Val{:Val}}, ind) = iter.nonzeros[ind]
+process(iter::SparseMatrixCSCColumn{Val{:Row}}, ind) = iter.rowvals[ind]
+process(iter::SparseMatrixCSCColumn{Val{:Val}}, ind) = iter.nonzeros[ind]
 
-Base.first(iter::SparseMatrixCSCColumnIter) = process(iter, first(iter.nzrange))
-Base.last(iter::SparseMatrixCSCColumnIter) = process(iter, last(iter.nzrange))
-Base.length(iter::SparseMatrixCSCColumnIter) = length(iter.nzrange)
+Base.eltype(::SparseMatrixCSCColumn{Val{:RowVal},T,I}) where {T,I} = Tuple{I,T}
+Base.eltype(::SparseMatrixCSCColumn{Val{:Row},T,I}) where {T,I} = I
+Base.eltype(::SparseMatrixCSCColumn{Val{:Val},T}) where {T} = T
+Base.first(iter::SparseMatrixCSCColumn) = process(iter, first(iter.nzrange))
+Base.getindex(iter::SparseMatrixCSCColumn, i) = process(iter, iter.nzrange[i])
+Base.last(iter::SparseMatrixCSCColumn) = process(iter, last(iter.nzrange))
+Base.length(iter::SparseMatrixCSCColumn) = length(iter.nzrange)
 
-function Base.iterate(iter::SparseMatrixCSCColumnIter, state...)
+function Base.iterate(iter::SparseMatrixCSCColumn, state...)
     ind_next = iterate(iter.nzrange, state...)
     ind_next === nothing && return nothing
     ind, next = ind_next
@@ -144,12 +148,6 @@ end
 
 # Collection
 
-function Base.IteratorEltype(::Type{SparseOp{<:Any,<:Any,T}}) where {T}
-    return Base.IteratorEltype(SparseMatrixCSC{T,Int})
-end
-function Base.IteratorSize(::Type{SparseOp{<:Any,<:Any,T}}) where {T}
-    return Base.IteratorSize(SparseMatrixCSC{T,Int})
-end
 Base.eltype(::Type{<:SparseOp{<:Any,<:Any,T}}) where {T} = T
 Base.eltype(A::SparseOp) = eltype(typeof(A))
 Base.isempty(A::SparseOp) = isempty(A.op)

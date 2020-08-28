@@ -13,10 +13,12 @@ include("ManifoldConstructors.jl")
 include("Funs.jl")
 include("Ops.jl")
 include("ManifoldOps.jl")
+include("Continuum.jl")
 # include("Topologies.jl")
 # include("Geometries.jl")
 
 @reexport using .Algorithms
+@reexport using .Continuum
 @reexport using .Defs
 @reexport using .Funs
 @reexport using .ManifoldConstructors
