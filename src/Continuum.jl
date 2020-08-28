@@ -49,8 +49,7 @@ function evaluate(f::Fun{D,P,R,S,T}, x::SVector{D,S}) where {D,P,R,S,T}
     mfd.simplex_tree::KDTree
     i, dist = nn(mfd.simplex_tree, x)
     # Search all neighbouring simplices to find containing simplex
-    # lookup = mfd.lookup[(D,0)]
-    lookup = mfd.simplices[D]'
+    lookup = mfd.lookup[(D, 0)]
     for j in sparse_column_rows(lookup, i)
         sj = sparse_column_rows(mfd.simplices[D], j)
         @assert length(sj) == N

@@ -38,10 +38,10 @@ struct Manifold{D,S}
     # `(R-1)`-simplex `i` as boundary with orientation `s`. `R ∈ 1:D`.
     boundaries::OpDict{Int,Int8}
 
-    # Lookup tables from `Ri`-simplices to `Rj`-simplices for `Ri<Rj`.
-    # If `lookup[(Ri,Rj)][i,j]` is present, then `Rj`-simplex `j`
-    # contains `Ri`-simplex `i`. `Ri ∈ 0:D, Rj ∈ Ri+1:D`. We could
-    # omit `Rj=Ri+1`.
+    # Lookup tables from `Ri`-simplices to `Rj`-simplices. If
+    # `lookup[(Ri,Rj)][i,j]` is present, then `Rj`-simplex `j`
+    # contains `Ri`-simplex `i`. `Ri ∈ 0:D, Rj ∈ 0:D`. Many of these
+    # are trivial and could be omitted.
     lookup::OpDict{Tuple{Int,Int},One}
     # lookup::Dict{Tuple{Int,Int},Array{Int,2}}
 
@@ -72,8 +72,7 @@ struct Manifold{D,S}
         @assert D >= 0
         @assert Set(keys(simplices)) == Set(0:D)
         @assert Set(keys(boundaries)) == Set(1:D)
-        @assert Set(keys(lookup)) ==
-                Set((Ri, Rj) for Ri in 0:D for Rj in (Ri + 1):D)
+        @assert Set(keys(lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D)
         @assert size(coords, 1) == size(simplices[0], 2)
         @assert size(coords, 2) >= D
         @assert Set(keys(volumes)) == Set(0:D)
@@ -165,24 +164,28 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
     end
 
     # Check lookup tables
-    Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in (Ri + 1):D) ||
+    Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
         (@assert false; return false)
-    for Ri in 0:D, Rj in (Ri + 1):D
+    for Ri in 0:D, Rj in 0:D
         lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
         size(lookup) == (nsimplices(mfd, Ri), nsimplices(mfd, Rj)) ||
             (@assert false; return false)
-        for j in 1:size(lookup, 2) # Rj-simplex
-            vj = sparse_column_rows(mfd.simplices[Rj], j)
-            length(vj) == Rj + 1 || (@assert false; return false)
-            sj = sparse_column_rows(lookup, j)
-            length(sj) == binomial(Rj + 1, Ri + 1) ||
-                (@assert false; return false)
-            for i in sj         # Ri-simplex
-                si = sparse_column_rows(mfd.simplices[Ri], i)
-                for k in si     # vertices
-                    k ∈ vj || (@assert false; return false)
+        if Rj >= Ri
+            for j in 1:size(lookup, 2) # Rj-simplex
+                vj = sparse_column_rows(mfd.simplices[Rj], j)
+                length(vj) == Rj + 1 || (@assert false; return false)
+                sj = sparse_column_rows(lookup, j)
+                length(sj) == binomial(Rj + 1, Ri + 1) ||
+                    (@assert false; return false)
+                for i in sj         # Ri-simplex
+                    si = sparse_column_rows(mfd.simplices[Ri], i)
+                    for k in si     # vertices
+                        k ∈ vj || (@assert false; return false)
+                    end
                 end
             end
+            mfd.lookup[(Ri, Rj)] == mfd.lookup[(Rj, Ri)]' ||
+                (@assert false; return false)
         end
     end
 
@@ -259,9 +262,12 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         volumes = fill(S(1), nsimplices)
         dualcoords = coords
         dualvolumes = fill(S(1), nvertices)
+        lookup = SparseOp{D,D}(sparse(1:nsimplices, 1:nsimplices,
+                                      fill(One(), nsimplices)))
         return Manifold(name, OpDict{Int,One}(0 => simplices),
-                        OpDict{Int,Int8}(), OpDict{Tuple{Int,Int},One}(),
-                        coords, Dict{Int,Vector{S}}(0 => volumes), dualcoords,
+                        OpDict{Int,Int8}(),
+                        OpDict{Tuple{Int,Int},One}((0, 0) => lookup), coords,
+                        Dict{Int,Vector{S}}(0 => volumes), dualcoords,
                         Dict{Int,Vector{S}}(0 => dualvolumes), nothing)
     end
 
@@ -316,16 +322,20 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
 
     # Extend lookup table
     mfd1.lookup[(0, D)] = simplices
+    mfd1.lookup[(D, D)] = SparseOp{D,D}(sparse(1:nsimplices, 1:nsimplices,
+                                               fill(One(), nsimplices)))
     if D > 1
-        lookup = map(x -> One(x != 0), boundaries)
-        mfd1.lookup[(D - 1, D)] = lookup
+        mfd1.lookup[(D - 1, D)] = map(x -> One(x != 0), boundaries)
         for Ri in 1:(D - 2)
             mfd1.lookup[(Ri, D)] = map(x -> One(x != 0),
                                        mfd1.lookup[(Ri, D - 1)] *
                                        mfd1.lookup[(D - 1, D)])
         end
     end
-    for Ri in 0:D, Rj in (Ri + 1):D
+    for Rj in 0:(D - 1)
+        mfd1.lookup[(D, Rj)] = mfd1.lookup[(Rj, D)]'
+    end
+    for Ri in 0:D, Rj in 0:D
         @assert haskey(mfd1.lookup, (Ri, Rj))
     end
 
@@ -345,7 +355,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
                                               mfd1.simplices[R],
                                               R + 1 == D ? simplices :
                                               mfd1.simplices[R + 1],
-                                              mfd1.lookup[(R, R + 1)]', coords,
+                                              mfd1.lookup[(R + 1, R)], coords,
                                               dualvolumes[R + 1])
         end
     else
@@ -359,7 +369,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     # Only test for the final manifold
     if C == D
         check_delaunay(Val(D), Val(C), simplices, mfd1.lookup[(D - 1, D)],
-                       mfd1.lookup[(D - 1, D)]', coords, dualcoords)
+                       mfd1.lookup[(D, D - 1)], coords, dualcoords)
     end
 
     # Create D-manifold
