@@ -200,7 +200,15 @@ end
 # Comparison
 
 function Base.:(==)(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
-    return mfd1.simplices == mfd2.simplices && mfd1.coords == mfd1.coords
+    return mfd1.simplices[D] == mfd2.simplices[D] && mfd1.coords == mfd2.coords
+end
+function Base.isequal(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
+    return isequal(mfd1.simplices[D], mfd2.simplices[D]) &&
+           isequal(mfd1.coords, mfd2.coords)
+end
+function Base.hash(mfd::Manifold{D}, h::UInt) where {D}
+    return hash(0x4d34f4ae,
+                hash(D, hash(mfd.simplices[D], hash(mfd.coords.op, h))))
 end
 
 Base.ndims(::Manifold{D}) where {D} = D
