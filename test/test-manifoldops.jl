@@ -73,7 +73,7 @@ using Test
 
         # Only if completely well-centred [arXiv:0802.2108 [cs.CG]]
         if mfd.name ∉ ["hypercube manifold", "delaunay hypercube manifold",
-            "large delaunay hypercube manifold"]
+            "large delaunay hypercube manifold", "refined simplex manifold"]
 
             # Hodge
             h = hodge(Val(P), Val(R), mfd)
@@ -101,9 +101,6 @@ using Test
                 δ2 = coderiv(Val(P), Val(R - s), mfd)
                 δ21 = δ2 * δ1
                 δ21::Op{D,P,R2,P,R,S}
-                if !(iszero(δ21))
-                    @show δ21
-                end
                 @test iszero(δ21)
             end
 

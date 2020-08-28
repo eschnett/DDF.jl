@@ -2,7 +2,7 @@ using DDF
 
 using LinearAlgebra
 
-@DISABLED @testset "Empty manifold D=$D" for D in 0:Dmax
+@testset "Empty manifold D=$D" for D in 0:Dmax
     S = Rational{Int64}
     mfd = empty_manifold(Val(D), S)
     @test invariant(mfd)
@@ -22,7 +22,7 @@ using LinearAlgebra
     end
 end
 
-@DISABLED @testset "Simplex manifold D=$D" for D in 0:Dmax
+@testset "Simplex manifold D=$D" for D in 0:Dmax
     S = Float64
     mfd = simplex_manifold(Val(D), S)
     @test invariant(mfd)
@@ -52,7 +52,7 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-@DISABLED @testset "Orthogonal simplex manifold D=$D" for D in 0:Dmax
+@testset "Orthogonal simplex manifold D=$D" for D in 0:Dmax
     S = Float64
     mfd = orthogonal_simplex_manifold(Val(D), S)
     @test invariant(mfd)
@@ -80,7 +80,7 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-@DISABLED @testset "Hypercube manifold D=$D" for D in 0:Dmax
+@testset "Hypercube manifold D=$D" for D in 0:Dmax
     S = Rational{Int64}
     mfd = hypercube_manifold(Val(D), S)
     @test invariant(mfd)
@@ -102,7 +102,7 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-@DISABLED @testset "Delaunay hypercube manifolds D=$D" for D in 0:Dmax
+@testset "Delaunay hypercube manifolds D=$D" for D in 0:Dmax
     S = Float64
     mfd = delaunay_hypercube_manifold(Val(D), S)
     @test invariant(mfd)
@@ -130,7 +130,7 @@ end
 # This manifold causes randomly trouble; the vertex locations are
 # random, and not all generate manifolds are good
 #
-# @DISABLED @testset "Large delaunay hypercube manifolds D=$D" for D in 0:Dmax
+# @testset "Large delaunay hypercube manifolds D=$D" for D in 0:Dmax
 #     S = Float64
 #     mfd = large_delaunay_hypercube_manifold(Val(D), S)
 #     @test invariant(mfd)
@@ -167,10 +167,8 @@ end
             vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
             @test all(≈(vol), mfd.volumes[R])
         end
-        if !(all(>(0), mfd.dualvolumes[R]))
-            @show D R mfd
-        end
-        @test all(>(0), mfd.dualvolumes[R])
+        # A refined simplex is not well centred
+        # @test all(>=(0), mfd.dualvolumes[R])
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
