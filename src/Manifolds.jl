@@ -231,6 +231,24 @@ export nsimplices
 nsimplices(mfd::Manifold, ::Val{R}) where {R} = size(mfd.simplices[R], 2)
 nsimplices(mfd::Manifold, R::Integer) = size(mfd.simplices[R], 2)
 
+export random_point
+"""
+Return random point in manifold
+"""
+function random_point(::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
+    D == 0 && return SVector{D,S}()
+    N = R + 1
+    # Choose simplex
+    i = rand(1:nsimplices(mfd, R))
+    si = sparse_column_rows(mfd.simplices[R], i)
+    @assert length(si) == R+1
+    # Choose point in simplex
+    λ = abs.(randn(SVector{D + 1,S}))
+    λ /= norm(λ)
+    x = sum(λ[n] * SVector{D,S}(@view mfd.coords[si[n], :]) for n in 1:N)
+    return x::SVector{D,S}
+end
+
 ################################################################################
 
 # Outer constructor

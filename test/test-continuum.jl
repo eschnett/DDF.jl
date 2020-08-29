@@ -2,9 +2,10 @@ using DDF
 
 using ComputedFieldTypes
 using DifferentialForms
+using LinearAlgebra
 using StaticArrays
 
-@DISABLED @testset "Evaluate a function D=$D P=$P R=$R" for D in 0:Dmax,
+@testset "Evaluate a function D=$D P=$P R=$R" for D in 0:Dmax,
 P in (Pr, Dl),
 R in 0:D
 
@@ -29,10 +30,15 @@ R in 0:D
         @test evaluate(a * f1, x) ≈ a * evaluate(f1, x)
     end
 
-    @warn "evaluate at random points"
+    for i in 1:10
+        x = random_point(Val(R), mfd)
+        @test evaluate(f0, x) == zero(Form{D,R,T})
+        @test evaluate(f1 + f2, x) ≈ evaluate(f1, x) + evaluate(f2, x)
+        @test evaluate(a * f1, x) ≈ a * evaluate(f1, x)
+    end
 end
 
-@DISABLED @testset "Sample a function D=$D P=$P R=$R" for D in 0:Dmax,
+@testset "Sample a function D=$D P=$P R=$R" for D in 0:Dmax,
 P in (Pr, Dl),
 R in 0:D
 
@@ -59,15 +65,20 @@ R in 0:D
     for i in 1:nsimplices(mfd, R)
         x = SVector{D,S}(@view mfd.coords[i, :])
         fx = f(x)::Form{D,R,T}
-        if R == 0               # TODO: evaluate requires R == 0
-            f̃x = evaluate(f̃, x)
-            f̃x::Form{D,R,T}
-            Ex = norm(f̃x - fx)
-            @test 1 + Ex ≈ 1
-        end
+        f̃x = evaluate(f̃, x)
+        f̃x::Form{D,R,T}
+        Ex = norm(f̃x - fx)
+        @test 1 + Ex ≈ 1
     end
 
-    @warn "evaluate at random points"
+    for i in 1:10
+        x = random_point(Val(R), mfd)
+        fx = f(x)::Form{D,R,T}
+        f̃x = evaluate(f̃, x)
+        f̃x::Form{D,R,T}
+        Ex = norm(f̃x - fx)
+        @test 1 + Ex ≈ 1
+    end
 end
 
 @testset "Project a function D=$D P=$P R=$R" for D in 0:Dmax,
@@ -95,13 +106,18 @@ R in 0:D
     for i in 1:nsimplices(mfd, R)
         x = SVector{D,S}(@view mfd.coords[i, :])
         fx = f(x)::Form{D,R,T}
-        if R == 0               # TODO: evaluate requires R == 0
-            f̃x = evaluate(f̃, x)
-            f̃x::Form{D,R,T}
-            Ex = norm(f̃x - fx)
-            @test 1 + Ex ≈ 1
-        end
+        f̃x = evaluate(f̃, x)
+        f̃x::Form{D,R,T}
+        Ex = norm(f̃x - fx)
+        @test 1 + Ex ≈ 1
     end
 
-    @warn "evaluate at random points"
+    for i in 1:10
+        x = random_point(Val(R), mfd)
+        fx = f(x)::Form{D,R,T}
+        f̃x = evaluate(f̃, x)
+        f̃x::Form{D,R,T}
+        Ex = norm(f̃x - fx)
+        @test 1 + Ex ≈ 1
+    end
 end
