@@ -54,6 +54,7 @@ Base.eltype(::SparseMatrixCSCColumn{Val{:Row},T,I}) where {T,I} = I
 Base.eltype(::SparseMatrixCSCColumn{Val{:Val},T}) where {T} = T
 Base.first(iter::SparseMatrixCSCColumn) = process(iter, first(iter.nzrange))
 Base.getindex(iter::SparseMatrixCSCColumn, i) = process(iter, iter.nzrange[i])
+Base.keys(iter::SparseMatrixCSCColumn) = iter.nzrange
 Base.last(iter::SparseMatrixCSCColumn) = process(iter, last(iter.nzrange))
 Base.length(iter::SparseMatrixCSCColumn) = length(iter.nzrange)
 

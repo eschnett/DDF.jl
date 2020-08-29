@@ -5,11 +5,13 @@ using ComputedFieldTypes
 using DifferentialForms
 using NearestNeighbors
 using SimplexQuad
+using SparseArrays
 using StaticArrays
 
 using ..Funs
 using ..Manifolds
 using ..SparseOps
+using ..ZeroOrOne
 
 ################################################################################
 
@@ -36,8 +38,8 @@ function evaluate(f::Fun{D,P,R,S,T}, x::SVector{D,S}) where {D,P,R,S,T}
         @assert length(sj) == N
         sj = SVector{D + 1,Int}(sj[n] for n in 1:N)
         # Coordinates of simplex vertices
-        # This is only correct for D == 0, P == Pr
-        @assert D == 0 && P == Pr
+        # This is only correct for P == Pr, R == 0
+        @assert P == Pr && R == 0
         xs = SVector{N,SVector{D,S}}(SVector{D,S}(@view mfd.coords[k, :])
                                      for k in sj)
         # setup = cartesian2barycentric_setup(xs)
@@ -87,6 +89,7 @@ function project(::Type{<:Fun{D,P,R,S,T}}, f,
                  mfd::Manifold{D,S}) where {D,P,R,S,T}
     @assert P == Pr             # TODO
     @assert R == 0              # TODO
+    N = D + 1
 
     if D == 0
         values = T[f(SVector{D,S}())[]]
@@ -95,7 +98,7 @@ function project(::Type{<:Fun{D,P,R,S,T}}, f,
 
     order = 4                   # Choice
 
-    N = D + 1
+    B = basis_products(Val(Pr), Val(R), mfd)
 
     f(zero(SVector{D,S}))::Form{D,R,T}
 
@@ -120,24 +123,94 @@ function project(::Type{<:Fun{D,P,R,S,T}}, f,
             XS::Array{S,2}
             X, W = simplexquad(order, [xs[n][d] for n in 1:N, d in 1:D])
 
-            # `findfirst` here works only for D == 0
-            @assert D == 0
+            # `findfirst` here works only for R == 0
+            @assert R == 0
             n = findfirst(==(i), sj)
             @assert n !== nothing
-            # `[]` here works only for D == 0
-            @assert D == 0
+            # `[]` here works only for R == 0
+            @assert R == 0
             kernel(x::SVector{D,T}) = basis_x(setup, n, x) * f(x)[]
 
-            bf = integrate_x(kernel, Val(D), X, W)::T
+            bf = integrate_x(Val(D), kernel, X, W)::T
             value += bf
         end
         values[i] = value
     end
-    @error ""
-    return Fun{D,P,R,S,T}(mfd, values)
+
+    values′ = B \ values
+
+    return Fun{D,P,R,S,T}(mfd, values′)
 end
 
 ################################################################################
+
+function basis_products(::Val{Pr}, ::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
+    # Check arguments
+    D::Int
+    R::Int
+    @assert 0 <= R <= D
+    N = D + 1
+
+    # `order=2` suffices because we only have linear basis functions
+    order = 2
+
+    # Result: sparse matrix
+    I = Int[]
+    J = Int[]
+    V = S[]
+
+    # Loop over all R-simplices
+    for i in 1:nsimplices(mfd, R)
+        # si = sparse_column_rows(mfd.simplices[R], i)
+        # Loop over the support of this R-simplex's basis functions,
+        # i.e. all neighbouring top simplices
+        for k in sparse_column_rows(mfd.lookup[(D, R)]::SparseOp{D,R,One}, i)
+            sk = sparse_column_rows(mfd.simplices[D], k)
+            @assert length(sk) == N
+            # Loop over all contributing other basis functions, i.e.
+            # all neighbouring R-simplices
+            for j in
+                sparse_column_rows(mfd.lookup[(R, D)]::SparseOp{R,D,One}, k)
+                # sj = sparse_column_rows(mfd.simplices[R], j)
+                # @assert k ∈ sj
+                # Coordinates of simplex vertices
+                xs = SVector{N,SVector{D,S}}(SVector{D,S}(@view mfd.coords[l,
+                                                                           :])
+                                             for l in sk)
+                setup = cartesian2barycentric_setup(xs)
+
+                # Calculate overlap integral
+                XS = S[xs[n][d] for n in 1:N, d in 1:D]
+                XS::Array{S,2}
+                X, W = simplexquad(order, XS)
+
+                # Find basis functions for simplices i and j
+                @assert R == 0
+                ni = findfirst(==(i), sk)
+                nj = findfirst(==(j), sk)
+                function kernel(x::SVector{D,S})
+                    basis_x(setup, ni, x) * basis_x(setup, nj, x)
+                end
+                b = integrate_x(Val(D), kernel, X, W)
+
+                push!(I, i)
+                push!(J, j)
+                push!(V, b)
+            end
+        end
+    end
+
+    n = nsimplices(mfd, R)
+    return sparse(I, J, V, n, n)
+end
+
+################################################################################
+
+@fastmath function basis_x(setup, n::Int, x::SVector{D,T}) where {D,T}
+    D::Int
+    λ = cartesian2barycentric(setup, x)
+    return basis_λ(n, λ)
+end
 
 # TODO: Remove this, use Bernstein polynomials instead
 @fastmath function basis_λ(n::Int, λ::SVector{N,S}) where {N,S}
