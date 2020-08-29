@@ -25,7 +25,7 @@ export Manifold
 """
 A discrete manifold 
 """
-struct Manifold{D,S}
+struct Manifold{D,C,S}
     name::String
 
     # If `simplices[R][i,j]` is present, then vertex `i` is part of
@@ -45,63 +45,62 @@ struct Manifold{D,S}
     lookup::OpDict{Tuple{Int,Int},One}
     # lookup::Dict{Tuple{Int,Int},Array{Int,2}}
 
-    coords::Array{S,2}
-    # coords::Vector{SVector{C,S}}
+    # coords::Array{S,2}
+    coords::Vector{SVector{C,S}}
     volumes::Dict{Int,Vector{S}}
     # Coordinates of vertices of dual grid, i.e. circumcentres of
     # primal top-simplices
-    dualcoords::Array{S,2}
-    # dualcoords::Vector{SVector{C,S}}
+    # dualcoords::Array{S,2}
+    dualcoords::Vector{SVector{C,S}}
     # `dualvolumes[R]` are the volumes of the simplices dual to the
     # primal `R`-simplices
     dualvolumes::Dict{Int,Vector{S}}
 
     # Nearest neighbour tree for simplex vertices
-    simplex_tree::Union{Nothing,KDTree{SVector{D,S},Euclidean,S}}
+    simplex_tree::KDTree{SVector{C,S},Euclidean,S}
 
-    function Manifold{D,S}(name::String, simplices::OpDict{Int,One},
-                           boundaries::OpDict{Int,Int8},
-                           lookup::OpDict{Tuple{Int,Int},One},
-                           coords::Array{S,2}, volumes::Dict{Int,Vector{S}},
-                           dualcoords::Array{S,2},
-                           dualvolumes::Dict{Int,Vector{S}},
-                           simplex_tree::Union{Nothing,
-                                               KDTree{SVector{D,S},Euclidean,S}}) where {D,
-                                                                                         S}
+    function Manifold{D,C,S}(name::String, simplices::OpDict{Int,One},
+                             boundaries::OpDict{Int,Int8},
+                             lookup::OpDict{Tuple{Int,Int},One},
+                             coords::Vector{SVector{C,S}},
+                             volumes::Dict{Int,Vector{S}},
+                             dualcoords::Vector{SVector{C,S}},
+                             dualvolumes::Dict{Int,Vector{S}},
+                             simplex_tree::KDTree{SVector{C,S},Euclidean,S}) where {D,
+                                                                                    C,
+                                                                                    S}
         D::Int
-        @assert D >= 0
+        @assert 0 <= D <= C
         @assert Set(keys(simplices)) == Set(0:D)
         @assert Set(keys(boundaries)) == Set(1:D)
         @assert Set(keys(lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D)
-        @assert size(coords, 1) == size(simplices[0], 2)
-        @assert size(coords, 2) >= D
+        @assert length(coords) == size(simplices[0], 2)
         @assert Set(keys(volumes)) == Set(0:D)
         for R in 0:D
             @assert length(volumes[R]) == size(simplices[R], 2)
         end
-        @assert size(dualcoords, 1) == size(simplices[D], 2)
-        @assert size(dualcoords, 2) >= D
+        @assert length(dualcoords) == size(simplices[D], 2)
         @assert Set(keys(dualvolumes)) == Set(0:D)
         for R in 0:D
             @assert length(dualvolumes[R]) == size(simplices[R], 2)
         end
-        mfd = new{D,S}(name, simplices, boundaries, lookup, coords, volumes,
-                       dualcoords, dualvolumes, simplex_tree)
+        mfd = new{D,C,S}(name, simplices, boundaries, lookup, coords, volumes,
+                         dualcoords, dualvolumes, simplex_tree)
         @assert invariant(mfd)
         return mfd
     end
     function Manifold(name::String, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8},
-                      lookup::OpDict{Tuple{Int,Int},One}, coords::Array{S,2},
-                      volumes::Dict{Int,Vector{S}}, dualcoords::Array{S,2},
+                      lookup::OpDict{Tuple{Int,Int},One},
+                      coords::Vector{SVector{C,S}},
+                      volumes::Dict{Int,Vector{S}},
+                      dualcoords::Vector{SVector{C,S}},
                       dualvolumes::Dict{Int,Vector{S}},
-                      simplex_tree::Union{Nothing,
-                                          KDTree{SVector{D0,S},Euclidean,S}}) where {D0,
-                                                                                     S}
+                      simplex_tree::KDTree{SVector{C,S},Euclidean,S}) where {C,
+                                                                             S}
         D = maximum(keys(simplices))
-        simplex_tree::Union{Nothing,KDTree{SVector{D,S},Euclidean,S}}
-        return Manifold{D,S}(name, simplices, boundaries, lookup, coords,
-                             volumes, dualcoords, dualvolumes, simplex_tree)
+        return Manifold{D,C,S}(name, simplices, boundaries, lookup, coords,
+                               volumes, dualcoords, dualvolumes, simplex_tree)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -129,8 +128,9 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
     return print(io, ")")
 end
 
-function Defs.invariant(mfd::Manifold{D})::Bool where {D}
+function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
     D >= 0 || (@assert false; return false)
+    C >= D || (@assert false; return false)
 
     # Check simplices
     Set(keys(mfd.simplices)) == Set(0:D) || (@assert false; return false)
@@ -189,8 +189,7 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
         end
     end
 
-    size(mfd.coords, 1) == nsimplices(mfd, 0) || (@assert false; return false)
-    size(mfd.coords, 2) >= D || (@assert false; return false)
+    length(mfd.coords) == nsimplices(mfd, 0) || (@assert false; return false)
 
     Set(keys(mfd.volumes)) == Set(0:D) || (@assert false; return false)
     for R in 0:D
@@ -198,9 +197,8 @@ function Defs.invariant(mfd::Manifold{D})::Bool where {D}
             (@assert false; return false)
     end
 
-    size(mfd.dualcoords, 1) == nsimplices(mfd, D) ||
+    length(mfd.dualcoords) == nsimplices(mfd, D) ||
         (@assert false; return false)
-    size(mfd.dualcoords, 2) >= D || (@assert false; return false)
 
     Set(keys(mfd.dualvolumes)) == Set(0:D) || (@assert false; return false)
     for R in 0:D
@@ -213,17 +211,19 @@ end
 
 # Comparison
 
-function Base.:(==)(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
+function Base.:(==)(mfd1::Manifold{D,C}, mfd2::Manifold{D,C})::Bool where {D,C}
     mfd1 === mfd2 && return true
     return mfd1.simplices[D] == mfd2.simplices[D] && mfd1.coords == mfd2.coords
 end
-function Base.isequal(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
+function Base.isequal(mfd1::Manifold{D,C},
+                      mfd2::Manifold{D,C})::Bool where {D,C}
     return isequal(mfd1.simplices[D], mfd2.simplices[D]) &&
            isequal(mfd1.coords, mfd2.coords)
 end
-function Base.hash(mfd::Manifold{D}, h::UInt) where {D}
+function Base.hash(mfd::Manifold{D,C}, h::UInt) where {D,C}
     return hash(0x4d34f4ae,
-                hash(D, hash(mfd.simplices[D], hash(mfd.coords.op, h))))
+                hash(D,
+                     hash(C, hash(mfd.simplices[D], hash(mfd.coords.op, h)))))
 end
 
 Base.ndims(::Manifold{D}) where {D} = D
@@ -236,30 +236,33 @@ export random_point
 """
 Return random point in manifold
 """
-function random_point(::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
-    D == 0 && return SVector{D,S}()
+function random_point(::Val{R}, mfd::Manifold{D,C,S}) where {D,C,R,S}
+    @assert 0 <= R <= D <= C
+    C == 0 && return SVector{C,S}()
     N = R + 1
     # Choose simplex
     i = rand(1:nsimplices(mfd, R))
     si = sparse_column_rows(mfd.simplices[R], i)
     @assert length(si) == R + 1
     # Choose point in simplex
-    λ = abs.(randn(SVector{D + 1,S}))
+    λ = abs.(randn(SVector{C + 1,S}))
     λ /= norm(λ)
-    x = sum(λ[n] * SVector{D,S}(@view mfd.coords[si[n], :]) for n in 1:N)
-    return x::SVector{D,S}
+    x = sum(λ[n] * mfd.coords[si[n]] for n in 1:N)
+    return x::SVector{C,S}
 end
 
 ################################################################################
 
 # Outer constructor
 
+# TODO: This is unused???
 export ZeroVolumeException
 struct ZeroVolumeException <: Exception
     D::Int
+    C::Int
     i::Int
     simplex::Vector{Int}
-    cs::Vector                  # Vector{SVector{D,T}}
+    cs::Vector                  # Vector{SVector{C,T}}
 end
 
 struct Face{N}
@@ -269,13 +272,11 @@ struct Face{N}
 end
 
 function Manifold(name::String, simplices::SparseOp{0,D,One},
-                  coords::Array{S,2}) where {D,S}
-    @assert 0 <= D
-    N = D + 1
+                  coords::Vector{SVector{C,S}}) where {D,C,S}
+    @assert 0 <= D <= C
 
     nvertices, nsimplices = size(simplices)
-    @assert size(coords, 1) == nvertices
-    @assert size(coords, 2) >= D
+    @assert length(coords) == nvertices
 
     if D == 0
         volumes = fill(S(1), nsimplices)
@@ -283,25 +284,24 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         dualvolumes = fill(S(1), nvertices)
         lookup = SparseOp{D,D}(sparse(1:nsimplices, 1:nsimplices,
                                       fill(One(), nsimplices)))
+        simplex_tree = KDTree(coords)
         return Manifold(name, OpDict{Int,One}(0 => simplices),
                         OpDict{Int,Int8}(),
                         OpDict{Tuple{Int,Int},One}((0, 0) => lookup), coords,
                         Dict{Int,Vector{S}}(0 => volumes), dualcoords,
-                        Dict{Int,Vector{S}}(0 => dualvolumes), nothing)
+                        Dict{Int,Vector{S}}(0 => dualvolumes), simplex_tree)
     end
 
     # Calculate lower-dimensional simplices
     # See arXiv:1103.3076v2 [cs.NA], section 7
-    facelist = Face{N - 1}[]
+    facelist = Face{D}[]
     for j in 1:size(simplices, 2)
-        ks0 = collect(sparse_column_rows(simplices, j))
-        @assert length(ks0) == N
-        ks = SVector{N,Int}(ks0)
-        for n in 1:N
+        ks = SVector{D + 1,Int}(sparse_column_rows(simplices, j)...)
+        for n in 1:(D + 1)
             # Leave out vertex n
             ls = deleteat(ks, n)
             p = bitsign(isodd(n - 1))
-            push!(facelist, Face{N - 1}(ls, j, p))
+            push!(facelist, Face{D}(ls, j, p))
         end
     end
     sort!(facelist; by = f -> f.vertices)
@@ -315,7 +315,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     bV = Int8[]
 
     nfaces = 0
-    oldvertices = zero(SVector{N - 1,Int})
+    oldvertices = zero(SVector{D,Int})
     for f in facelist
         if f.vertices != oldvertices
             oldvertices = f.vertices
@@ -359,10 +359,9 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     end
 
     # Calculate volumes, dual coordinates, and dual volumes
-    C = size(coords, 2)
-    volumes = calc_volumes(Val(D), Val(C), simplices, coords)
+    volumes = calc_volumes(simplices, coords)
 
-    dualcoords = calc_dualcoords(Val(D), Val(C), simplices, coords)
+    dualcoords = calc_dualcoords(simplices, coords)
 
     # TODO: re-use dualvolumes from mfd1 (is this possible?)
     dualvolumes = Dict{Int,Vector{S}}()
@@ -370,8 +369,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         # Only set correctly for the final manifold
         dualvolumes[D] = fill(S(1), nsimplices)
         for R in (D - 1):-1:0
-            dualvolumes[R] = calc_dualvolumes(Val(D), Val(R), Val(C),
-                                              mfd1.simplices[R],
+            dualvolumes[R] = calc_dualvolumes(Val(D), mfd1.simplices[R],
                                               R + 1 == D ? simplices :
                                               mfd1.simplices[R + 1],
                                               mfd1.lookup[(R + 1, R)], coords,
@@ -387,7 +385,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
 
     # Only test for the final manifold
     if C == D
-        check_delaunay(Val(D), Val(C), simplices, mfd1.lookup[(D - 1, D)],
+        check_delaunay(simplices, mfd1.lookup[(D - 1, D)],
                        mfd1.lookup[(D, D - 1)], coords, dualcoords)
     end
 
@@ -398,15 +396,8 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     # ignoring `mfd1` dual coordinates
     # ignoring 'mfd1` dual volumes
 
-    if C == D
-        simplex_tree = KDTree([SVector{D,S}(@view coords[i, :])
-                               for i in 1:nvertices])
-    else
-        simplex_tree = nothing
-    end
-
     return Manifold(name, mfd1.simplices, mfd1.boundaries, mfd1.lookup, coords,
-                    mfd1.volumes, dualcoords, dualvolumes, simplex_tree)
+                    mfd1.volumes, dualcoords, dualvolumes, mfd1.simplex_tree)
 end
 
 ################################################################################
@@ -414,15 +405,13 @@ end
 """
 Calculate volumes
 """
-function calc_volumes(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
-                      coords::Array{S,2}) where {D,C,S}
+function calc_volumes(simplices::SparseOp{0,D,One},
+                      coords::Vector{SVector{C,S}}) where {D,C,S}
     nvertices, nsimplices = size(simplices)
     volumes = Array{S}(undef, nsimplices)
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
-        @assert length(si) == D + 1
-        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}(@view coords[i, :]))
-                            for i in si)
+        xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         volumes[i] = volume(xs)
     end
     return volumes
@@ -431,16 +420,15 @@ end
 """
 Calculate dual coordinates, i.e. circumcentres
 """
-function calc_dualcoords(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
-                         coords::Array{S,2}) where {D,C,S}
+function calc_dualcoords(simplices::SparseOp{0,D,One},
+                         coords::Vector{SVector{C,S}}) where {D,C,S}
     nvertices, nsimplices = size(simplices)
-    dualcoords = Array{S}(undef, nsimplices, C)
+    dualcoords = Array{SVector{C,S}}(undef, nsimplices)
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         @assert length(si) == D + 1
-        xs = SVector{D + 1}(Form{C,1}(SVector{C,S}(@view coords[i, :]))
-                            for i in si)
-        dualcoords[i, :] .= circumcentre(xs)
+        xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
+        dualcoords[i] = circumcentre(xs)
     end
     return dualcoords
 end
@@ -450,10 +438,10 @@ Calculate circumcentric dual volumes
 
 See [1198555.1198667, section 6.2.1]
 """
-function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
-                          simplices::SparseOp{0,R,One},
+function calc_dualvolumes(::Val{D}, simplices::SparseOp{0,R,One},
                           simplices1::SparseOp{0,R1,One},
-                          parents::SparseOp{R1,R,One}, coords::Array{S,2},
+                          parents::SparseOp{R1,R,One},
+                          coords::Vector{SVector{C,S}},
                           dualvolumes1::Vector{S}) where {D,R,R1,C,S}
     D::Int
     R::Int
@@ -461,15 +449,13 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
     C::Int
     @assert 0 <= R <= R1 <= D
     @assert R1 == R + 1
-    @assert size(coords, 2) == C
     nvertices, nsimplices = size(simplices)
     dualvolumes = Array{S}(undef, nsimplices)
     # Loop over all `R`-simplices
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         @assert length(si) == R + 1
-        xsi = SVector{R + 1}(Form{C,1}(SVector{C,S}(@view coords[i, :]))
-                             for i in si)
+        xsi = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
         # bci = sum(xsi) / length(xsi)
         # TODO: this could be dualcoords
         cci = circumcentre(xsi)
@@ -484,8 +470,7 @@ function calc_dualvolumes(::Val{D}, ::Val{R}, ::Val{C},
             # between boundary and the line connecting two simplices?
             # TODO: Cache circumcentres ahead of time
             # TODO: could be dualcoords
-            xsj = SVector{R + 2}(Form{C,1}(SVector{C,S}(@view coords[j, :]))
-                                 for j in sj)
+            xsj = SVector{R + 2}(Form{C,1}(coords[j]) for j in sj)
             bcj = sum(xsj) / length(xsj)
             ccj = circumcentre(xsj)
             # Handle case where the volume should be negative, i.e.
@@ -516,10 +501,10 @@ end
 Check Delaunay condition: No vertex must lie in the circumcentre of a
 simplex
 """
-function check_delaunay(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
+function check_delaunay(simplices::SparseOp{0,D,One},
                         lookup::SparseOp{D1,D,One}, lookup1::SparseOp{D,D1,One},
-                        coords::Array{S,2},
-                        dualcoords::Array{S,2}) where {D,D1,C,S}
+                        coords::Vector{SVector{C,S}},
+                        dualcoords::Vector{SVector{C,S}}) where {D,D1,C,S}
     D::Int
     D1::Int
     @assert 0 <= D1 <= D
@@ -528,8 +513,8 @@ function check_delaunay(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
     for i in 1:size(simplices, 2)
         si = sparse_column_rows(simplices, i)
         @assert length(si) == D + 1
-        x1i = Form{C,1}(SVector{C,S}(@view coords[first(si), :]))
-        cci = Form{C,1}(SVector{C,S}(@view dualcoords[i, :]))
+        x1i = Form{C,1}(coords[first(si)])
+        cci = Form{C,1}(dualcoords[i])
         cri2 = norm2(x1i - cci)
         # Loop over all faces
         for j in sparse_column_rows(lookup, i)
@@ -540,7 +525,7 @@ function check_delaunay(::Val{D}, ::Val{C}, simplices::SparseOp{0,D,One},
                     for l in sparse_column_rows(simplices, k)
                         # Ignore vertices of simplex i
                         if l ∉ si
-                            xl = Form{C,1}(SVector{C,S}(@view coords[l, :]))
+                            xl = Form{C,1}(coords[l])
                             d2 = norm2(xl - cci)
                             @assert d2 >= cri2 || d2 ≈ cri2
                         end

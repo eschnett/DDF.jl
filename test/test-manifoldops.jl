@@ -17,9 +17,9 @@ using Test
             refined_simplex_manifold(Val(D), S)]
 
     for mfd in mfds
-        funs = Fun{D,P,R,S}[]
-        push!(funs, zero(Fun{D,P,R,S,S}, mfd))
-        e = id(Fun{D,P,0,S,SVector{D,S}}, mfd)
+        funs = Fun{D,P,R,D,S}[]
+        push!(funs, zero(Fun{D,P,R,D,S,S}, mfd))
+        e = id(Fun{D,P,0,D,S,SVector{D,S}}, mfd)
         if R == 0
             push!(funs, e)
         end
@@ -43,7 +43,7 @@ using Test
             for f in funs
                 bf = b * f
                 T = eltype(f)
-                bf::Fun{D,P,R1,S,T}
+                bf::Fun{D,P,R1,D,S,T}
                 bf′ = boundary(f)
                 @test bf′ == bf
             end
@@ -65,7 +65,7 @@ using Test
             for f in funs
                 df = d * f
                 T = eltype(f)
-                df::Fun{D,P,R1,S,T}
+                df::Fun{D,P,R1,D,S,T}
                 df′ = deriv(f)
                 @test df′ == df
             end
@@ -89,7 +89,7 @@ using Test
             for f in funs
                 hf = h * f
                 T = eltype(f)
-                hf::Fun{D,!P,R,S,T}
+                hf::Fun{D,!P,R,D,S,T}
                 hf′ = ⋆f
                 @test hf′ == hf
             end
@@ -110,7 +110,7 @@ using Test
                 for f in funs
                     δf = δ * f
                     T = eltype(f)
-                    δf::Fun{D,P,R1,S,T}
+                    δf::Fun{D,P,R1,D,S,T}
                     δf′ = coderiv(f)
                     @test δf′ == δf
                 end
@@ -121,7 +121,7 @@ using Test
             for f in funs
                 Δf = Δ * f
                 T = eltype(f)
-                Δf::Fun{D,P,R,S,T}
+                Δf::Fun{D,P,R,D,S,T}
                 Δf′ = laplace(f)
                 @test Δf′ == Δf
             end

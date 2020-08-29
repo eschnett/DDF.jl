@@ -17,7 +17,7 @@ The empty manifold
 """
 function empty_manifold(::Val{D}, ::Type{S}) where {D,S}
     return Manifold("empty manifold", zero(SparseOp{0,D,One}, 0, 0),
-                    zeros(S, 0, D))
+                    zeros(SVector{D,S}, 0))
 end
 
 ################################################################################
@@ -27,17 +27,17 @@ export simplex_manifold
 Manifold with one standard simplex
 """
 function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
-    N = D + 1
-    coords = regular_simplex(D, S)
+    nvertices = D + 1
+    coords = regular_simplex(Val(D), S)
     I = Int[]
     J = Int[]
     V = One[]
-    for i in 1:N
+    for i in 1:nvertices
         push!(I, i)
         push!(J, 1)
         push!(V, One())
     end
-    simplices = SparseOp{0,D,One}(sparse(I, J, V, N, 1))
+    simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, 1))
     return Manifold("simplex manifold", simplices, coords)
 end
 
@@ -49,17 +49,17 @@ The algorithm proceeds recursively. A 0-simplex is a point. A
 D-simplex is a (D-1)-simplex that is shifted down along the new axis,
 plus a new point on the new axis.
 """
-function regular_simplex(D::Int, ::Type{S}) where {S}
+function regular_simplex(::Val{D}, ::Type{S}) where {D,S}
     @assert D >= 0
     N = D + 1
-    s = Array{S}(undef, N, D)
+    s = Array{SVector{D,S}}(undef, N)
     if D > 0
-        s0 = regular_simplex(D - 1, S)
+        s0 = regular_simplex(Val(D - 1), S)
         # Choose height so that edge length is 1
         if D == 1
             z = S(1)
         else
-            z0 = sqrt(1 - sum((@view s0[1, :]) .^ 2))
+            z0 = sqrt(1 - sum(s0[1] .^ 2))
             if S <: Rational
                 z = rationalize(typeof(zero(S).den), z0; tol = sqrt(eps(z0)))
             else
@@ -67,10 +67,10 @@ function regular_simplex(D::Int, ::Type{S}) where {S}
             end
         end
         z0 = -z / (D + 1)
-        s[1:(N - 1), 1:(D - 1)] .= @view s0[:, :]
-        s[1:(N - 1), D] .= z0
-        s[N, 1:(D - 1)] .= 0
-        s[N, D] = z + z0
+        for n in 1:(N - 1)
+            s[n] = SVector{D,S}(s0[n]..., z0)
+        end
+        s[N] = SVector{D,S}(zero(SVector{D - 1,S})..., z + z0)
     end
     return s
 end
@@ -83,7 +83,7 @@ Manifold with one orthogonal simplex
 """
 function orthogonal_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     N = D + 1
-    coords = orthogonal_simplex(D, S)
+    coords = orthogonal_simplex(Val(D), S)
     I = Int[]
     J = Int[]
     V = One[]
@@ -100,14 +100,11 @@ end
 Generate the coordinate positions for an orthogonal D-simplex with
 edge lengths 1.
 """
-function orthogonal_simplex(D::Int, ::Type{S}) where {S}
+function orthogonal_simplex(::Val{D}, ::Type{S}) where {D,S}
     @assert D >= 0
-    N = D + 1
-    s = Array{S}(undef, N, D)
-    s[1, :] .= 0
+    s = zeros(SVector{D,S}, D + 1)
     for d in 1:D
-        s[d + 1, :] .= 0
-        s[d + 1, d] = 1
+        s[d + 1] = setindex(zero(SVector{D,S}), 1, d)
     end
     return s
 end
@@ -131,11 +128,11 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     @assert nsimplices == factorial(D)
 
     # Set up coordinates
-    coords = SVector{D,Int}[]
+    coords = SVector{D,S}[]
     imin = CartesianIndex(ntuple(d -> 0, D))
     imax = CartesianIndex(ntuple(d -> 1, D))
     for i in imin:imax
-        push!(coords, SVector{D,Int}(i.I))
+        push!(coords, SVector{D,S}(i.I))
     end
     nvertices = length(coords)
     @assert nvertices == 2^D
@@ -150,9 +147,7 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
             push!(V, One())
         end
     end
-
     simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, nsimplices))
-    coords = S[coords[i][d] for i in 1:nvertices, d in 1:D]
 
     return Manifold("hypercube manifold", simplices, coords)
 end
@@ -202,18 +197,16 @@ function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     N = D + 1
 
     # Set up coordinates
-    coords = SVector{D,Int}[]
+    coords = SVector{D,S}[]
     imin = CartesianIndex(ntuple(d -> 0, D))
     imax = CartesianIndex(ntuple(d -> 1, D))
     for i in imin:imax
-        push!(coords, SVector{D,Int}(i.I))
+        push!(coords, SVector{D,S}(i.I))
     end
     nvertices = length(coords)
     @assert nvertices == 2^D
-    coords = S[coords[i][d] for i in 1:nvertices, d in 1:D]
 
-    simplices = delaunay_mesh(coords)
-    simplices = SparseOp{0,D,One}(simplices)
+    simplices = SparseOp{0,D,One}(delaunay_mesh(coords))
 
     return Manifold("delaunay hypercube manifold", simplices, coords)
 end
@@ -257,9 +250,9 @@ export refined_manifold
 """
 Refined a manifold
 """
-function refined_manifold(mfd0::Manifold{D,S}) where {D,S}
+function refined_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
     D == 0 && return mfd0
-    coords = refine_coords(Val(D), mfd0.lookup[(0, 1)], mfd0.coords)
+    coords = refine_coords(mfd0.lookup[(0, 1)], mfd0.coords)
     simplices = SparseOp{0,D}(delaunay_mesh(coords))
     mfd = Manifold("refined $(mfd0.name)", simplices, coords)
     return mfd

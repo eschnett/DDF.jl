@@ -21,8 +21,8 @@ R1 in 0:D
     A = rand(Op{D,P2,R2,P1,R1,T}, mfd)
     B = rand(Op{D,P2,R2,P1,R1,T}, mfd)
     C = rand(Op{D,P2,R2,P1,R1,T}, mfd)
-    f = rand(Fun{D,P1,R1,T,T}, mfd)
-    g = rand(Fun{D,P1,R1,T,T}, mfd)
+    f = rand(Fun{D,P1,R1,D,T,T}, mfd)
+    g = rand(Fun{D,P1,R1,D,T,T}, mfd)
     a = rand(T)
     b = rand(T)
 

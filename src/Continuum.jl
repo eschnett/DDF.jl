@@ -19,7 +19,8 @@ export evaluate
 """
 Evaluate a function at a point
 """
-function evaluate(f::Fun{D,P,R,S,T}, x::SVector{D,S}) where {D,P,R,S,T}
+function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
+    @assert C == D
     N = D + 1
     mfd = f.manifold
 
@@ -29,7 +30,6 @@ function evaluate(f::Fun{D,P,R,S,T}, x::SVector{D,S}) where {D,P,R,S,T}
         return Form{D,R,T}((y,))
     end
 
-    mfd.simplex_tree::KDTree
     i, dist = nn(mfd.simplex_tree, x)
     # Search all neighbouring simplices to find containing simplex
     lookup = mfd.lookup[(D, 0)]
@@ -40,8 +40,7 @@ function evaluate(f::Fun{D,P,R,S,T}, x::SVector{D,S}) where {D,P,R,S,T}
         # Coordinates of simplex vertices
         # This is only correct for P == Pr, R == 0
         @assert P == Pr && R == 0
-        xs = SVector{N,SVector{D,S}}(SVector{D,S}(@view mfd.coords[k, :])
-                                     for k in sj)
+        xs = SVector{N,SVector{C,S}}(mfd.coords[k] for k in sj)
         # setup = cartesian2barycentric_setup(xs)
 
         # Calculate barycentric coordinates
@@ -65,18 +64,18 @@ export sample
 """
 Sample a function on a manifold
 """
-function sample(::Type{<:Fun{D,P,R,S,T}}, f,
-                mfd::Manifold{D,S}) where {D,P,R,S,T}
+function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
+                mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
     @assert P == Pr             # TODO
     @assert R == 0              # TODO
     values = Array{T}(undef, nsimplices(mfd, R))
     for i in 1:nsimplices(mfd, R)
-        x = SVector{D,S}(@view mfd.coords[i, :])
+        x = mfd.coords[i]
         y = f(x)
         y::Form{D,R,T}
         values[i] = y[]::T
     end
-    return Fun{D,P,R,S,T}(mfd, values)
+    return Fun{D,P,R,C,S,T}(mfd, values)
 end
 
 ################################################################################
@@ -85,22 +84,23 @@ export project
 """
 Project a function onto a manifold
 """
-function project(::Type{<:Fun{D,P,R,S,T}}, f,
-                 mfd::Manifold{D,S}) where {D,P,R,S,T}
+function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
+                 mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
     @assert P == Pr             # TODO
     @assert R == 0              # TODO
     N = D + 1
+    @assert C == D
 
     if D == 0
-        values = T[f(SVector{D,S}())[]]
-        return Fun{D,P,R,S,T}(mfd, values)
+        values = T[f(SVector{C,S}())[]]
+        return Fun{D,P,R,C,S,T}(mfd, values)
     end
 
     order = 4                   # Choice
 
     B = basis_products(Val(Pr), Val(R), mfd)
 
-    f(zero(SVector{D,S}))::Form{D,R,T}
+    f(zero(SVector{C,S}))::Form{D,R,T}
 
     values = Array{T}(undef, nsimplices(mfd, R))
     # Loop over all R-simplices
@@ -113,15 +113,13 @@ function project(::Type{<:Fun{D,P,R,S,T}}, f,
             @assert length(sj) == N
             sj = SVector{N,Int}(sj[n] for n in 1:N)
             # Coordinates of simplex vertices
-            xs = SVector{N,SVector{D,S}}(SVector{D,S}(@view mfd.coords[k, :])
-                                         for k in sj)
-            xs::SVector{N,SVector{D,S}}
+            xs = SVector{N,SVector{C,S}}(mfd.coords[k] for k in sj)
             setup = cartesian2barycentric_setup(xs)
 
             # Find integration method
-            XS = S[xs[n][d] for n in 1:N, d in 1:D]
+            XS = S[xs[n][c] for n in 1:N, c in 1:C]
             XS::Array{S,2}
-            X, W = simplexquad(order, [xs[n][d] for n in 1:N, d in 1:D])
+            X, W = simplexquad(order, [xs[n][c] for n in 1:N, c in 1:C])
 
             # `findfirst` here works only for R == 0
             @assert R == 0
@@ -129,9 +127,9 @@ function project(::Type{<:Fun{D,P,R,S,T}}, f,
             @assert n !== nothing
             # `[]` here works only for R == 0
             @assert R == 0
-            kernel(x::SVector{D,T}) = basis_x(setup, n, x) * f(x)[]
+            kernel(x::SVector{C,T}) = basis_x(setup, n, x) * f(x)[]
 
-            bf = integrate_x(Val(D), kernel, X, W)::T
+            bf = integrate_x(Val(C), kernel, X, W)::T
             value += bf
         end
         values[i] = value
@@ -139,16 +137,19 @@ function project(::Type{<:Fun{D,P,R,S,T}}, f,
 
     values′ = B \ values
 
-    return Fun{D,P,R,S,T}(mfd, values′)
+    return Fun{D,P,R,C,S,T}(mfd, values′)
 end
 
 ################################################################################
 
-function basis_products(::Val{Pr}, ::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
+function basis_products(::Val{Pr}, ::Val{R},
+                        mfd::Manifold{D,C,S}) where {D,R,C,S}
     # Check arguments
     D::Int
     R::Int
-    @assert 0 <= R <= D
+    C::Int
+    @assert 0 <= R <= D <= C
+    @assert C == D
     N = D + 1
 
     # `order=2` suffices because we only have linear basis functions
@@ -174,13 +175,11 @@ function basis_products(::Val{Pr}, ::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
                 # sj = sparse_column_rows(mfd.simplices[R], j)
                 # @assert k ∈ sj
                 # Coordinates of simplex vertices
-                xs = SVector{N,SVector{D,S}}(SVector{D,S}(@view mfd.coords[l,
-                                                                           :])
-                                             for l in sk)
+                xs = SVector{N,SVector{C,S}}(mfd.coords[l] for l in sk)
                 setup = cartesian2barycentric_setup(xs)
 
                 # Calculate overlap integral
-                XS = S[xs[n][d] for n in 1:N, d in 1:D]
+                XS = S[xs[n][c] for n in 1:N, c in 1:C]
                 XS::Array{S,2}
                 X, W = simplexquad(order, XS)
 
@@ -188,10 +187,10 @@ function basis_products(::Val{Pr}, ::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
                 @assert R == 0
                 ni = findfirst(==(i), sk)
                 nj = findfirst(==(j), sk)
-                function kernel(x::SVector{D,S})
+                function kernel(x::SVector{C,S})
                     basis_x(setup, ni, x) * basis_x(setup, nj, x)
                 end
-                b = integrate_x(Val(D), kernel, X, W)
+                b = integrate_x(Val(C), kernel, X, W)
 
                 push!(I, i)
                 push!(J, j)
@@ -206,8 +205,8 @@ end
 
 ################################################################################
 
-@fastmath function basis_x(setup, n::Int, x::SVector{D,T}) where {D,T}
-    D::Int
+@fastmath function basis_x(setup, n::Int, x::SVector{C,T}) where {C,T}
+    C::Int
     λ = cartesian2barycentric(setup, x)
     return basis_λ(n, λ)
 end
@@ -219,16 +218,16 @@ end
     return λ[n]
 end
 
-@fastmath function integrate_x(::Val{D}, f, X, W) where {D}
-    D::Int
-    @assert D > 0
-    @assert size(X, 2) == D
+@fastmath function integrate_x(::Val{C}, f, X, W) where {C}
+    C::Int
+    @assert C > 0
+    @assert size(X, 2) == C
     @assert size(X, 1) == size(W, 1)
 
     @inbounds begin
-        s = zero(W[1]) * f(SVector{D}(@view X[1, :]))
+        s = zero(W[1]) * f(SVector{C}(@view X[1, :]))
         for n in 1:length(W)
-            s += W[n] * f(SVector{D}(@view X[n, :]))
+            s += W[n] * f(SVector{C}(@view X[n, :]))
         end
         return s
     end

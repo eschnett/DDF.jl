@@ -13,23 +13,21 @@ export delaunay_mesh
 """
 Find the Delaunay triangulation for a set of points
 """
-function delaunay_mesh(coords::Array{T,2}) where {T}
-    D = size(coords, 2)
-    N = D + 1
-    nvertices = size(coords, 1)
+function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
+    nvertices = length(coords)
 
-    if D == 0
+    if C == 0
         @assert nvertices == 1
         simplices = sparse([1], [1], [One()], 1, 1)
         return simplices
     end
 
     # Triangulate
-    mesh = delaunay(coords)
+    mesh = delaunay(S[coords[i][c] for i in 1:nvertices, c in 1:C])
 
     # Convert to sparse matrix
     nsimplices = size(mesh.simplices, 1)
-    @assert size(mesh.simplices, 2) == N
+    @assert size(mesh.simplices, 2) == C + 1
     I = Int[]
     J = Int[]
     V = One[]
@@ -51,19 +49,18 @@ export refine_coords
 """
 Refine a mesh
 """
-function refine_coords(::Val{D}, oldedges::SparseOp{0,1,One},
-                       oldcoords::Array{T,2}) where {D,T}
+function refine_coords(oldedges::SparseOp{0,1,One},
+                       oldcoords::Vector{SVector{C,S}}) where {C,S}
     noldvertices, noldedges = size(oldedges)
-    @assert size(oldcoords) == (noldvertices, D)
+    @assert length(oldcoords) == noldvertices
     nvertices = noldvertices + noldedges
-    coords = Array{T}(undef, nvertices, D)
-    coords[1:noldvertices, :] .= oldcoords[:, :]
+    coords = copy(oldcoords)
     # Loop over all old edges
     for i in 1:noldedges
         si = sparse_column_rows(oldedges, i)
         @assert length(si) == 2
-        x = sum(SVector{D,T}(@view coords[j, :]) for j in si) / length(si)
-        coords[noldvertices + i, :] .= x[:]
+        x = sum(coords[j] for j in si) / length(si)
+        push!(coords, x)
     end
     return coords
 end

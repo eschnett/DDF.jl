@@ -45,7 +45,8 @@ deriv(f::Fun{D,P,R}) where {D,P,R} = deriv(Val(P), Val(R), f.manifold) * f
 # Hodge dual (circumcentric (diagonal) hodge operator)
 
 export hodge, ⋆
-function Forms.hodge(::Val{Pr}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
+function Forms.hodge(::Val{Pr}, ::Val{R},
+                     manifold::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 <= R <= D
     vol = manifold.volumes[R]
     dualvol = manifold.dualvolumes[R]
@@ -54,7 +55,8 @@ function Forms.hodge(::Val{Pr}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
     end
     return Op{D,Dl,R,Pr,R,S}(manifold, Diagonal(dualvol ./ vol))
 end
-function Forms.hodge(::Val{Dl}, ::Val{R}, manifold::Manifold{D,S}) where {R,D,S}
+function Forms.hodge(::Val{Dl}, ::Val{R},
+                     manifold::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 <= R <= D
     vol = manifold.volumes[R]
     dualvol = manifold.dualvolumes[R]
@@ -66,7 +68,7 @@ end
 
 export invhodge
 function Forms.invhodge(::Val{P}, ::Val{R},
-                        manifold::Manifold{D,S}) where {P,R,D,S}
+                        manifold::Manifold{D,C,S}) where {P,R,D,C,S}
     R::Int
     @assert 0 <= R <= D
     op = hodge(Val(!P), Val(R), manifold)
@@ -78,7 +80,8 @@ Forms.hodge(f::Fun{D,P,R}) where {D,P,R} = hodge(Val(P), Val(R), f.manifold) * f
 # Derivatives
 
 export coderiv
-function coderiv(::Val{P}, ::Val{R}, manifold::Manifold{D,S}) where {P,R,D,S}
+function coderiv(::Val{P}, ::Val{R},
+                 manifold::Manifold{D,C,S}) where {P,R,D,C,S}
     P::PrimalDual
     s = P == Pr ? +1 : -1
     @assert 0 <= R <= D
@@ -92,7 +95,8 @@ end
 coderiv(f::Fun{D,P,R}) where {D,P,R} = coderiv(Val(P), Val(R), f.manifold) * f
 
 export laplace
-function laplace(::Val{P}, ::Val{R}, manifold::Manifold{D,S}) where {P,R,D,S}
+function laplace(::Val{P}, ::Val{R},
+                 manifold::Manifold{D,C,S}) where {P,R,D,C,S}
     P::PrimalDual
     s = P == Pr ? +1 : -1
     @assert 0 <= R <= D

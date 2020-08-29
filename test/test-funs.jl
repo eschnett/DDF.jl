@@ -7,11 +7,11 @@ using Test
     T = Rational{Int64}
     mfd = hypercube_manifold(Val(D), T)
 
-    z = zero(Fun{D,P,R,T,T}, mfd)
-    e = id(Fun{D,P,0,T,SVector{D,T}}, mfd)
-    f = rand(Fun{D,P,R,T,T}, mfd)
-    g = rand(Fun{D,P,R,T,T}, mfd)
-    h = rand(Fun{D,P,R,T,T}, mfd)
+    z = zero(Fun{D,P,R,D,T,T}, mfd)
+    e = id(Fun{D,P,0,D,T,SVector{D,T}}, mfd)
+    f = rand(Fun{D,P,R,D,T,T}, mfd)
+    g = rand(Fun{D,P,R,D,T,T}, mfd)
+    h = rand(Fun{D,P,R,D,T,T}, mfd)
     a = rand(T)
     b = rand(T)
 
