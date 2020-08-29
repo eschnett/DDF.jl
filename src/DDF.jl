@@ -14,8 +14,6 @@ include("Funs.jl")
 include("Ops.jl")
 include("ManifoldOps.jl")
 include("Continuum.jl")
-# include("Topologies.jl")
-# include("Geometries.jl")
 
 @reexport using .Algorithms
 @reexport using .Continuum
@@ -28,7 +26,5 @@ include("Continuum.jl")
 @reexport using .Ops
 @reexport using .SparseOps
 @reexport using .ZeroOrOne
-# @reexport using .Geometries
-# @reexport using .Topologies
 
 end
