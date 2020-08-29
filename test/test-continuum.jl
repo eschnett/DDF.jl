@@ -4,12 +4,12 @@ using ComputedFieldTypes
 using DifferentialForms
 using StaticArrays
 
-@testset "Evaluate a function D=$D P=$P R=$R" for D in 0:Dmax,
+@DISABLED @testset "Evaluate a function D=$D P=$P R=$R" for D in 0:Dmax,
 P in (Pr, Dl),
 R in 0:D
 
-    # TODO: all D, all P
-    (D == 0 && P == Pr) || continue
+    # TODO: all P, all R
+    (P == Pr && R == 0) || continue
 
     S = Float64
     mfd = simplex_manifold(Val(D), S)
@@ -32,12 +32,12 @@ R in 0:D
     @warn "evaluate at random points"
 end
 
-@testset "Sample a function D=$D P=$P R=$R" for D in 0:Dmax,
+@DISABLED @testset "Sample a function D=$D P=$P R=$R" for D in 0:Dmax,
 P in (Pr, Dl),
 R in 0:D
 
-    # TODO: all R, all P
-    (R == 0 && P == Pr) || continue
+    # TODO: all P, all R
+    (P == Pr && R == 0) || continue
 
     S = Float64
     mfd = simplex_manifold(Val(D), S)
@@ -59,7 +59,7 @@ R in 0:D
     for i in 1:nsimplices(mfd, R)
         x = SVector{D,S}(@view mfd.coords[i, :])
         fx = f(x)::Form{D,R,T}
-        if D == 0               # TODO: evaluate requires D == 0
+        if R == 0               # TODO: evaluate requires R == 0
             f̃x = evaluate(f̃, x)
             f̃x::Form{D,R,T}
             Ex = norm(f̃x - fx)
@@ -74,8 +74,8 @@ end
 P in (Pr, Dl),
 R in 0:D
 
-    # TODO: all D, all R, all P
-    (D == 0 && R == 0 && P == Pr) || continue
+    # TODO: all P, all R
+    (P == Pr && R == 0) || continue
 
     S = Float64
     mfd = simplex_manifold(Val(D), S)
@@ -95,7 +95,7 @@ R in 0:D
     for i in 1:nsimplices(mfd, R)
         x = SVector{D,S}(@view mfd.coords[i, :])
         fx = f(x)::Form{D,R,T}
-        if D == 0               # TODO: evaluate requires D == 0
+        if R == 0               # TODO: evaluate requires R == 0
             f̃x = evaluate(f̃, x)
             f̃x::Form{D,R,T}
             Ex = norm(f̃x - fx)
