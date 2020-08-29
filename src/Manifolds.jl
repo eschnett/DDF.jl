@@ -19,6 +19,14 @@ Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 
 ################################################################################
 
+export DualKind, BarycentricDuals, CircumcentricDuals
+@enum DualKind BarycentricDuals CircumcentricDuals
+
+# Note: BarycentricDuals are not yet implemented
+const dualkind = CircumcentricDuals
+
+################################################################################
+
 const OpDict{K,T} = Dict{K,SparseOp{<:Any,<:Any,T}} where {K,T}
 
 export Manifold
@@ -48,8 +56,8 @@ struct Manifold{D,C,S}
     # coords::Array{S,2}
     coords::Vector{SVector{C,S}}
     volumes::Dict{Int,Vector{S}}
-    # Coordinates of vertices of dual grid, i.e. circumcentres of
-    # primal top-simplices
+    # Coordinates of vertices of dual grid, i.e.
+    # barycentrec/circumcentres of primal top-simplices
     # dualcoords::Array{S,2}
     dualcoords::Vector{SVector{C,S}}
     # `dualvolumes[R]` are the volumes of the simplices dual to the
@@ -361,7 +369,7 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     # Calculate volumes, dual coordinates, and dual volumes
     volumes = calc_volumes(simplices, coords)
 
-    dualcoords = calc_dualcoords(simplices, coords)
+    dualcoords = calc_dualcoords(Val(dualkind), simplices, coords)
 
     # TODO: re-use dualvolumes from mfd1 (is this possible?)
     dualvolumes = Dict{Int,Vector{S}}()
@@ -369,7 +377,8 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
         # Only set correctly for the final manifold
         dualvolumes[D] = fill(S(1), nsimplices)
         for R in (D - 1):-1:0
-            dualvolumes[R] = calc_dualvolumes(Val(D), mfd1.simplices[R],
+            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D),
+                                              mfd1.simplices[R],
                                               R + 1 == D ? simplices :
                                               mfd1.simplices[R + 1],
                                               mfd1.lookup[(R + 1, R)], coords,
@@ -418,15 +427,30 @@ function calc_volumes(simplices::SparseOp{0,D,One},
 end
 
 """
-Calculate dual coordinates, i.e. circumcentres
+Calculate barycentric dual coordinates
 """
-function calc_dualcoords(simplices::SparseOp{0,D,One},
+function calc_dualcoords(::Val{BarycentricDuals}, simplices::SparseOp{0,D,One},
                          coords::Vector{SVector{C,S}}) where {D,C,S}
     nvertices, nsimplices = size(simplices)
     dualcoords = Array{SVector{C,S}}(undef, nsimplices)
     for i in 1:nsimplices
-        si = sparse_column_rows(simplices, i)
-        @assert length(si) == D + 1
+        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)...)
+        xs = SVector{D + 1,SVector{C,S}}(coords[i] for i in si)
+        dualcoords[i] = barycentre(xs)
+    end
+    return dualcoords
+end
+
+"""
+Calculate circumcentric dual coordinates
+"""
+function calc_dualcoords(::Val{CircumcentricDuals},
+                         simplices::SparseOp{0,D,One},
+                         coords::Vector{SVector{C,S}}) where {D,C,S}
+    nvertices, nsimplices = size(simplices)
+    dualcoords = Array{SVector{C,S}}(undef, nsimplices)
+    for i in 1:nsimplices
+        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)...)
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         dualcoords[i] = circumcentre(xs)
     end
@@ -438,7 +462,8 @@ Calculate circumcentric dual volumes
 
 See [1198555.1198667, section 6.2.1]
 """
-function calc_dualvolumes(::Val{D}, simplices::SparseOp{0,R,One},
+function calc_dualvolumes(::Val{CircumcentricDuals}, ::Val{D},
+                          simplices::SparseOp{0,R,One},
                           simplices1::SparseOp{0,R1,One},
                           parents::SparseOp{R1,R,One},
                           coords::Vector{SVector{C,S}},
@@ -456,7 +481,7 @@ function calc_dualvolumes(::Val{D}, simplices::SparseOp{0,R,One},
         si = sparse_column_rows(simplices, i)
         @assert length(si) == R + 1
         xsi = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
-        # bci = sum(xsi) / length(xsi)
+        # bci = barycentre(xsi)
         # TODO: this could be dualcoords
         cci = circumcentre(xsi)
         vol = zero(S)
@@ -471,7 +496,7 @@ function calc_dualvolumes(::Val{D}, simplices::SparseOp{0,R,One},
             # TODO: Cache circumcentres ahead of time
             # TODO: could be dualcoords
             xsj = SVector{R + 2}(Form{C,1}(coords[j]) for j in sj)
-            bcj = sum(xsj) / length(xsj)
+            bcj = barycentre(xsj)
             ccj = circumcentre(xsj)
             # Handle case where the volume should be negative, i.e.
             # when the volume circumcentre cci is on the "other" side

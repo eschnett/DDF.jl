@@ -3,6 +3,10 @@ module Algorithms
 using DifferentialForms
 using StaticArrays
 
+export barycentre
+barycentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T} = sum(xs) / length(xs)
+barycentre(xs::SVector{N,SVector{D,T}}) where {N,D,T} = sum(xs) / length(xs)
+
 # function circumcentre1(xs::SVector{R, <:Chain{V, 1, T}}) where {R, V, T}
 #     # G. Westendorp, A formula for the N-circumsphere of an N-simplex,
 #     # <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
