@@ -27,17 +27,15 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [[Delaunay]]
 deps = ["LinearAlgebra", "PyCall", "SparseArrays", "Test"]
-git-tree-sha1 = "15bba00861f9ddbe2c71e4591fbbb061667e247d"
+git-tree-sha1 = "921f1f3d71d4f990a3f7689ee5e65677a135ad65"
 uuid = "07eb4e4e-0c6d-46ef-bc4e-83d5e5d860a9"
-version = "1.0.0"
+version = "1.0.1"
 
 [[DifferentialForms]]
 deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "Reexport", "StaticArrays", "Test"]
-git-tree-sha1 = "91fa981a1f589cf243cee25bd84952d72db4d2f3"
-repo-rev = "master"
-repo-url = "https://github.com/eschnett/DifferentialForms.jl"
+git-tree-sha1 = "fffc5bcd64d2ba8390aca742865eae0869e2ba37"
 uuid = "9e54b8bf-1ae4-4c45-8656-f6b46e7970a3"
-version = "0.1.1"
+version = "0.2.3"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
@@ -91,11 +89,6 @@ deps = ["Distances", "StaticArrays"]
 git-tree-sha1 = "93107e3cdada73d63245ed8170dcae680f0c8fd8"
 uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 version = "0.4.6"
-
-[[OrderedCollections]]
-git-tree-sha1 = "293b70ac1780f9584c89268a6e2a560d938a7065"
-uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.3.0"
 
 [[Parsers]]
 deps = ["Dates", "Test"]
@@ -175,9 +168,3 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 git-tree-sha1 = "80229be1f670524750d905f8fc8148e5a8c4537f"
 uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
 version = "1.2.0"
-
-[[ZeroRing]]
-deps = ["LinearAlgebra", "Test"]
-git-tree-sha1 = "dcbf9cf09c9897043485f5cab64f4acbba677d24"
-uuid = "11e428aa-d9de-4607-8aa2-0699a440adf3"
-version = "1.0.0"

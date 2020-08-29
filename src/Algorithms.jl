@@ -1,8 +1,6 @@
 module Algorithms
 
-using ComputedFieldTypes
 using DifferentialForms
-using SparseArrays
 using StaticArrays
 
 # function circumcentre1(xs::SVector{R, <:Chain{V, 1, T}}) where {R, V, T}
@@ -36,6 +34,11 @@ using StaticArrays
 
 export circumcentre
 function circumcentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
+    D::Int
+    @assert D >= 0
+    N::Int
+    @assert N >= 1
+    @assert N <= D + 1
     # See arXiv:1103.3076v2 [cs.RA], section 10.1
     A = SMatrix{N + 1,N + 1}(i <= N && j <= N ? 2 * (xs[i] ⋅ xs[j])[] :
                              i == j ? zero(T) : one(T)
@@ -46,34 +49,74 @@ function circumcentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     return cc::Form{D,1,T}
 end
 
-export regular_simplex
-# Generate the coordinate positions for a regular simplex with edge
-# length 1.
-#
-# The algorithm proceeds recursively. A 0D simplex is a point. A
-# D-simplex is a D-1-simplex that is shifted down along the new axis,
-# plus a new point on the new axis.
-function regular_simplex1(D::Int, ::Type{T}) where {T}
-    @assert D >= 0
-    N = D + 1
-    # D == 0 && return SVector{N}(Chain{V,1,T}())
-    @assert D > 0
-    D == 1 && return SVector(Form{D,1}((T(-1) / 2,)), Form{D,1}((T(1) / 2,)))
-    s0 = regular_simplex1(D - 1, T)
-    # Choose height so that edge length is 1
-    z = sqrt(1 - abs2(s0[1]))
-    z0 = -z / (D + 1)
-    s = SVector{N}(map(x -> x ⊕ Form{1,1,T}((z0,)), s0)...,
-                   zero(Form{D - 1,1,T}) ⊕ Form{1,1,T}((z + z0,)))
-    return s::SVector{N,fulltype(Form{D,1,T})}
-end
-@generated function regular_simplex(::Type{<:Form{D,R,T}}) where {D,R,T}
+export volume
+"""
+Unsigned volume
+"""
+function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     D::Int
     @assert D >= 0
-    R::Int
-    @assert 0 <= R <= D
-    @assert R == D              # we could relax this
-    return regular_simplex1(D, T)
+    N::Int
+    @assert N >= 1
+    @assert N <= D + 1
+    ys = map(x -> x - xs[1], deleteat(xs, 1))
+    if isempty(ys)
+        vol = one(T)
+    else
+        vol0 = norm(∧(ys...))
+        if T <: Rational
+            vol = rationalize(typeof(zero(T).den), vol0; tol = sqrt(eps(vol0)))
+        else
+            vol = vol0
+        end
+        vol::T
+    end
+    vol /= factorial(N - 1)
+    return vol::T
 end
+
+# export dualvolume
+# function dualvolume()
+#     # Calculate circumcentric dual volumes
+#     # [1198555.1198667, page 5]
+#     dualvolumes = Dict{Int,Fun{D,Dl,R,T} where {R}}()
+#     for R in D:-1:0
+#         if R == D
+#             values = ones(T, size(R, topo))
+#         else
+#             bnds = topo.boundaries[R + 1]
+#             values = zeros(T, size(R, topo))
+#             sis = topo.simplices[R]::Vector{Simplex{R + 1,Int}}
+#             sjs = topo.simplices[R + 1]::Vector{Simplex{R + 2,Int}}
+#             for (i, si) in enumerate(sis)
+#                 # TODO: This is expensive
+#                 js = findnz(bnds[i, :])[1]
+#                 for j in js
+#                     sj = sjs[j]
+#                     b = dualvolumes[R + 1][j]
+#                     # TODO: Calculate lower-rank circumcentres as
+#                     # intersection between boundary and the line
+#                     # connecting two simplices?
+#                     # TODO: Cache circumcentres ahead of time
+#                     @assert length(si.vertices) == R + 1
+#                     @assert length(sj.vertices) == R + 2
+#                     xsi = coords[si.vertices]
+#                     cci = circumcentre(xsi)
+#                     xsj = coords[sj.vertices]
+#                     ccj = circumcentre(xsj)
+#                     # TODO: Handle case where the volume should be
+#                     # negative (i.e. when the volume circumcentre ccj
+#                     # is on the "other" side of the face circumcentre
+#                     # cci) (Is the previous statement correct?)
+#                     h = abs(cci - ccj)
+#                     values[i] += b * h / factorial(D - R)
+#                 end
+#             end
+#         end
+#         # @assert all(>(0), values)
+#         vols = Fun{D,Dl,R,T}(topo, values)
+#         dualvolumes[R] = vols
+#     end
+# end
 
 end

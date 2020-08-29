@@ -4,15 +4,14 @@ using StaticArrays
 using Test
 
 @testset "Fun D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-    topo = Topology(Simplex(SVector{D + 1}(1:(D + 1))))
-
     T = Rational{Int64}
-    z = zero(Fun{D,P,R,T}, topo)
-    e = ones(Fun{D,P,R,T}, topo)
-    i = id(Fun{D,P,R,T}, topo)
-    f = rand(Fun{D,P,R,T}, topo)
-    g = rand(Fun{D,P,R,T}, topo)
-    h = rand(Fun{D,P,R,T}, topo)
+    mfd = hypercube_manifold(Val(D), T)
+
+    z = zero(Fun{D,P,R,T,T}, mfd)
+    e = id(Fun{D,P,0,T,SVector{D,T}}, mfd)
+    f = rand(Fun{D,P,R,T,T}, mfd)
+    g = rand(Fun{D,P,R,T,T}, mfd)
+    h = rand(Fun{D,P,R,T,T}, mfd)
     a = rand(T)
     b = rand(T)
 
@@ -57,8 +56,8 @@ using Test
 
     # Nonlinear transformations
 
-    i2 = map(x -> x^2, i)
-    @test [x^2 for x in i] == [x for x in i2]
+    e2 = map(x -> 2x, e)
+    @test [2x for x in e] == [x for x in e2]
 
     @test map(+, f, g) == f + g
 end
