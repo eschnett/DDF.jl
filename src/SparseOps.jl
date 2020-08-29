@@ -125,6 +125,7 @@ end
 
 function Base.:(==)(A::SparseOp{Tag1,Tag2},
                     B::SparseOp{Tag1,Tag2}) where {Tag1,Tag2}
+    A === B && return true
     return A.op == B.op
 end
 function Base.:(<)(A::SparseOp{Tag1,Tag2},

@@ -58,6 +58,7 @@ end
 
 function Base.:(==)(f::F, g::F) where {F<:Fun}
     @assert f.manifold == g.manifold
+    f === g && return true
     return f.values == g.values
 end
 function Base.:(<)(f::F, g::F) where {F<:Fun}
@@ -95,6 +96,15 @@ Base.length(f::Fun) = length(f.values)
 #     # Fun{D, P, R, S, T}(f.manifold, map(op, f.values, (g.values for g in gs)...))
 # end
 function Base.map(op, f::Fun{D,P,R,S}, gs::Fun{D,P,R,S}...) where {D,P,R,S}
+    if !(all(g.manifold == f.manifold for g in gs))
+        for g in gs
+            @show f.manifold == g.manifold
+        end
+        @show f gs
+        for g in gs
+            @show g
+        end
+    end
     @assert all(g.manifold == f.manifold for g in gs)
     U = typeof(op(zero(eltype(f)), (zero(eltype(g)) for g in gs)...))
     Fun{D,P,R,S,U}(f.manifold, map(op, f.values, (g.values for g in gs)...))

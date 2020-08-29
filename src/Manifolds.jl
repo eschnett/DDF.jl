@@ -214,6 +214,7 @@ end
 # Comparison
 
 function Base.:(==)(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
+    mfd1 === mfd2 && return true
     return mfd1.simplices[D] == mfd2.simplices[D] && mfd1.coords == mfd2.coords
 end
 function Base.isequal(mfd1::Manifold{D}, mfd2::Manifold{D})::Bool where {D}
@@ -241,7 +242,7 @@ function random_point(::Val{R}, mfd::Manifold{D,S}) where {D,R,S}
     # Choose simplex
     i = rand(1:nsimplices(mfd, R))
     si = sparse_column_rows(mfd.simplices[R], i)
-    @assert length(si) == R+1
+    @assert length(si) == R + 1
     # Choose point in simplex
     λ = abs.(randn(SVector{D + 1,S}))
     λ /= norm(λ)

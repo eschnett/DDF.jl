@@ -79,6 +79,7 @@ end
 
 function Base.:(==)(A::M, B::M) where {M<:Op}
     @assert A.manifold == B.manifold
+    A === B && return true
     return A.values == B.values
 end
 function Base.:(<)(A::M, B::M) where {M<:Op}
