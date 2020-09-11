@@ -53,6 +53,47 @@ function circumcentre(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     return cc::Form{D,1,T}
 end
 
+function circumcentre(xs::SVector{N,<:Form{D,1,T}},
+                      ws::SVector{N,<:Form{D,0,T′}}) where {N,D,T,T′}
+    # See arXiv:math/0508188, section 3.2:
+    # C = Ci xi + Cj xj + Ck xk
+    # (C - xi) (C - xi) = r^2 + wi
+    # (C - xj) (C - xj) = r^2 + wj
+    # (C - xk) (C - xk) = r^2 + wk
+    # Ci + Cj + Ck = 1
+    # 
+    # (Ci xi + Cj xj + Ck xk - xi) (Ci xi + Cj xj + Ck xk - xi) = r^2 + wi
+    # (Ci xi + Cj xj + Ck xk - xj) (Ci xi + Cj xj + Ck xk - xj) = r^2 + wj
+    # (Ci xi + Cj xj + Ck xk - xk) (Ci xi + Cj xj + Ck xk - xk) = r^2 + wk
+    # Ci + Cj + Ck = 1
+    # 
+    # C^2 - 2 xi (Ci xi + Cj xj + Ck xk) + xi^2 = r^2 + wi
+    # C^2 - 2 xj (Ci xi + Cj xj + Ck xk) + xj^2 = r^2 + wj
+    # C^2 - 2 xk (Ci xi + Cj xj + Ck xk) + xk^2 = r^2 + wk
+    # Ci + Cj + Ck = 1
+    # 
+    # 2 xi (Ci xi + Cj xj + Ck xk) + (r^2 - C^2) = xi^2 - wi
+    # 2 xj (Ci xi + Cj xj + Ck xk) + (r^2 - C^2) = xj^2 - wj
+    # 2 xk (Ci xi + Cj xj + Ck xk) + (r^2 - C^2) = xk^2 - wk
+    # Ci + Cj + Ck = 1
+
+    D::Int
+    @assert D >= 0
+    N::Int
+    @assert N >= 1
+    @assert N <= D + 1
+    # See arXiv:1103.3076v2 [cs.RA], section 10.1
+    A = SMatrix{N + 1,N + 1}(i <= N && j <= N ? 2 * (xs[i] ⋅ xs[j])[] :
+                             i == j ? zero(T) : one(T)
+                             for i in 1:(N + 1), j in 1:(N + 1))
+    b = SVector{N + 1}(i <= N ? (xs[i] ⋅ xs[i] - ws[i])[] : one(T)
+                       for i in 1:(N + 1))
+    c = A \ b
+    cc = sum(c[i] * xs[i] for i in 1:N)
+    return cc::Form{D,1,T′}
+
+end
+
 export volume
 """
 Unsigned volume
@@ -77,6 +118,29 @@ function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     end
     vol /= factorial(N - 1)
     return vol::T
+end
+
+export signed_volume
+"""
+Signed volume
+"""
+function signed_volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
+    D::Int
+    @assert D >= 0
+    N::Int
+    R = N - 1
+    @assert 0 <= R <= D
+    ys = map(x -> x - xs[1], deleteat(xs, 1))
+    if isempty(ys)
+        vol = one(Form{D,0,T})  # 0
+    else
+        y = ∧(ys...)            # R
+        ny = norm(y)
+        ny = ifelse(ny == 0, one(ny), ny)
+        n = y / ny              # R
+        vol = n ⋅ y             # 0
+    end
+    return vol[] / factorial(R)
 end
 
 # export dualvolume

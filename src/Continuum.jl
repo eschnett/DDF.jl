@@ -40,7 +40,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
         # Coordinates of simplex vertices
         # This is only correct for P == Pr, R == 0
         @assert P == Pr && R == 0
-        xs = SVector{N,SVector{C,S}}(mfd.coords[k] for k in sj)
+        xs = SVector{N,SVector{C,S}}(mfd.coords[0][k] for k in sj)
         # setup = cartesian2barycentric_setup(xs)
 
         # Calculate barycentric coordinates
@@ -70,7 +70,7 @@ function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
     @assert R == 0              # TODO
     values = Array{T}(undef, nsimplices(mfd, R))
     for i in 1:nsimplices(mfd, R)
-        x = mfd.coords[i]
+        x = mfd.coords[0][i]
         y = f(x)
         y::Form{D,R,T}
         values[i] = y[]::T
@@ -113,7 +113,7 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
             @assert length(sj) == N
             sj = SVector{N,Int}(sj[n] for n in 1:N)
             # Coordinates of simplex vertices
-            xs = SVector{N,SVector{C,S}}(mfd.coords[k] for k in sj)
+            xs = SVector{N,SVector{C,S}}(mfd.coords[0][k] for k in sj)
             setup = cartesian2barycentric_setup(xs)
 
             # Find integration method
@@ -175,7 +175,7 @@ function basis_products(::Val{Pr}, ::Val{R},
                 # sj = sparse_column_rows(mfd.simplices[R], j)
                 # @assert k ∈ sj
                 # Coordinates of simplex vertices
-                xs = SVector{N,SVector{C,S}}(mfd.coords[l] for l in sk)
+                xs = SVector{N,SVector{C,S}}(mfd.coords[0][l] for l in sk)
                 setup = cartesian2barycentric_setup(xs)
 
                 # Calculate overlap integral

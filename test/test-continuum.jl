@@ -24,7 +24,7 @@ R in 0:D
     a = rand(T)
 
     for i in 1:nsimplices(mfd, P == Pr ? R : D - R)
-        x = mfd.coords[i]
+        x = mfd.coords[0][i]
         @test evaluate(f0, x) == zero(Form{D,R,T})
         @test evaluate(f1 + f2, x) ≈ evaluate(f1, x) + evaluate(f2, x)
         @test evaluate(a * f1, x) ≈ a * evaluate(f1, x)
@@ -63,7 +63,7 @@ R in 0:D
     f̃ = sample(Fun{D,P,R,D,S,T}, f, mfd)
 
     for i in 1:nsimplices(mfd, R)
-        x = mfd.coords[i]
+        x = mfd.coords[0][i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)
         f̃x::Form{D,R,T}
@@ -104,7 +104,7 @@ R in 0:D
     f̃ = project(Fun{D,P,R,D,S,T}, f, mfd)
 
     for i in 1:nsimplices(mfd, R)
-        x = mfd.coords[i]
+        x = mfd.coords[0][i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)
         f̃x::Form{D,R,T}
