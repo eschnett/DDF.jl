@@ -56,6 +56,8 @@ end
 function circumcentre(xs::SVector{N,<:Form{D,1,T}},
                       ws::SVector{N,<:Form{D,0,T′}}) where {N,D,T,T′}
     # See arXiv:math/0508188, section 3.2:
+    # See arXiv:1103.3076v2 [cs.RA], section 10.1:
+    #
     # C = Ci xi + Cj xj + Ck xk
     # (C - xi) (C - xi) = r^2 + wi
     # (C - xj) (C - xj) = r^2 + wj
@@ -91,7 +93,6 @@ function circumcentre(xs::SVector{N,<:Form{D,1,T}},
     c = A \ b
     cc = sum(c[i] * xs[i] for i in 1:N)
     return cc::Form{D,1,T′}
-
 end
 
 export volume

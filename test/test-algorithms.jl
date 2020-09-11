@@ -32,8 +32,8 @@ end
     cc = circumcentre(xs, ws)
     cc::Form{D,1,T}
     # Check that circumcentre has correct weighted distance from all vertices
-    r2 = norm2(xs[1] - cc) + ws[1][]
-    @test all(==(r2), norm2(xs[n] - cc) + ws[n][] for n in 1:N)
+    r2 = norm2(xs[1] - cc) - ws[1][]
+    @test all(==(r2), norm2(xs[n] - cc) - ws[n][] for n in 1:N)
     # Check that circumcentre lies in hyperplane spanned by vertices
     if sum(frank.(xs)) > D
         @test true
