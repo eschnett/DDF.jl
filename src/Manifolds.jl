@@ -277,15 +277,119 @@ end
 
 # Outer constructor
 
-# TODO: This is unused???
-export ZeroVolumeException
-struct ZeroVolumeException <: Exception
-    D::Int
-    C::Int
-    i::Int
-    simplex::Vector{Int}
-    cs::Vector                  # Vector{SVector{C,T}}
+function Manifold(name::String, simplicesD::SparseOp{0,D,One},
+                  coords0::Vector{SVector{C,S}},
+                  weights::Vector{S}) where {D,C,S}
+    @assert 0 <= D <= C
+
+    nvertices, nsimplices = size(simplicesD)
+    @assert length(coords0) == nvertices
+
+    # Calculate lower-Dimensional simplices
+    simplices = OpDict{Int,One}(D => simplicesD)
+    boundaries = OpDict{Int,Int8}()
+    for R in D:-1:1
+        facesR, boundariesR = calc_faces_boundaries(simplices[R])
+        simplices[R - 1] = facesR
+        boundaries[R] = boundariesR
+    end
+
+    # Calculate lookup tables
+    lookup = OpDict{Tuple{Int,Int},One}()
+    # Simplex definitions
+    for R in 0:D
+        if !haskey(lookup, (0, R))
+            # println("$D (0,$R) simplices")
+            lookup[(0, R)] = simplices[R]
+        end
+    end
+    # Identity
+    for R in 0:D
+        nsimplicesR = size(simplices[R], 2)
+        if !haskey(lookup, (R, R))
+            # println("$D ($R,$R) id")
+            lookup[(R, R)] = SparseOp{R,R}(sparse(1:nsimplicesR, 1:nsimplicesR,
+                                                  fill(One(), nsimplicesR)))
+        end
+    end
+    # Absolute value of boundaries
+    for R in 1:D
+        if !haskey(lookup, (R - 1, R))
+            # println("$D ($(R-1),$R) boundaries")
+            lookup[(R - 1, R)] = map(x -> One(x != 0), boundaries[R])
+        end
+    end
+    # Chain of two lookup tables
+    for Ri in 0:D, Rj in (Ri + 2):D
+        if !haskey(lookup, (Ri, Rj))
+            # println("$D ($Ri,$Rj) mul")
+            Rk = Rj - 1
+            lookup[(Ri, Rj)] = map(x -> One(x != 0),
+                                   lookup[(Ri, Rk)] * lookup[(Rk, Rj)])
+        end
+    end
+    # Transpose
+    for Ri in 0:D, Rj in 0:(Ri - 1)
+        @assert !haskey(lookup, (Ri, Rj))
+        # println("$D ($Ri,$Rj) transpose")
+        lookup[(Ri, Rj)] = lookup[(Rj, Ri)]'
+    end
+    # Check
+    for Ri in 0:D, Rj in 0:D
+        lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
+    end
+
+    # Calculate coordinates and volumes
+    coords = Dict{Int,Vector{SVector{C,S}}}()
+    volumes = Dict{Int,Vector{S}}()
+    for R in 0:D
+        # TODO: Combine these two calculations
+        coords[R] = calc_coords(simplices[R], coords0)
+        volumes[R] = calc_volumes(simplices[R], coords0)
+    end
+
+    # Optimize weights
+    weights = optimize_weights(Val(dualkind), Val(D), simplices, lookup,
+                               coords[0], volumes, weights)
+
+    # Calculate dual coordinates and dual volumes
+    dualcoords = Dict{Int,Vector{SVector{C,S}}}()
+    dualvolumes = Dict{Int,Vector{S}}()
+    # TODO: Combine these two calculations?
+    for R in 0:D
+        dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R], coords[0],
+                                        weights)
+    end
+    dualvolumes[D] = fill(S(1), nsimplices)
+    for R in (D - 1):-1:0
+        dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), simplices[R],
+                                          simplices[R + 1], lookup[(R + 1, R)],
+                                          coords[0], volumes[R], dualcoords[R],
+                                          dualcoords[R + 1], dualvolumes[R + 1])
+    end
+
+    # Ensure that all dual volumes are strictly positive
+    allpositive = true
+    for R in 0:D
+        allpositive &= all(>(0), dualvolumes[R])
+    end
+    if !allpositive
+        @warn "Not all dual volumes are strictly positive"
+    end
+
+    if D > 0
+        check_delaunay(simplices[D], lookup[(D - 1, D)], lookup[(D, D - 1)],
+                       coords[0], dualcoords[D])
+    end
+
+    simplex_tree = KDTree(coords[0])
+
+    # Create D-manifold
+    return Manifold(name, simplices, boundaries, lookup, coords, volumes,
+                    weights, dualcoords, dualvolumes, simplex_tree)
 end
+
+################################################################################
 
 struct Face{N}
     vertices::SVector{N,Int}
@@ -293,32 +397,15 @@ struct Face{N}
     parity::Int8
 end
 
-function Manifold(name::String, simplices::SparseOp{0,D,One},
-                  coords::Vector{SVector{C,S}},
-                  weights::Vector{S}) where {D,C,S}
-    @assert 0 <= D <= C
+"""
+Calculate faces and boundaries
+"""
+function calc_faces_boundaries(simplices::SparseOp{0,D,One}) where {D}
+    D::Int
+    @assert 0 < D
 
     nvertices, nsimplices = size(simplices)
-    @assert length(coords) == nvertices
 
-    if D == 0
-        volumes = fill(S(1), nsimplices)
-        dualcoords = coords
-        dualvolumes = fill(S(1), nvertices)
-        # lookup = SparseOp{D,D}(sparse(1:nsimplices, 1:nsimplices,
-        #                               fill(One(), nsimplices)))
-        lookup = simplices
-        simplex_tree = KDTree(coords)
-        return Manifold(name, OpDict{Int,One}(0 => simplices),
-                        OpDict{Int,Int8}(),
-                        OpDict{Tuple{Int,Int},One}((0, 0) => lookup),
-                        Dict{Int,Vector{SVector{C,S}}}(0 => coords),
-                        Dict{Int,Vector{S}}(0 => volumes), weights,
-                        Dict{Int,Vector{SVector{C,S}}}(0 => dualcoords),
-                        Dict{Int,Vector{S}}(0 => dualvolumes), simplex_tree)
-    end
-
-    # Calculate lower-dimensional simplices
     # See arXiv:1103.3076v2 [cs.NA], section 7
     facelist = Face{D}[]
     for j in 1:size(simplices, 2)
@@ -362,88 +449,8 @@ function Manifold(name::String, simplices::SparseOp{0,D,One},
     faces = SparseOp{0,D - 1}(sparse(fI, fJ, fV, nvertices, nfaces))
     boundaries = SparseOp{D - 1,D}(sparse(bI, bJ, bV, nfaces, nsimplices))
 
-    # Recursively create lower-dimensional (D-1)-manifold
-    mfd1 = Manifold(name, faces, coords, weights)
-
-    newsimplices = mfd1.simplices
-    newsimplices[D] = simplices
-    newboundaries = mfd1.boundaries
-    newboundaries[D] = boundaries
-
-    # Extend lookup table
-    newlookup = mfd1.lookup
-    newlookup[(0, D)] = simplices
-    newlookup[(D, D)] = SparseOp{D,D}(sparse(1:nsimplices, 1:nsimplices,
-                                             fill(One(), nsimplices)))
-    if D > 1
-        newlookup[(D - 1, D)] = map(x -> One(x != 0), boundaries)
-        for Ri in 1:(D - 2)
-            newlookup[(Ri, D)] = map(x -> One(x != 0),
-                                     newlookup[(Ri, D - 1)] *
-                                     newlookup[(D - 1, D)])
-        end
-    end
-    for Rj in 0:(D - 1)
-        newlookup[(D, Rj)] = newlookup[(Rj, D)]'
-    end
-    for Ri in 0:D, Rj in 0:D
-        newlookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
-    end
-
-    # Calculate coordinates and volumes
-    newcoords = mfd1.coords
-    newcoords[D] = calc_coords(simplices, coords)
-    newvolumes = mfd1.volumes
-    newvolumes[D] = calc_volumes(simplices, coords)
-
-    # Optimize weights
-
-    # Calculate dual coordinates and dual volumes
-    newdualcoords = Dict{Int,Vector{SVector{C,S}}}()
-    newdualvolumes = Dict{Int,Vector{S}}()
-    if C == D
-        weights, newdualcoords, newdualvolumes = optimize_weights(Val(dualkind),
-                                                                  Val(D),
-                                                                  newsimplices,
-                                                                  newlookup,
-                                                                  coords,
-                                                                  newvolumes,
-                                                                  weights)
-
-        # Ensure that all dual volumes are strictly positive
-        allpositive = true
-        for R in 0:D
-            allpositive &= all(>(0), newdualvolumes[R])
-        end
-        if !allpositive
-            @show "!allpositive"
-            @show D
-            @show weights
-            @show newdualcoords
-            @show newdualvolumes
-        end
-        @assert allpositive
-    else
-        # dummy data, won't be used
-        for R in 0:D
-            newdualcoords[R] = zeros(SVector{C,S}, size(newsimplices[R], 2))
-            newdualvolumes[R] = zeros(S, size(newsimplices[R], 2))
-        end
-    end
-
-    # Only test for the final manifold
-    if C == D
-        check_delaunay(simplices, newlookup[(D - 1, D)], newlookup[(D, D - 1)],
-                       coords, newdualcoords[D])
-    end
-
-    # Create D-manifold
-    return Manifold(name, newsimplices, newboundaries, newlookup, newcoords,
-                    newvolumes, weights, newdualcoords, newdualvolumes,
-                    mfd1.simplex_tree)
+    return faces, boundaries
 end
-
-################################################################################
 
 """
 Optimize vertex weights
@@ -456,6 +463,8 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
     D::Int
     C::Int
     @assert 0 <= D <= C
+
+    D == 0 && return weights
 
     nvertices, nsimplices = size(simplices[D])
     @assert length(coords) == nvertices
@@ -472,14 +481,14 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
         dualvolumes[D] = fill(S(1), nsimplices)
         local cost = S(0)
         for R in (D - 1):-1:0
-            dualvolumes[R], cost_R = calc_dualvolumes(Val(dualkind), Val(D),
-                                                      simplices[R],
-                                                      simplices[R + 1],
-                                                      lookup[(R + 1, R)],
-                                                      coords, volumes[R],
-                                                      dualcoords[R],
-                                                      dualcoords[R + 1],
-                                                      dualvolumes[R + 1])
+            dualvolumes[R], cost_R = calc_dualvolumes_cost(Val(dualkind),
+                                                           Val(D), simplices[R],
+                                                           simplices[R + 1],
+                                                           lookup[(R + 1, R)],
+                                                           coords, volumes[R],
+                                                           dualcoords[R],
+                                                           dualcoords[R + 1],
+                                                           dualvolumes[R + 1])
             cost += cost_R
         end
 
@@ -503,8 +512,6 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
                           autodiff = :forward, iterations = 1000)
         println(result)
         weights = result.minimizer
-    else
-        weights = copy(weights)
     end
     weights::Vector{S}
 
@@ -543,7 +550,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
 
     @assert allpositive
 
-    return weights, dualcoords, dualvolumes
+    return weights
 end
 
 ################################################################################
@@ -554,6 +561,7 @@ Calculate coordinates
 function calc_coords(simplices::SparseOp{0,D,One},
                      coords0::Vector{SVector{C,S}}) where {D,C,S}
     nvertices, nsimplices = size(simplices)
+    D == 0 && return coords0
     coords = Array{SVector{C,S}}(undef, nsimplices)
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
@@ -569,6 +577,7 @@ Calculate volumes
 function calc_volumes(simplices::SparseOp{0,D,One},
                       coords::Vector{SVector{C,S}}) where {D,C,S}
     nvertices, nsimplices = size(simplices)
+    D == 0 && return fill(one(S), nvertices)
     volumes = Array{S}(undef, nsimplices)
     for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
@@ -603,6 +612,7 @@ function calc_dualcoords(::Val{CircumcentricDuals},
     nvertices, nsimplices = size(simplices)
     @assert length(coords) == nvertices
     @assert length(weights) == nvertices
+    D == 0 && return copy(coords)
     dualcoords = Array{SVector{C,S′}}(undef, nsimplices)
     for i in 1:nsimplices
         si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)...)
@@ -618,14 +628,30 @@ Calculate circumcentric dual volumes
 
 See [1198555.1198667, section 6.2.1]
 """
-function calc_dualvolumes(::Val{CircumcentricDuals}, ::Val{D},
+function calc_dualvolumes(::Val{dualkind}, ::Val{D},
                           simplices::SparseOp{0,R,One},
                           simplices1::SparseOp{0,R1,One},
                           parents::SparseOp{R1,R,One},
                           coords::Vector{SVector{C,S}}, volumes::Vector{S},
                           dualcoords::Vector{SVector{C,S′}},
                           dualcoords1::Vector{SVector{C,S′}},
-                          dualvolumes1::Vector{S′}) where {D,R,R1,C,S,S′}
+                          dualvolumes1::Vector{S′}) where {dualkind,D,R,R1,C,S,
+                                                           S′}
+    dualvolumes, cost = calc_dualvolumes_cost(Val(dualkind), Val(D), simplices,
+                                              simplices1, parents, coords,
+                                              volumes, dualcoords, dualcoords1,
+                                              dualvolumes1)
+    return dualvolumes
+end
+
+function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
+                               simplices::SparseOp{0,R,One},
+                               simplices1::SparseOp{0,R1,One},
+                               parents::SparseOp{R1,R,One},
+                               coords::Vector{SVector{C,S}}, volumes::Vector{S},
+                               dualcoords::Vector{SVector{C,S′}},
+                               dualcoords1::Vector{SVector{C,S′}},
+                               dualvolumes1::Vector{S′}) where {D,R,R1,C,S,S′}
     R::Int
     R1::Int
     C::Int
@@ -657,9 +683,7 @@ function calc_dualvolumes(::Val{CircumcentricDuals}, ::Val{D},
             ysi = map(y -> y - xsi[1], deleteat(xsi, 1))   # R
             ysj = map(y -> y - xsj[1], deleteat(xsj, 1))   # R+1
             @assert !isempty(ysj)
-            ni1 = ∧(Tuple(ysj)...)
-            ni2 = isempty(ysi) ? one(xsi[1]) : ∧(Tuple(ysi)...)
-            ni = ni1 ⋅ ni2   # 1
+            ni = ∧(ysj) ⋅ ∧(ysi)   # 1
             ni::Form{D,1,S}
             qsi = map(y -> norm(ni ⋅ y) < 10 * eps(S), ysi)
             @assert all(qsi)

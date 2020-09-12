@@ -106,17 +106,13 @@ function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     @assert N >= 1
     @assert N <= D + 1
     ys = map(x -> x - xs[1], deleteat(xs, 1))
-    if isempty(ys)
-        vol = one(T)
+    vol0 = norm(∧(ys))
+    if T <: Rational
+        vol = rationalize(typeof(zero(T).den), vol0; tol = sqrt(eps(vol0)))
     else
-        vol0 = norm(∧(ys...))
-        if T <: Rational
-            vol = rationalize(typeof(zero(T).den), vol0; tol = sqrt(eps(vol0)))
-        else
-            vol = vol0
-        end
-        vol::T
+        vol = vol0
     end
+    vol::T
     vol /= factorial(N - 1)
     return vol::T
 end
@@ -135,7 +131,7 @@ function signed_volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     if isempty(ys)
         vol = one(Form{D,0,T})  # 0
     else
-        y = ∧(ys...)            # R
+        y = ∧(ys)               # R
         ny = norm(y)
         ny = ifelse(ny == 0, one(ny), ny)
         n = y / ny              # R
