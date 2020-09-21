@@ -3,8 +3,8 @@ module Continuum
 using Bernstein
 using ComputedFieldTypes
 using DifferentialForms
+using GrundmannMoeller
 using NearestNeighbors
-using SimplexQuad
 using SparseArrays
 using StaticArrays
 
@@ -55,7 +55,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
             return Form{D,R,T}((y,))
         end
     end
-    @error "Coordinate $x not found in manifold $(mfd.name)"
+    error("Coordinate $x not found in manifold $(mfd.name)")
 end
 
 ################################################################################
@@ -80,6 +80,11 @@ end
 
 ################################################################################
 
+@generated function integration_scheme(::Type{T}, ::Val{D},
+                                       ::Val{order}) where {T,D,order}
+    grundmann_moeller(T, Val(D), order + iseven(order))
+end
+
 export project
 """
 Project a function onto a manifold
@@ -97,6 +102,7 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
     end
 
     order = 4                   # Choice
+    scheme = integration_scheme(S, Val(D), Val(order))
 
     B = basis_products(Val(Pr), Val(R), mfd)
 
@@ -116,11 +122,6 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
             xs = SVector{N,SVector{C,S}}(mfd.coords[0][k] for k in sj)
             setup = cartesian2barycentric_setup(xs)
 
-            # Find integration method
-            XS = S[xs[n][c] for n in 1:N, c in 1:C]
-            XS::Array{S,2}
-            X, W = simplexquad(order, [xs[n][c] for n in 1:N, c in 1:C])
-
             # `findfirst` here works only for R == 0
             @assert R == 0
             n = findfirst(==(i), sj)
@@ -129,7 +130,8 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
             @assert R == 0
             kernel(x::SVector{C,T}) = basis_x(setup, n, x) * f(x)[]
 
-            bf = integrate_x(Val(C), kernel, X, W)::T
+            bf = integrate(kernel, scheme, xs)
+
             value += bf
         end
         values[i] = value
@@ -154,6 +156,7 @@ function basis_products(::Val{Pr}, ::Val{R},
 
     # `order=2` suffices because we only have linear basis functions
     order = 2
+    scheme = integration_scheme(S, Val(D), Val(order))
 
     # Result: sparse matrix
     I = Int[]
@@ -178,11 +181,6 @@ function basis_products(::Val{Pr}, ::Val{R},
                 xs = SVector{N,SVector{C,S}}(mfd.coords[0][l] for l in sk)
                 setup = cartesian2barycentric_setup(xs)
 
-                # Calculate overlap integral
-                XS = S[xs[n][c] for n in 1:N, c in 1:C]
-                XS::Array{S,2}
-                X, W = simplexquad(order, XS)
-
                 # Find basis functions for simplices i and j
                 @assert R == 0
                 ni = findfirst(==(i), sk)
@@ -190,7 +188,7 @@ function basis_products(::Val{Pr}, ::Val{R},
                 function kernel(x::SVector{C,S})
                     basis_x(setup, ni, x) * basis_x(setup, nj, x)
                 end
-                b = integrate_x(Val(C), kernel, X, W)
+                b = integrate(kernel, scheme, xs)
 
                 push!(I, i)
                 push!(J, j)
@@ -216,21 +214,6 @@ end
     N::Int
     @assert 1 <= n <= N
     return λ[n]
-end
-
-@fastmath function integrate_x(::Val{C}, f, X, W) where {C}
-    C::Int
-    @assert C > 0
-    @assert size(X, 2) == C
-    @assert size(X, 1) == size(W, 1)
-
-    @inbounds begin
-        s = zero(W[1]) * f(SVector{C}(@view X[1, :]))
-        for n in 1:length(W)
-            s += W[n] * f(SVector{C}(@view X[n, :]))
-        end
-        return s
-    end
 end
 
 end
