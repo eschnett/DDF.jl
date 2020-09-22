@@ -14,6 +14,9 @@ end
 
 const Dmax = 5
 
+# Set reproducible random number seed
+Random.seed!(0)
+
 # Random rationals
 function Base.rand(rng::AbstractRNG,
                    ::Random.SamplerType{Rational{T}}) where {T}
