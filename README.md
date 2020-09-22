@@ -10,6 +10,15 @@ Element Exterior Calculus.
 
 - <https://fenicsproject.org/documentation/>.
 
+- Douglas N. Arnold, Richard S. Falk, and Ragnar Winther, "Finite
+  element exterior calculus, homological techniques, and
+  applications", Acta numerica 15, 1-155 (2006),
+  <https://conservancy.umn.edu/bitstream/handle/11299/4216/2094.pdf>.
+
+- Douglas N. Arnold, Richard S. Falk, Ragnar Winther, "Finite element
+  exterior calculus: from Hodge theory to numerical stability",
+  [arXiv:0906.4325 [math.NA]](https://arxiv.org/abs/0906.4325).
+
 - Nathan Bell, Anil N. Hirani, "PyDEC: Software and Algorithms for
   Discretization of Exterior Calculus",
   [arXiv:1103.3076](https://arxiv.org/abs/1103.3076),
