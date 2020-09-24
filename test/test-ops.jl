@@ -12,8 +12,9 @@ R2 in 0:D,
 P1 in (Pr, Dl),
 R1 in 0:D
 
+    S = Float64
     T = Rational{Int64}
-    mfd = hypercube_manifold(Val(D), T)
+    mfd = hypercube_manifold(Val(D), S)
 
     z = zero(Op{D,P2,R2,P1,R1,T}, mfd)
     e = one(Op{D,P1,R1,P1,R1,T}, mfd)
@@ -21,8 +22,8 @@ R1 in 0:D
     A = rand(Op{D,P2,R2,P1,R1,T}, mfd)
     B = rand(Op{D,P2,R2,P1,R1,T}, mfd)
     C = rand(Op{D,P2,R2,P1,R1,T}, mfd)
-    f = rand(Fun{D,P1,R1,D,T,T}, mfd)
-    g = rand(Fun{D,P1,R1,D,T,T}, mfd)
+    f = rand(Fun{D,P1,R1,D,S,T}, mfd)
+    g = rand(Fun{D,P1,R1,D,S,T}, mfd)
     a = rand(T)
     b = rand(T)
 

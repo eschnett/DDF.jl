@@ -25,6 +25,28 @@ using Test
     end
 end
 
+@testset "Weighted circumcentre D=$D N=$N" for D in 1:Dmax, N in 1:(D + 1)
+    T = Rational{BigInt}
+    xs = SVector{N}(rand(Form{D,1,T}) for n in 1:N)
+    ws = SVector{N}(rand(Form{D,0,T}) for n in 1:N)
+    cc = circumcentre(xs, ws)
+    cc::Form{D,1,T}
+    # Check that circumcentre has correct weighted distance from all vertices
+    r2 = norm2(xs[1] - cc) - ws[1][]
+    @test all(==(r2), norm2(xs[n] - cc) - ws[n][] for n in 1:N)
+    # Check that circumcentre lies in hyperplane spanned by vertices
+    if sum(frank.(xs)) > D
+        @test true
+    else
+        subspace = ∧(xs...)
+        if frank(cc) + frank(subspace) > D
+            @test true
+        else
+            @test iszero(cc ∧ subspace)
+        end
+    end
+end
+
 @testset "Volume D=$D N=$N" for D in 1:Dmax, N in 1:(D + 1)
     T = Rational{BigInt}
 

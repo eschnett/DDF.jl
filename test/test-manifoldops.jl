@@ -8,13 +8,12 @@ using Test
     S = Float64
 
     mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
-            hypercube_manifold(Val(D), S),
-            delaunay_hypercube_manifold(Val(D), S),
-            # This manifold causes randomly trouble; the vertex
-            # locations are random, and not all generate manifolds are
-            # good
+            hypercube_manifold(Val(D), S)
+            # These manifolds are not completely well-centred
+            # delaunay_hypercube_manifold(Val(D), S),
             # large_delaunay_hypercube_manifold(Val(D), S),
-            refined_simplex_manifold(Val(D), S)]
+            # refined_simplex_manifold(Val(D), S)
+            ]
 
     for mfd in mfds
         funs = Fun{D,P,R,D,S}[]

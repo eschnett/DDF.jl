@@ -4,14 +4,15 @@ using StaticArrays
 using Test
 
 @testset "Fun D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
+    S = Float64
     T = Rational{Int64}
-    mfd = hypercube_manifold(Val(D), T)
+    mfd = hypercube_manifold(Val(D), S)
 
-    z = zero(Fun{D,P,R,D,T,T}, mfd)
-    e = id(Fun{D,P,0,D,T,SVector{D,T}}, mfd)
-    f = rand(Fun{D,P,R,D,T,T}, mfd)
-    g = rand(Fun{D,P,R,D,T,T}, mfd)
-    h = rand(Fun{D,P,R,D,T,T}, mfd)
+    z = zero(Fun{D,P,R,D,S,T}, mfd)
+    e = id(Fun{D,P,0,D,S,SVector{D,S}}, mfd)
+    f = rand(Fun{D,P,R,D,S,T}, mfd)
+    g = rand(Fun{D,P,R,D,S,T}, mfd)
+    h = rand(Fun{D,P,R,D,S,T}, mfd)
     a = rand(T)
     b = rand(T)
 
