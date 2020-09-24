@@ -28,6 +28,9 @@ export DualKind, BarycentricDuals, CircumcentricDuals
 # Note: BarycentricDuals are not yet implemented
 const dualkind = CircumcentricDuals
 
+# Weighted duals need to be circumcentric duals
+const use_weighted_duals = true
+
 ################################################################################
 
 const OpDict{K,T} = Dict{K,SparseOp{<:Any,<:Any,T}} where {K,T}
@@ -348,9 +351,44 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         volumes[R] = calc_volumes(simplices[R], coords0)
     end
 
-    # Optimize weights
-    weights = optimize_weights(Val(dualkind), Val(D), simplices, lookup,
-                               coords[0], volumes, weights)
+    if use_weighted_duals
+        @assert dualkind == CircumcentricDuals
+        # Optimize weights
+        weights = optimize_weights(Val(dualkind), Val(D), simplices, lookup,
+                                   coords[0], volumes, weights)
+
+        if false
+            # Optimize vertices
+            if D > 0
+                boundary_faces = zeros(Int8, size(boundaries[D], 1))
+                for j in 1:size(boundaries[D], 2)
+                    for (i, s) in sparse_column(boundaries[D], j)
+                        boundary_faces[i] += s
+                    end
+                end
+                # This might indicate a severe bug; shouldn't faces have
+                # opposite orientations when viewed from two neighbouring
+                # simplices?
+                # @assert all(s -> -1 <= s <= 1, boundary_faces)
+                @assert all(s -> -2 <= s <= 2, boundary_faces)
+                interior_vertices = ones(Bool, length(coords[0]))
+                @assert length(boundary_faces) == size(simplices[D - 1], 2)
+                for j in 1:size(simplices[D - 1], 2)
+                    if isodd(boundary_faces[j])
+                        for i in sparse_column_rows(simplices[D - 1], j)
+                            interior_vertices[i] = false
+                        end
+                    end
+                end
+            else
+                interior_vertices = zeros(Bool, length(coords[0]))
+            end
+            interior_vertices::Vector{Bool}
+            # TODO: Allow moving boundary points tangential to the boundary
+            optimize_vertices(Val(dualkind), Val(D), simplices, lookup,
+                              coords[0], volumes, weights, interior_vertices)
+        end
+    end
 
     # Calculate dual coordinates and dual volumes
     dualcoords = Dict{Int,Vector{SVector{C,S}}}()
@@ -409,7 +447,8 @@ function calc_faces_boundaries(simplices::SparseOp{0,D,One}) where {D}
     # See arXiv:1103.3076v2 [cs.NA], section 7
     facelist = Face{D}[]
     for j in 1:size(simplices, 2)
-        ks = SVector{D + 1,Int}(sparse_column_rows(simplices, j)...)
+        ks = SVector{D + 1,Int}(sparse_column_rows(simplices, j)[n]
+                                for n in 1:(D + 1))
         for n in 1:(D + 1)
             # Leave out vertex n
             ls = deleteat(ks, n)
@@ -460,6 +499,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
                           coords::Vector{SVector{C,S}},
                           volumes::Dict{Int,Vector{S}},
                           weights::Vector{S}) where {dualkind,D,C,S}
+    # @show "optimize_weights.0" D C
     D::Int
     C::Int
     @assert 0 <= D <= C
@@ -470,7 +510,10 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
     @assert length(coords) == nvertices
     @assert length(weights) == nvertices
 
-    function calc_duals(weights::AbstractVector{S}) where {S}
+    dual_count = 0
+    function calc_duals(weights::Vector{S}) where {S}
+        dual_count += 1
+        # @show "w calc_duals.0" D dual_count length(weights)
         local dualcoords = Dict{Int,Vector{SVector{C,S}}}()
         for R in 0:D
             dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R], coords,
@@ -492,6 +535,10 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
             cost += cost_R
         end
 
+        # @show "calc_duals.9" cost typeof(cost)
+        if cost isa ForwardDiff.Dual
+            # @show length(cost.partials)
+        end
         return dualcoords, dualvolumes, cost
     end
 
@@ -506,10 +553,19 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
         return c
     end
 
-    oldweights = weights
     if nsimplices > 0
-        result = optimize(calc_cost, weights; # , Optim.LBFGS();
-                          autodiff = :forward, iterations = 1000)
+        # Newton's method requires the Hessian and is slow.
+        # fun = Optim.TwiceDifferentiable(calc_cost, weights;
+        #                                autodiff = :forward)
+        # result = optimize(fun, weights, Optim.Options(iterations = 1000))
+        # Forward-mode automatic differencing is slow
+        # fun = Optim.OnceDifferentiable(calc_cost, weights;
+        #                                autodiff = :forward)
+        # result = optimize(fun, weights, Optim.BFGS(),
+        #                   Optim.Options(iterations = 1000))
+        fun = calc_cost
+        result = optimize(fun, weights, Optim.NelderMead(),
+                          Optim.Options(iterations = 1000))
         println(result)
         weights = result.minimizer
     end
@@ -517,7 +573,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
 
     # Calculate dual coordinates, dual volumes, and cost function
     dualcoords, dualvolumes, cost = calc_duals(weights)
-    dcost = ForwardDiff.gradient(calc_cost1, weights)
+    # dcost = ForwardDiff.gradient(calc_cost1, weights)
     ddualcoords, ddualvolumes = dc1, dv1
 
     # Ensure that all dual volumes are strictly positive
@@ -535,7 +591,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
         end
     end
 
-    println("Dual volumes: nonpositive: $num_nonpositive, ",
+    println("optimize_weights: Dual volumes: nonpositive: $num_nonpositive, ",
             "toosmall: $num_toosmall, minscaled: $min_scaledvol, cost: $cost")
     # println("weights: ", weights)
     # for R in 0:D
@@ -550,7 +606,183 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
 
     @assert allpositive
 
+    # @show "optimize_weights.9" D C
     return weights
+end
+
+"""
+Optimize vertex positions
+"""
+function optimize_vertices(::Val{dualkind}, ::Val{D},
+                           simplices::OpDict{Int,One},
+                           lookup::OpDict{Tuple{Int,Int},One},
+                           coords::Vector{SVector{C,S}},
+                           volumes::Dict{Int,Vector{S}}, weights::Vector{S},
+                           interior_vertices::Vector{Bool}) where {dualkind,D,C,
+                                                                   S}
+    # @show "optimize_vertices.0" D C
+    D::Int
+    C::Int
+    @assert 0 <= D <= C
+
+    D == 0 && return coords
+
+    nvertices, nsimplices = size(simplices[D])
+    @assert length(coords) == nvertices
+    @assert length(weights) == nvertices
+    @assert length(interior_vertices) == nvertices
+
+    function extract_coords()
+        # # @show "extract_coords.0"
+        local coords′ = Vector{S}(undef, C * count(interior_vertices))
+        j = 0
+        for i in 1:length(coords)
+            if interior_vertices[i]
+                for c in 1:C
+                    coords′[j + c] = coords[i][c]
+                end
+                j += C
+            end
+        end
+        @assert j == length(coords′)
+        # # @show "extract_coords.9"
+        return coords′
+    end
+
+    function insert_coords(coords′::Vector{S′}) where {S′}
+        # # @show "insert_coords.0"
+        @assert length(coords′) == C * count(interior_vertices)
+        local coords1 = Vector{SVector{C,S′}}(undef, length(coords))
+        j = 0
+        for i in 1:length(coords1)
+            if interior_vertices[i]
+                coords1[i] = SVector{C,S′}(@view coords′[(j + 1):(j + C)])
+                j += C
+            else
+                coords1[i] = SVector{C,S′}(coords[i]::SVector{C,S})
+            end
+        end
+        @assert j == length(coords′)
+        # # @show "insert_coords.9"
+        return coords1
+    end
+
+    dual_count = 0
+    function calc_duals(coords′::Vector{S}) where {S}
+        dual_count += 1
+        # @show "v calc_duals.0" dual_count
+        local coords0 = insert_coords(coords′)
+
+        # Calculate coordinates and volumes
+        local coords = Dict{Int,Vector{SVector{C,S}}}()
+        local volumes = Dict{Int,Vector{S}}()
+        for R in 0:D
+            # TODO: Combine these two calculations
+            coords[R] = calc_coords(simplices[R], coords0)
+            volumes[R] = calc_volumes(simplices[R], coords0)
+        end
+
+        local dualcoords = Dict{Int,Vector{SVector{C,S}}}()
+        for R in 0:D
+            dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R],
+                                            coords0, weights)
+        end
+
+        local dualvolumes = Dict{Int,Vector{S}}()
+        dualvolumes[D] = fill(S(1), nsimplices)
+        local cost = S(0)
+        for R in (D - 1):-1:0
+            dualvolumes[R], cost_R = calc_dualvolumes_cost(Val(dualkind),
+                                                           Val(D), simplices[R],
+                                                           simplices[R + 1],
+                                                           lookup[(R + 1, R)],
+                                                           coords0, volumes[R],
+                                                           dualcoords[R],
+                                                           dualcoords[R + 1],
+                                                           dualvolumes[R + 1])
+            cost += cost_R
+        end
+
+        # @show "calc_duals.9"
+        return dualcoords, dualvolumes, cost
+    end
+
+    function calc_cost(coords′)
+        local dc, dv, c = calc_duals(coords′)
+        return c
+    end
+    dc1 = nothing
+    dv1 = nothing
+    function calc_cost1(coords′)
+        dc1, dv1, c = calc_duals(coords′)
+        return c
+    end
+
+    coords′ = extract_coords()
+    if !isempty(coords′)
+        if length(coords′) == 1
+            fun = Optim.OnceDifferentiable(calc_cost, coords′;
+                                           autodiff = :forward)
+            result = optimize(fun, coords′, Optim.Options(iterations = 1000))
+        else
+            # Newton's method requires the Hessian and is slow.
+            # fun = Optim.TwiceDifferentiable(calc_cost, coords′;
+            #                                 autodiff = :forward)
+            # result = optimize(fun, coords′, Optim.Options(iterations = 1000))
+            # Forward-mode automatic differencing is slow
+            # fun = Optim.OnceDifferentiable(calc_cost, coords′;
+            #                                autodiff = :forward)
+            # result = optimize(fun, coords′, Optim.Options(iterations = 1000))
+            fun = calc_cost
+            result = optimize(fun, coords′, Optim.NelderMead(),
+                              Optim.Options(
+                                            # iterations = 1000
+                                            iterations = 100))
+        end
+        println(result)
+        coords′ = result.minimizer
+    end
+    coords′::Vector{S}
+    coords = insert_coords(coords′)
+    coords::Vector{SVector{C,S}}
+
+    # Calculate dual coordinates, dual volumes, and cost function
+    dualcoords, dualvolumes, cost = calc_duals(coords′)
+    # dcost = ForwardDiff.gradient(calc_cost1, coords′)
+    ddualcoords, ddualvolumes = dc1, dv1
+
+    # Ensure that all dual volumes are strictly positive
+    allpositive = true
+    num_nonpositive = 0
+    num_toosmall = 0
+    min_scaledvol = S(Inf)
+    for R in 0:D
+        if !isempty(dualvolumes[R])
+            volR = sum(dualvolumes[R]) / length(dualvolumes[R])
+            allpositive &= all(>=(volR / 100), dualvolumes[R])
+            num_nonpositive += count(<=(0), dualvolumes[R])
+            num_toosmall += count(<(volR / 100), dualvolumes[R])
+            min_scaledvol = min(min_scaledvol, minimum(dualvolumes[R]) / volR)
+        end
+    end
+
+    println("optimize_vertices: Dual volumes: nonpositive: $num_nonpositive, ",
+            "toosmall: $num_toosmall, minscaled: $min_scaledvol, cost: $cost")
+    # println("weights: ", weights)
+    # for R in 0:D
+    #     println("dualcoords[$R]: ", dualcoords[R])
+    #     println("dualvolumes[$R]: ", dualvolumes[R])
+    #     println("d(dualcoords)/d(weights)[$R]: ",
+    #             map(x -> map(y -> y.partials, x), ddualcoords[R]))
+    #     println("d(dualvolumes)/d(weights)[$R]: ",
+    #             map(x -> map(y -> y.partials, x), ddualvolumes[R]))
+    # end
+    # println("d(cost)/d(weights): $dcost")
+
+    @assert allpositive
+
+    # @show "optimize_vertices.9" D C
+    return coords
 end
 
 ################################################################################
@@ -563,7 +795,7 @@ function calc_coords(simplices::SparseOp{0,D,One},
     nvertices, nsimplices = size(simplices)
     D == 0 && return coords0
     coords = Array{SVector{C,S}}(undef, nsimplices)
-    for i in 1:nsimplices
+    @inbounds for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         xs = SVector{D + 1}(coords0[i] for i in si)
         coords[i] = barycentre(xs)
@@ -579,7 +811,7 @@ function calc_volumes(simplices::SparseOp{0,D,One},
     nvertices, nsimplices = size(simplices)
     D == 0 && return fill(one(S), nvertices)
     volumes = Array{S}(undef, nsimplices)
-    for i in 1:nsimplices
+    @inbounds for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         volumes[i] = volume(xs)
@@ -594,8 +826,9 @@ function calc_dualcoords(::Val{BarycentricDuals}, simplices::SparseOp{0,D,One},
                          coords::Vector{SVector{C,S}}) where {D,C,S}
     nvertices, nsimplices = size(simplices)
     dualcoords = Array{SVector{C,S}}(undef, nsimplices)
-    for i in 1:nsimplices
-        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)...)
+    @inbounds for i in 1:nsimplices
+        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)[n]
+                                for n in 1:(D + 1))
         xs = SVector{D + 1,SVector{C,S}}(coords[i] for i in si)
         dualcoords[i] = barycentre(xs)
     end
@@ -607,15 +840,17 @@ Calculate weighted circumcentric dual coordinates
 """
 function calc_dualcoords(::Val{CircumcentricDuals},
                          simplices::SparseOp{0,D,One},
-                         coords::Vector{SVector{C,S}},
-                         weights::AbstractVector{S′}) where {D,C,S,S′}
+                         coords::Vector{SVector{C,Sc}},
+                         weights::AbstractVector{Sw}) where {D,C,Sc,Sw}
     nvertices, nsimplices = size(simplices)
     @assert length(coords) == nvertices
     @assert length(weights) == nvertices
     D == 0 && return copy(coords)
-    dualcoords = Array{SVector{C,S′}}(undef, nsimplices)
-    for i in 1:nsimplices
-        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)...)
+    Sd = typeof(one(Sw) * zero(Sc))
+    dualcoords = Array{SVector{C,Sd}}(undef, nsimplices)
+    @inbounds for i in 1:nsimplices
+        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)[n]
+                                for n in 1:(D + 1))
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         ws = SVector{D + 1}(Form{C,0}((weights[i],)) for i in si)
         dualcoords[i] = circumcentre(xs, ws)
@@ -632,11 +867,11 @@ function calc_dualvolumes(::Val{dualkind}, ::Val{D},
                           simplices::SparseOp{0,R,One},
                           simplices1::SparseOp{0,R1,One},
                           parents::SparseOp{R1,R,One},
-                          coords::Vector{SVector{C,S}}, volumes::Vector{S},
-                          dualcoords::Vector{SVector{C,S′}},
-                          dualcoords1::Vector{SVector{C,S′}},
-                          dualvolumes1::Vector{S′}) where {dualkind,D,R,R1,C,S,
-                                                           S′}
+                          coords::Vector{SVector{C,Sc}}, volumes::Vector{Sc},
+                          dualcoords::Vector{SVector{C,Sd}},
+                          dualcoords1::Vector{SVector{C,Sd}},
+                          dualvolumes1::Vector{Sd}) where {dualkind,D,R,R1,C,Sc,
+                                                           Sd}
     dualvolumes, cost = calc_dualvolumes_cost(Val(dualkind), Val(D), simplices,
                                               simplices1, parents, coords,
                                               volumes, dualcoords, dualcoords1,
@@ -648,28 +883,32 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
                                simplices::SparseOp{0,R,One},
                                simplices1::SparseOp{0,R1,One},
                                parents::SparseOp{R1,R,One},
-                               coords::Vector{SVector{C,S}}, volumes::Vector{S},
-                               dualcoords::Vector{SVector{C,S′}},
-                               dualcoords1::Vector{SVector{C,S′}},
-                               dualvolumes1::Vector{S′}) where {D,R,R1,C,S,S′}
+                               coords::Vector{SVector{C,Sc}},
+                               volumes::Vector{Sc},
+                               dualcoords::Vector{SVector{C,Sd}},
+                               dualcoords1::Vector{SVector{C,Sd}},
+                               dualvolumes1::Vector{Sd}) where {D,R,R1,C,Sc,Sd}
     R::Int
     R1::Int
     C::Int
+    S = valtype1(Sc)
+    @assert !(S <: ForwardDiff.Dual)
     @assert 0 <= R <= R1 <= D
     @assert R1 == R + 1
     nvertices, nsimplices = size(simplices)
-    dualvolumes = Array{S′}(undef, nsimplices)
-    cost = zero(S′)
+    dualvolumes = Array{Sd}(undef, nsimplices)
+    cost = zero(Sd)
     # Loop over all `R`-simplices
-    for i in 1:nsimplices
+    @inbounds for i in 1:nsimplices
         si = sparse_column_rows(simplices, i)
         @assert length(si) == R + 1
         xsi = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
-        bci = barycentre(xsi)::Form{C,1,S}
-        cci = Form{C,1,S′}(dualcoords[i])
+        bci = barycentre(xsi)::Form{C,1,Sc}
+        cci = Form{C,1,Sd}(dualcoords[i])
 
-        voli = zero(S′)
-        costi = zero(S′)
+        voli = zero(Sd)
+        costi = zero(Sd)
+        # This line is expensive -- it shouldn't be
         cost_size = volumes[i]^(S(1) / R)
         # Loop over all neighbouring `R+1`-simplices
         for j in sparse_column_rows(parents, i)
@@ -677,14 +916,14 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
             @assert length(sj) == R + 2
 
             xsj = SVector{R + 2}(Form{C,1}(coords[j]) for j in sj)
-            bcj = barycentre(xsj)::Form{C,1,S}
-            ccj = Form{C,1,S′}(dualcoords1[j])
+            bcj = barycentre(xsj)::Form{C,1,Sc}
+            ccj = Form{C,1,Sd}(dualcoords1[j])
 
             ysi = map(y -> y - xsi[1], deleteat(xsi, 1))   # R
             ysj = map(y -> y - xsj[1], deleteat(xsj, 1))   # R+1
             @assert !isempty(ysj)
             ni = ∧(ysj) ⋅ ∧(ysi)   # 1
-            ni::Form{D,1,S}
+            ni::Form{D,1,Sc}
             qsi = map(y -> norm(ni ⋅ y) < 10 * eps(S), ysi)
             @assert all(qsi)
             lni = norm(ni)
@@ -692,10 +931,10 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
             nni = ni / lni
 
             s0 = (bcj - xsi[1]) ⋅ nni
-            s0::Form{D,0,S}
+            s0::Form{D,0,Sc}
             s = bitsign(signbit(s0[]))
             h0 = (ccj - cci) ⋅ nni
-            h0::Form{D,0,S′}
+            h0::Form{D,0,Sd}
             h = s * h0[]
 
             b = dualvolumes1[j]
@@ -713,6 +952,9 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
     end
     return dualvolumes, cost
 end
+
+valtype1(::Type{T}) where {T} = T
+valtype1(::Type{ForwardDiff.Dual{T,V,N}}) where {T,V,N} = V
 
 """
 Check Delaunay condition: No vertex must lie in the circumcentre of a

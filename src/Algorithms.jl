@@ -92,7 +92,7 @@ function circumcentre(xs::SVector{N,<:Form{D,1,T}},
                        for i in 1:(N + 1))
     c = A \ b
     cc = sum(c[i] * xs[i] for i in 1:N)
-    return cc::Form{D,1,T′}
+    return cc::Form{D,1}
 end
 
 export volume

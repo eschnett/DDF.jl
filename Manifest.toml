@@ -2,9 +2,9 @@
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "46b7a194b8ac6b4e530b7bbcebf1dc344de90afd"
+git-tree-sha1 = "b3d3169e63585457f38b38b9c0d53855ee1258ab"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.13.1"
+version = "2.13.2"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -118,7 +118,7 @@ version = "0.10.12"
 
 [[GrundmannMoeller]]
 deps = ["LinearAlgebra", "StaticArrays", "Test"]
-git-tree-sha1 = "c7976d245cb925bb94a463493c14c62a33e2d2d8"
+git-tree-sha1 = "532392ab11a9dfb05a1f5c47f4a43bf579fe2500"
 repo-rev = "master"
 repo-url = "https://github.com/eschnett/GrundmannMoeller.jl"
 uuid = "36aa67b7-9d79-4e90-bbc0-05abd90a007e"

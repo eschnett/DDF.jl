@@ -87,7 +87,8 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-# Delaunay hypercube manifolds are only completely well-centred for `D <= 4`
+# Delaunay hypercube manifolds are only completely well-centred for `D
+# <= 4`
 @testset "Delaunay hypercube manifolds D=$D" for D in 0:min(Dmax, 4)
     S = Float64
     mfd = delaunay_hypercube_manifold(Val(D), S)
@@ -105,7 +106,8 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-# Large Delaunay hypercube manifolds are only completely well-centred for `D <= 1`
+# Large Delaunay hypercube manifolds are only completely well-centred
+# for `D <= 1`
 @testset "Large delaunay hypercube manifolds D=$D" for D in 0:min(1, Dmax)
     S = Float64
     mfd = large_delaunay_hypercube_manifold(Val(D), S)
