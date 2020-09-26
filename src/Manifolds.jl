@@ -25,11 +25,10 @@ Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 export DualKind, BarycentricDuals, CircumcentricDuals
 @enum DualKind BarycentricDuals CircumcentricDuals
 
-# Note: BarycentricDuals are not yet implemented
-const dualkind = CircumcentricDuals
+const dualkind = BarycentricDuals
 
 # Weighted duals need to be circumcentric duals
-const use_weighted_duals = true
+const use_weighted_duals = false
 
 ################################################################################
 
@@ -394,16 +393,32 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     dualcoords = Dict{Int,Vector{SVector{C,S}}}()
     dualvolumes = Dict{Int,Vector{S}}()
     # TODO: Combine these two calculations?
-    for R in 0:D
-        dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R], coords[0],
-                                        weights)
+    if use_weighted_duals
+        for R in 0:D
+            dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R],
+                                            coords[0], weights)
+        end
+    else
+        for R in 0:D
+            dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R],
+                                            coords[0])
+        end
     end
-    dualvolumes[D] = fill(S(1), nsimplices)
-    for R in (D - 1):-1:0
-        dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), simplices[R],
-                                          simplices[R + 1], lookup[(R + 1, R)],
-                                          coords[0], volumes[R], dualcoords[R],
-                                          dualcoords[R + 1], dualvolumes[R + 1])
+    if dualkind == BarycentricDuals
+        for R in 0:D
+            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
+                                              simplices, lookup, coords[0],
+                                              volumes[D], dualcoords)
+        end
+    elseif dualkind == CircumcentricDuals
+        dualvolumes[D] = fill(S(1), nsimplices)
+        for R in (D - 1):-1:0
+            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
+                                              simplices, lookup, coords[0],
+                                              dualcoords)
+        end
+    else
+        @assert false
     end
 
     # Ensure that all dual volumes are strictly positive
@@ -456,7 +471,7 @@ function calc_faces_boundaries(simplices::SparseOp{0,D,One}) where {D}
             push!(facelist, Face{D}(ls, j, p))
         end
     end
-    sort!(facelist; by = f -> f.vertices)
+    sort!(facelist; by=f -> f.vertices)
 
     # Convert facelist into sparse matrix and create boundary operator
     fI = Int[]
@@ -565,7 +580,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
         #                   Optim.Options(iterations = 1000))
         fun = calc_cost
         result = optimize(fun, weights, Optim.NelderMead(),
-                          Optim.Options(iterations = 1000))
+                          Optim.Options(iterations=1000))
         println(result)
         weights = result.minimizer
     end
@@ -722,8 +737,8 @@ function optimize_vertices(::Val{dualkind}, ::Val{D},
     if !isempty(coords′)
         if length(coords′) == 1
             fun = Optim.OnceDifferentiable(calc_cost, coords′;
-                                           autodiff = :forward)
-            result = optimize(fun, coords′, Optim.Options(iterations = 1000))
+                                           autodiff=:forward)
+            result = optimize(fun, coords′, Optim.Options(iterations=1000))
         else
             # Newton's method requires the Hessian and is slow.
             # fun = Optim.TwiceDifferentiable(calc_cost, coords′;
@@ -737,7 +752,7 @@ function optimize_vertices(::Val{dualkind}, ::Val{D},
             result = optimize(fun, coords′, Optim.NelderMead(),
                               Optim.Options(
                                             # iterations = 1000
-                                            iterations = 100))
+                                            iterations=100))
         end
         println(result)
         coords′ = result.minimizer
@@ -824,13 +839,13 @@ Calculate barycentric dual coordinates
 """
 function calc_dualcoords(::Val{BarycentricDuals}, simplices::SparseOp{0,D,One},
                          coords::Vector{SVector{C,S}}) where {D,C,S}
-    nvertices, nsimplices = size(simplices)
+    D == 0 && return coords
+    nsimplices = size(simplices, 2)
     dualcoords = Array{SVector{C,S}}(undef, nsimplices)
     @inbounds for i in 1:nsimplices
-        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)[n]
-                                for n in 1:(D + 1))
-        xs = SVector{D + 1,SVector{C,S}}(coords[i] for i in si)
-        dualcoords[i] = barycentre(xs)
+        si = sparse_column_rows(simplices, i)
+        xsi = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
+        dualcoords[i] = barycentre(xsi)
     end
     return dualcoords
 end
@@ -845,7 +860,7 @@ function calc_dualcoords(::Val{CircumcentricDuals},
     nvertices, nsimplices = size(simplices)
     @assert length(coords) == nvertices
     @assert length(weights) == nvertices
-    D == 0 && return copy(coords)
+    D == 0 && return coords
     Sd = typeof(one(Sw) * zero(Sc))
     dualcoords = Array{SVector{C,Sd}}(undef, nsimplices)
     @inbounds for i in 1:nsimplices
@@ -859,11 +874,167 @@ function calc_dualcoords(::Val{CircumcentricDuals},
 end
 
 """
+Calculate barycentric dual volumes
+"""
+function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
+                          simplices::OpDict{Int,One},
+                          lookup::OpDict{Tuple{Int,Int},One},
+                          coords::Vector{SVector{C,S}}, volumes::Vector{S},
+                          dualcoords::Dict{Int,Vector{SVector{C,S}}}) where {D,
+                                                                             R,
+                                                                             C,
+                                                                             S}
+    D::Int
+    R::Int
+    C::Int
+    @assert 0 <= R <= D <= C
+
+    dualvolumes = Array{S}(undef, size(simplices[R], 2))
+
+    if R == D
+
+        for i in 1:size(simplices[R], 2)
+            dualvolumes[i] = 1
+        end
+
+    elseif R == 0
+
+        for i in 1:size(simplices[R], 2)
+            vol = S(0)
+            for j in sparse_column_rows(lookup[(D, R)], i)
+                vol += volumes[j]
+            end
+            dualvolumes[i] = vol / (D + 1)
+        end
+
+    elseif R == D - 1
+
+        for i in 1:size(simplices[R], 2)
+            # si = sparse_column_rows(simplices[R], i)
+            # xsi = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
+            # bci = barycentre(xsi)::Form{C,1,S}
+            bci = dualcoords[R][i]
+
+            vol = S(0)
+            for j in sparse_column_rows(lookup[(D, R)], i)
+                # sj = sparse_column_rows(simplices[D], j)
+                # xsj = SVector{D + 1}(Form{C,1}(coords[j]) for j in sj)
+                # bcj = barycentre(xsj)::Form{C,1,S}
+                bcj = dualcoords[D][j]
+
+                vol += volume(SVector(bci, bcj))
+            end
+            dualvolumes[i] = vol
+        end
+
+    elseif R == D - 2
+
+        # Loop over all `R`-forms
+        for i in 1:size(simplices[R], 2)
+            bci = dualcoords[R][i]
+
+            vol = S(0)
+            # Loop over all neighbouring `D`-forms
+            for j in sparse_column_rows(lookup[(D, R)], i)
+                bcj = dualcoords[D][j]
+
+                # Loop over all contained `D-1`-forms that contain `i`
+                for k in sparse_column_rows(lookup[(D - 1, D)], j)
+                    if i ∈ sparse_column_rows(lookup[(R, D - 1)], k)
+                        bck = dualcoords[D - 1][k]
+
+                        vol += volume(SVector(bci, bcj, bck))
+                    end
+                end
+            end
+            dualvolumes[i] = vol
+        end
+
+    elseif R == D - 3
+
+        # Loop over all `R`-forms
+        for i in 1:size(simplices[R], 2)
+            bci = dualcoords[R][i]
+
+            vol = S(0)
+            # Loop over all neighbouring `D`-forms
+            for j in sparse_column_rows(lookup[(D, R)], i)
+                bcj = dualcoords[D][j]
+
+                # Loop over all contained `D-1`-forms that contain `i`
+                for k in sparse_column_rows(lookup[(D - 1, D)], j)
+                    if i ∈ sparse_column_rows(lookup[(R, D - 1)], k)
+                        bck = dualcoords[D - 1][k]
+
+                        # Loop over all contained `D-2`-forms that contain `i`
+                        for l in sparse_column_rows(lookup[(D - 2, D - 1)], k)
+                            if i ∈ sparse_column_rows(lookup[(R, D - 2)], l)
+                                bcl = dualcoords[D - 2][l]
+
+                                vol += volume(SVector(bci, bcj, bck, bcl))
+                            end
+                        end
+                    end
+                end
+            end
+            dualvolumes[i] = vol
+        end
+
+    elseif R == D - 4
+
+        # Loop over all `R`-forms
+        for i in 1:size(simplices[R], 2)
+            bci = dualcoords[R][i]
+
+            vol = S(0)
+            # Loop over all neighbouring `D`-forms
+            for j in sparse_column_rows(lookup[(D, R)], i)
+                bcj = dualcoords[D][j]
+
+                # Loop over all contained `D-1`-forms that contain `i`
+                for k in sparse_column_rows(lookup[(D - 1, D)], j)
+                    if i ∈ sparse_column_rows(lookup[(R, D - 1)], k)
+                        bck = dualcoords[D - 1][k]
+
+                        # Loop over all contained `D-2`-forms that contain `i`
+                        for l in sparse_column_rows(lookup[(D - 2, D - 1)], k)
+                            if i ∈ sparse_column_rows(lookup[(R, D - 2)], l)
+                                bcl = dualcoords[D - 2][l]
+
+                                # Loop over all contained `D-3`-forms
+                                # that contain `i`
+                                for m in
+                                    sparse_column_rows(lookup[(D - 3, D - 2)],
+                                                       l)
+                                    if i ∈
+                                       sparse_column_rows(lookup[(R, D - 3)], m)
+                                        bcm = dualcoords[D - 3][m]
+
+                                        vol += volume(SVector(bci, bcj, bck,
+                                                              bcl, bcm))
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            dualvolumes[i] = vol
+        end
+
+    else
+        @assert false
+    end
+
+    return dualvolumes
+end
+
+"""
 Calculate circumcentric dual volumes
 
 See [1198555.1198667, section 6.2.1]
 """
-function calc_dualvolumes(::Val{dualkind}, ::Val{D},
+function calc_dualvolumes(::Val{CircumcentricDuals}, ::Val{D},
                           simplices::SparseOp{0,R,One},
                           simplices1::SparseOp{0,R1,One},
                           parents::SparseOp{R1,R,One},
@@ -872,10 +1043,10 @@ function calc_dualvolumes(::Val{dualkind}, ::Val{D},
                           dualcoords1::Vector{SVector{C,Sd}},
                           dualvolumes1::Vector{Sd}) where {dualkind,D,R,R1,C,Sc,
                                                            Sd}
-    dualvolumes, cost = calc_dualvolumes_cost(Val(dualkind), Val(D), simplices,
-                                              simplices1, parents, coords,
-                                              volumes, dualcoords, dualcoords1,
-                                              dualvolumes1)
+    dualvolumes, cost = calc_dualvolumes_cost(Val(CircumcentricDuals), Val(D),
+                                              simplices, simplices1, parents,
+                                              coords, volumes, dualcoords,
+                                              dualcoords1, dualvolumes1)
     return dualvolumes
 end
 

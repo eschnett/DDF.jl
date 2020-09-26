@@ -8,6 +8,8 @@ struct ZeroOne <: Number
     some::Bool
 end
 
+Base.promote_rule(::Type{ZeroOne}, ::Type{N}) where {N<:Number} = N
+
 Base.:(==)(a::ZeroOne, b::ZeroOne) = a.some == b.some
 Base.:(<)(a::ZeroOne, b::ZeroOne) = a.some < b.some
 Base.hash(z::ZeroOne, h::UInt) = hash(0xcfe01124, hash(a.some, h))
@@ -27,6 +29,9 @@ Base.:*(a::ZeroOne, b::ZeroOne) = ZeroOne(a.some & b.some)
 Base.abs(a::ZeroOne) = a
 Base.abs2(a::ZeroOne) = a
 
+Base.:-(a::ZeroOne) = -Int(a)
+Base.:-(a::ZeroOne, b::ZeroOne) = Int(a) - Int(b)
+
 ################################################################################
 
 export One
@@ -34,6 +39,8 @@ export One
 One (always has the same value)
 """
 struct One <: Number end
+
+Base.promote_rule(::Type{One}, ::Type{N}) where {N<:Number} = N
 
 Base.:(==)(::One, ::One) = true
 Base.:(<)(::One, ::One) = false
@@ -54,11 +61,12 @@ Base.:*(::One, ::One) = One()
 Base.abs(::One) = One()
 Base.abs2(::One) = One()
 
+Base.:-(::One) = -1
+Base.:-(::One, ::One) = 0
+
 ################################################################################
 
 Base.promote_rule(::Type{ZeroOne}, ::Type{One}) = ZeroOne
-Base.promote_rule(::Type{ZeroOne}, N::Type{<:Number}) = N
-Base.promote_rule(::Type{One}, N::Type{<:Number}) = N
 
 ZeroOne(::One) = ZeroOne(Bool(One()))
 One(a::ZeroOne) = One(Bool(a))

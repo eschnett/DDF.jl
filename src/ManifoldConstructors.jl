@@ -63,7 +63,7 @@ function regular_simplex(::Val{D}, ::Type{S}) where {D,S}
         else
             z0 = sqrt(1 - sum(s0[1] .^ 2))
             if S <: Rational
-                z = rationalize(typeof(zero(S).den), z0; tol = sqrt(eps(z0)))
+                z = rationalize(typeof(zero(S).den), z0; tol=sqrt(eps(z0)))
             else
                 z = z0::S
             end

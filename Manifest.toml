@@ -2,9 +2,9 @@
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "b3d3169e63585457f38b38b9c0d53855ee1258ab"
+git-tree-sha1 = "a7110d4291700c0d9ddbeb5fa41c3b9c4659c2aa"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.13.2"
+version = "2.13.3"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -23,9 +23,9 @@ version = "0.3.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "7c7f4cda0d58ec999189d70f5ee500348c4b4df1"
+git-tree-sha1 = "043647e66a6effa7473e98a5370faa4deb6dce90"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.16.0"
+version = "3.17.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Libdl", "Pkg"]
@@ -118,11 +118,9 @@ version = "0.10.12"
 
 [[GrundmannMoeller]]
 deps = ["LinearAlgebra", "StaticArrays", "Test"]
-git-tree-sha1 = "532392ab11a9dfb05a1f5c47f4a43bf579fe2500"
-repo-rev = "master"
-repo-url = "https://github.com/eschnett/GrundmannMoeller.jl"
+git-tree-sha1 = "9537b415b1bf50c403f7e431e268d34f19434197"
 uuid = "36aa67b7-9d79-4e90-bbc0-05abd90a007e"
-version = "0.1.0"
+version = "0.1.1"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]

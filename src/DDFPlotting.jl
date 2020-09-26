@@ -24,8 +24,8 @@ function plot_example(filename::String)
     end
 
     scene = Scene()
-    scene = linesegments!(scene, edges, color = :red, linestyle = :solid,
-                          linewidth = 3)
+    scene = linesegments!(scene, edges, color=:red, linestyle=:solid,
+                          linewidth=3)
     save(filename, scene)
     return
 end
@@ -48,8 +48,8 @@ function plot_manifold(filename::String, mfd::Manifold{D,S}) where {D,S}
         push!(edges, xs1)
         push!(edges, xs2)
     end
-    scene = linesegments!(scene, edges, color = :green, linestyle = :solid,
-                          linewidth = 3)
+    scene = linesegments!(scene, edges, color=:green, linestyle=:solid,
+                          linewidth=3)
 
     # Vertices
     vertices = SVector{D,S}[]
@@ -59,7 +59,7 @@ function plot_manifold(filename::String, mfd::Manifold{D,S}) where {D,S}
         xs1 = SVector{D,S}(mfd.coords[si[1], :])
         push!(vertices, xs1)
     end
-    scene = scatter!(scene, vertices, strokecolor = :red, strokewidth = 5)
+    scene = scatter!(scene, vertices, strokecolor=:red, strokewidth=5)
 
     # # Dual edges
     # edges = SVector{D,S}[]
@@ -83,7 +83,7 @@ function plot_manifold(filename::String, mfd::Manifold{D,S}) where {D,S}
         xs1 = SVector{D,S}(mfd.dualcoords[i, :])
         push!(dualvertices, xs1)
     end
-    scene = scatter!(scene, dualvertices, strokecolor = :blue, strokewidth = 5)
+    scene = scatter!(scene, dualvertices, strokecolor=:blue, strokewidth=5)
 
     save(filename, scene)
     return scene
