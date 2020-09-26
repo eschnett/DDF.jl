@@ -108,13 +108,16 @@ function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     ys = map(x -> x - xs[1], deleteat(xs, 1))
     vol0 = norm(∧(ys))
     if T <: Rational
-        vol = rationalize(typeof(zero(T).den), vol0; tol = sqrt(eps(vol0)))
+        vol = rationalize(typeof(zero(T).den), vol0; tol=sqrt(eps(vol0)))
     else
         vol = vol0
     end
     vol::T
     vol /= factorial(N - 1)
     return vol::T
+end
+function volume(xs::SVector{N,SVector{D,T}}) where {N,D,T}
+    return volume(SVector{N}(Form{D,1,T}(x) for x in xs))
 end
 
 export signed_volume

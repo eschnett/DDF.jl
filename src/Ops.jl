@@ -45,7 +45,7 @@ dnz(A::Transpose) = transpose(dnz(transpose(A)))
 chop(f::ExactTypes) = f
 chop(f::FloatTypes) = ifelse(abs2(f) < eps34sq(typeof(f)), zero(f), f)
 function chop(f::Complex{T}) where {T<:AbstractFloat}
-    Complex{T}(chop(real(f)), chop(imag(f)))
+    return Complex{T}(chop(real(f)), chop(imag(f)))
 end
 
 eps34sq(::Type{T}) where {T} = sqrt(eps(T)^3)::T
@@ -119,13 +119,13 @@ function Base.map(fop, A::Op{D,P1,R1,P2,R2},
                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
     @assert all(B.manifold == A.manifold for B in Bs)
     U = typeof(op(zero(eltype(A)), (zero(eltype(B)) for B in Bs)...))
-    Op{D,P1,R1,P2,R2,U}(A.manifold,
-                        map(op, A.values, (B.values for B in Bs)...))
+    return Op{D,P1,R1,P2,R2,U}(A.manifold,
+                               map(op, A.values, (B.values for B in Bs)...))
 end
 function Base.reduce(op, A::Op{D,P1,R1,P2,R2}, Bs::Op{D,P1,R1,P2,R2}...;
                      kw...) where {D,P1,R1,P2,R2}
     @assert all(B.manifold == A.manifold for B in Bs)
-    reduce(op, A.values, (B.values for B in Bs)...; kw...)
+    return reduce(op, A.values, (B.values for B in Bs)...; kw...)
 end
 
 # Operators are an abstract matrix

@@ -55,7 +55,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
             return Form{D,R,T}((y,))
         end
     end
-    error("Coordinate $x not found in manifold $(mfd.name)")
+    return error("Coordinate $x not found in manifold $(mfd.name)")
 end
 
 ################################################################################
@@ -82,7 +82,7 @@ end
 
 @generated function integration_scheme(::Type{T}, ::Val{D},
                                        ::Val{order}) where {T,D,order}
-    grundmann_moeller(T, Val(D), order + iseven(order))
+    return grundmann_moeller(T, Val(D), order + iseven(order))
 end
 
 export project
@@ -186,7 +186,7 @@ function basis_products(::Val{Pr}, ::Val{R},
                 ni = findfirst(==(i), sk)
                 nj = findfirst(==(j), sk)
                 function kernel(x::SVector{C,S})
-                    basis_x(setup, ni, x) * basis_x(setup, nj, x)
+                    return basis_x(setup, ni, x) * basis_x(setup, nj, x)
                 end
                 b = integrate(kernel, scheme, xs)
 

@@ -39,12 +39,12 @@ struct SparseMatrixCSCColumn{F,T,I}
     nzrange::UnitRange{Int}
     function SparseMatrixCSCColumn(::F, A::SparseMatrixCSC{T,I},
                                    col::Integer) where {F,T,I}
-        new{F,T,I}(rowvals(A), nonzeros(A), nzrange(A, col))
+        return new{F,T,I}(rowvals(A), nonzeros(A), nzrange(A, col))
     end
 end
 
 function process(iter::SparseMatrixCSCColumn{Val{:RowVal}}, ind)
-    iter.rowvals[ind], iter.nonzeros[ind]
+    return iter.rowvals[ind], iter.nonzeros[ind]
 end
 process(iter::SparseMatrixCSCColumn{Val{:Row}}, ind) = iter.rowvals[ind]
 process(iter::SparseMatrixCSCColumn{Val{:Val}}, ind) = iter.nonzeros[ind]
@@ -76,10 +76,10 @@ struct SparseOp{Tag1,Tag2,T}
 
     function SparseOp{Tag1,Tag2,T}(op::SparseMatrixCSC{T,Int}) where {Tag1,Tag2,
                                                                       T}
-        new{Tag1,Tag2,T}(op)
+        return new{Tag1,Tag2,T}(op)
     end
     function SparseOp{Tag1,Tag2}(op::SparseMatrixCSC{T,Int}) where {Tag1,Tag2,T}
-        SparseOp{Tag1,Tag2,T}(op)
+        return SparseOp{Tag1,Tag2,T}(op)
     end
 end
 
@@ -167,17 +167,17 @@ function Base.map(f, A::SparseOp{Tag1,Tag2}) where {Tag1,Tag2}
     U = typeof(f(one(eltype(A))))
     Bop = SparseMatrixCSC{U,Int}(A.op.m, A.op.n, A.op.colptr, A.op.rowval,
                                  map(f, A.op.nzval))
-    SparseOp{Tag1,Tag2}(Bop)
+    return SparseOp{Tag1,Tag2}(Bop)
 end
 function Base.reduce(f, A::SparseOp{Tag1,Tag2}, Bs::SparseOp{Tag1,Tag2}...;
                      kw...) where {Tag1,Tag2}
-    reduce(f, A.op, map(B -> B.op, Bs)...; kw...)
+    return reduce(f, A.op, map(B -> B.op, Bs)...; kw...)
 end
 
 sparse_column(A::SparseOp, col::Integer) = sparse_column(A.op, col)
 sparse_column_rows(A::SparseOp, col::Integer) = sparse_column_rows(A.op, col)
 function sparse_column_values(A::SparseOp, col::Integer)
-    sparse_column_values(A.op, col)
+    return sparse_column_values(A.op, col)
 end
 
 ################################################################################
@@ -255,7 +255,7 @@ function Base.:*(A::SparseOp{Tag1,Tag2},
 end
 
 function Base.adjoint(A::SparseOp{Tag1,Tag2}) where {Tag1,Tag2}
-    SparseOp{Tag2,Tag1}(permutedims(A.op))
+    return SparseOp{Tag2,Tag1}(permutedims(A.op))
 end
 
 end

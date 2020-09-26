@@ -99,12 +99,13 @@ function Base.map(op, f::Fun{D,P,R,C,S},
                   gs::Fun{D,P,R,C,S}...) where {D,P,R,C,S}
     @assert all(g.manifold == f.manifold for g in gs)
     U = typeof(op(zero(eltype(f)), (zero(eltype(g)) for g in gs)...))
-    Fun{D,P,R,C,S,U}(f.manifold, map(op, f.values, (g.values for g in gs)...))
+    return Fun{D,P,R,C,S,U}(f.manifold,
+                            map(op, f.values, (g.values for g in gs)...))
 end
 function Base.reduce(op, f::Fun{D,P,R,C,S}, gs::Fun{D,P,R,C,S}...;
                      kw...) where {D,P,R,C,S}
     @assert all(g.manifold == f.manifold for g in gs)
-    reduce(op, f.values, (g.values for g in gs)...; kw...)
+    return reduce(op, f.values, (g.values for g in gs)...; kw...)
 end
 
 # Functions are an abstract vector
