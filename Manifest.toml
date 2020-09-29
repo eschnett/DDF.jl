@@ -10,10 +10,10 @@ version = "2.13.3"
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[Bernstein]]
-deps = ["ComputedFieldTypes", "LinearAlgebra", "Random", "SimplexQuad", "StaticArrays", "Test"]
-git-tree-sha1 = "7f589792342c2c75d06248a7c94e8a4de1b74a6b"
+deps = ["ComputedFieldTypes", "GrundmannMoeller", "LinearAlgebra", "Random", "StaticArrays", "Test"]
+git-tree-sha1 = "fdb7ef1551edc3bf8375165727f738d1390c20a6"
 uuid = "e9b0fb4c-9cb7-4f61-9c14-701a41c684d7"
-version = "0.2.2"
+version = "0.2.3"
 
 [[CommonSubexpressions]]
 deps = ["MacroTools", "Test"]
@@ -233,9 +233,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[PyCall]]
 deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
-git-tree-sha1 = "3a3fdb9000d35958c9ba2323ca7c4958901f115d"
+git-tree-sha1 = "b4e471a2b1739dba687d22d3293aa16bc5f3925b"
 uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-version = "1.91.4"
+version = "1.92.0"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
@@ -266,12 +266,6 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 [[SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
-
-[[SimplexQuad]]
-deps = ["LinearAlgebra", "Test"]
-git-tree-sha1 = "388cbe3a2afb2cb278ff6e022f54c1ba3ecd1036"
-uuid = "f5de1e94-2f77-472d-8c3b-9d09f580ee5e"
-version = "1.0.1"
 
 [[Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"

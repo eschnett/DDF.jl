@@ -210,7 +210,8 @@ function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     imin = CartesianIndex(ntuple(d -> 0, D))
     imax = CartesianIndex(ntuple(d -> 1, D))
     for i in imin:imax
-        push!(coords, SVector{D,S}(i.I))
+        # Re-map coordinates to avoid round-off errors
+        push!(coords, SVector{D,S}(i.I) .+ S(5) / 2)
     end
     nvertices = length(coords)
     @assert nvertices == 2^D
@@ -243,7 +244,7 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     for i in imin:imax
         # x = SVector{D,S}(i.I) / n
         dx = SVector{D,S}(i[d] == 0 || i[d] == n ? 0 :
-                          S(rand(rng, -16:16)) / 128 for d in 1:D)
+                          S(rand(rng, -256:256)) / 65536 for d in 1:D)
         x = SVector{D,S}(i[d] + dx[d] for d in 1:D) / n
         push!(coords, x)
     end

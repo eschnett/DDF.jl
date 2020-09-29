@@ -1,6 +1,7 @@
 module Funs
 
 using DifferentialForms: Forms
+using LinearAlgebra
 using SparseArrays
 using StaticArrays
 
@@ -128,6 +129,10 @@ function Base.zero(::Type{Fun{D,P,R,C,S,T}},
     nelts = nsimplices(manifold, R)
     return Fun{D,P,R}(manifold, zeros(T, nelts))
 end
+Base.iszero(f::Fun) = iszero(f.values)
+
+LinearAlgebra.norm(f::Fun) = norm(f.values)
+LinearAlgebra.norm(f::Fun, p::Real) = norm(f.values, p)
 
 function Forms.unit(::Type{Fun{D,P,R,C,S,T}}, manifold::Manifold{D,C,S},
                     n::Int) where {D,P,R,C,S,T}

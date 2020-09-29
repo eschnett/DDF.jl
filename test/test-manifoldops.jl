@@ -1,5 +1,6 @@
 using DDF
 
+using DifferentialForms: bitsign
 using LinearAlgebra
 using StaticArrays
 using Test
@@ -8,12 +9,10 @@ using Test
     S = Float64
 
     mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
-            hypercube_manifold(Val(D), S)
-            # These manifolds are not completely well-centred
-            # delaunay_hypercube_manifold(Val(D), S),
-            # large_delaunay_hypercube_manifold(Val(D), S),
-            # refined_simplex_manifold(Val(D), S)
-            ]
+            hypercube_manifold(Val(D), S),
+            delaunay_hypercube_manifold(Val(D), S),
+            large_delaunay_hypercube_manifold(Val(D), S),
+            refined_simplex_manifold(Val(D), S)]
 
     for mfd in mfds
         funs = Fun{D,P,R,D,S}[]
@@ -26,7 +25,6 @@ using Test
         s = P == Pr ? +1 : -1
 
         # Boundary
-
         R2 = R - 2s
         if 0 <= R2 <= D
             b1 = boundary(Val(P), Val(R), mfd)
@@ -71,16 +69,21 @@ using Test
         end
 
         # Only if completely well-centred [arXiv:0802.2108 [cs.CG]]
-        if mfd.name ∉ ["hypercube manifold", "delaunay hypercube manifold",
+        if Manifolds.dualkind == BarycentricDuals ||
+           mfd.name ∉ ["hypercube manifold", "delaunay hypercube manifold",
             "large delaunay hypercube manifold", "refined simplex manifold"]
 
             # Hodge
             h = hodge(Val(P), Val(R), mfd)
             h′ = hodge(Val(!P), Val(R), mfd)
+            @test isempty(h) || all(x -> x != 0 && isfinite(x), h.values.diag)
+            @test isempty(h′) || all(x -> x != 0 && isfinite(x), h′.values.diag)
             @test invhodge(Val(P), Val(R), mfd) == h′
             @test invhodge(Val(!P), Val(R), mfd) == h
             h21 = h′ * h
             h21::Op{D,P,R,P,R,S}
+            @test isempty(h21) ||
+                  all(x -> x != 0 && isfinite(x), h21.values.diag)
             if !isempty(h21)
                 @test norm((h21 - one(h21)).values, Inf) <= 10eps(S)
             end
@@ -100,12 +103,17 @@ using Test
                 δ2 = coderiv(Val(P), Val(R - s), mfd)
                 δ21 = δ2 * δ1
                 δ21::Op{D,P,R2,P,R,S}
-                @test iszero(δ21)
+                nδ1 = norm(δ1, Inf)
+                nδ2 = norm(δ2, Inf)
+                maxerr = nδ1 * nδ2 * 10eps(S)
+                @test norm(δ21, Inf) <= maxerr
             end
 
             R1 = R - s
             if 0 <= R1 <= D
                 δ = coderiv(Val(P), Val(R), mfd)
+                @test isempty(δ) ||
+                      all(x -> x != 0 && isfinite(x), nonzeros(δ.values))
                 for f in funs
                     δf = δ * f
                     T = eltype(f)
@@ -117,6 +125,8 @@ using Test
 
             # Laplace
             Δ = laplace(Val(P), Val(R), mfd)
+            @test isempty(Δ) ||
+                  all(x -> x != 0 && isfinite(x), nonzeros(Δ.values))
             for f in funs
                 Δf = Δ * f
                 T = eltype(f)

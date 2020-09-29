@@ -152,6 +152,9 @@ end
 Base.zero(A::Op) = zero(typeof(A), A.manifold)
 Base.iszero(A::Op) = iszero(A.values)
 
+LinearAlgebra.norm(A::Op) = norm(A.values)
+LinearAlgebra.norm(A::Op, p::Real) = norm(A.values, p)
+
 function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, manifold::Manifold{D},
                     row::Int, col::Int) where {D,P1,R1,P2,R2,T}
     nrows = nsimplices(manifold, R1)
