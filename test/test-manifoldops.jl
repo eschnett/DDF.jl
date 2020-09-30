@@ -5,22 +5,16 @@ using LinearAlgebra
 using StaticArrays
 using Test
 
-#TODO @testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-@testset "Manifold ops D=$D P=$P R=$R" for D in 3:3, P in (Pr,), R in 2:2
+@testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
     S = Float64
 
-    #TODO mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
-    #TODO         hypercube_manifold(Val(D), S),
-    #TODO         delaunay_hypercube_manifold(Val(D), S),
-    #TODO         large_delaunay_hypercube_manifold(Val(D), S),
-    #TODO         refined_simplex_manifold(Val(D), S)]
-    mfds = [large_delaunay_hypercube_manifold(Val(D), S)]
+    mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
+            hypercube_manifold(Val(D), S),
+            delaunay_hypercube_manifold(Val(D), S),
+            large_delaunay_hypercube_manifold(Val(D), S),
+            refined_simplex_manifold(Val(D), S)]
 
     for mfd in mfds
-        #TODO
-        @show D P R mfd.name
-        @show [nsimplices(mfd, r) for r in 0:D]
-
         funs = Fun{D,P,R,D,S}[]
         push!(funs, zero(Fun{D,P,R,D,S,S}, mfd))
         e = id(Fun{D,P,0,D,S,SVector{D,S}}, mfd)

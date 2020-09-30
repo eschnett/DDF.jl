@@ -18,7 +18,6 @@ jobs:
           - arch: "x64"
             os: "ubuntu-latest"
             version: "1.5"
-          # Temporarily disabled
           - arch: "x64"
             os: "ubuntu-latest"
             version: "nightly"
@@ -28,6 +27,8 @@ jobs:
           - arch: "x64"
             os: "macOS-latest"
             version: "1.5"
+          # Temporarily disabled; see
+          # <https://github.com/JuliaLang/julia/issues/37819>
           - arch: "x86"
             os: "ubuntu-latest"
             version: "1.5"
