@@ -6,7 +6,7 @@ using StaticArrays
 using Test
 
 #TODO @testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
-@testset "Manifold ops D=$D P=$P R=$R" for D in 3:3, P in (Pr,), R in 0:D
+@testset "Manifold ops D=$D P=$P R=$R" for D in 3:3, P in (Pr,), R in 2:2
     S = Float64
 
     #TODO mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),

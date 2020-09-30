@@ -40,8 +40,9 @@ function dnz(A::AbstractSparseMatrix{T}) where {T<:ExactTypes}
     return dropzeros(A)::AbstractSparseMatrix{T}
 end
 function dnz(A::AbstractSparseMatrix{T}) where {T<:FloatTypes}
+    #TODO return dropzeros!(chop.(A))::AbstractSparseMatrix{T}
     map!(chop, A.nzval, copy(A.nzval))
-    return dropzeros!(A)::AbstractSparseMatrix{T}
+    return dropzeros!(A)
 end
 dnz(A::Adjoint) = adjoint(dnz(adjoint(A)))
 dnz(A::Transpose) = transpose(dnz(transpose(A)))
@@ -178,11 +179,30 @@ function Base.:-(A::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     return Op{D,P1,R1,P2,R2}(A.manifold, -A.values)
 end
 
+function checkalloc(A, B)
+    f = +
+    Bs = (B,)
+    fofzeros = f(SparseArrays.HigherOrderFns._zeros_eltypes(A, Bs...)...)
+    @show fofzeros
+    fpreszeros = SparseArrays.HigherOrderFns._iszero(fofzeros)
+    @show fpreszeros
+    maxnnzC = fpreszeros ?
+              min(length(A), SparseArrays.HigherOrderFns._sumnnzs(A, Bs...)) :
+              length(A)
+    @show maxnnzC
+    entrytypeC = Base.Broadcast.combine_eltypes(f, (A, Bs...))
+    @show entrytypeC
+    indextypeC = SparseArrays.HigherOrderFns._promote_indtype(A, Bs...)
+    @show indextypeC
+end
 function Base.:+(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     @assert A.manifold == B.manifold
-    @show typeof(A) typeof(A.values) size(A.values) nnz(A.values)
-    @show typeof(B) typeof(B.values) size(B.values) nnz(B.values)
+
+    @show typeof(A) typeof(A.values) size(A.values) nnz(A.values) typeof(A.values.nzval) size(A.values.nzval)
+    @show typeof(B) typeof(B.values) size(B.values) nnz(B.values) typeof(B.values.nzval) size(B.values.nzval)
+    checkalloc(A.values, B.values)
+
     return Op{D,P1,R1,P2,R2}(A.manifold, A.values + B.values)
 end
 
