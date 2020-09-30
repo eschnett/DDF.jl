@@ -186,6 +186,11 @@ function checkalloc(A, B)
     @show fofzeros
     fpreszeros = SparseArrays.HigherOrderFns._iszero(fofzeros)
     @show fpreszeros
+    @show length(A)
+    @show SparseArrays.HigherOrderFns._sumnnzs(A)
+    @show SparseArrays.HigherOrderFns._sumnnzs(Bs...)
+    @show SparseArrays.HigherOrderFns._sumnnzs(A, Bs...)
+    @show SparseArrays.HigherOrderFns._sumnnzs(Bs..., A)
     maxnnzC = fpreszeros ?
               min(length(A), SparseArrays.HigherOrderFns._sumnnzs(A, Bs...)) :
               length(A)
