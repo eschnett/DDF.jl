@@ -15,6 +15,8 @@ using Test
             refined_simplex_manifold(Val(D), S)]
 
     for mfd in mfds
+        @show D P R mfd
+
         funs = Fun{D,P,R,D,S}[]
         push!(funs, zero(Fun{D,P,R,D,S,S}, mfd))
         e = id(Fun{D,P,0,D,S,SVector{D,S}}, mfd)
