@@ -40,7 +40,7 @@ function dnz(A::AbstractSparseMatrix{T}) where {T<:ExactTypes}
     return dropzeros(A)::AbstractSparseMatrix{T}
 end
 function dnz(A::AbstractSparseMatrix{T}) where {T<:FloatTypes}
-    map!(chop, A.nzval, A.nzval)
+    map!(chop, A.nzval, copy(A.nzval))
     return dropzeros!(A)::AbstractSparseMatrix{T}
 end
 dnz(A::Adjoint) = adjoint(dnz(adjoint(A)))
@@ -181,6 +181,8 @@ end
 function Base.:+(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     @assert A.manifold == B.manifold
+    @show typeof(A) typeof(A.values) size(A.values) nnz(A.values)
+    @show typeof(B) typeof(B.values) size(B.values) nnz(B.values)
     return Op{D,P1,R1,P2,R2}(A.manifold, A.values + B.values)
 end
 

@@ -5,16 +5,19 @@ using LinearAlgebra
 using StaticArrays
 using Test
 
-@testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
+#TODO @testset "Manifold ops D=$D P=$P R=$R" for D in 0:Dmax, P in (Pr, Dl), R in 0:D
+@testset "Manifold ops D=$D P=$P R=$R" for D in 3:3, P in (Pr,), R in 0:D
     S = Float64
 
-    mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
-            hypercube_manifold(Val(D), S),
-            delaunay_hypercube_manifold(Val(D), S),
-            large_delaunay_hypercube_manifold(Val(D), S),
-            refined_simplex_manifold(Val(D), S)]
+    #TODO mfds = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
+    #TODO         hypercube_manifold(Val(D), S),
+    #TODO         delaunay_hypercube_manifold(Val(D), S),
+    #TODO         large_delaunay_hypercube_manifold(Val(D), S),
+    #TODO         refined_simplex_manifold(Val(D), S)]
+    mfds = [large_delaunay_hypercube_manifold(Val(D), S)]
 
     for mfd in mfds
+        #TODO
         @show D P R mfd.name
         @show [nsimplices(mfd, r) for r in 0:D]
 
