@@ -15,7 +15,8 @@ using Test
             refined_simplex_manifold(Val(D), S)]
 
     for mfd in mfds
-        @show D P R mfd
+        @show D P R mfd.name
+        @show [nsimplices(mfd, r) for r in 0:D]
 
         funs = Fun{D,P,R,D,S}[]
         push!(funs, zero(Fun{D,P,R,D,S,S}, mfd))
