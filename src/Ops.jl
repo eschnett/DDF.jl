@@ -36,8 +36,13 @@ const ExactTypes = Union{Union{Integer,Rational},
                          Complex{<:Union{Integer,Rational}}}
 const FloatTypes = Union{AbstractFloat,Complex{<:AbstractFloat}}
 dnz(A) = A
-dnz(A::AbstractSparseMatrix{<:ExactTypes}) = dropzeros(A)
-dnz(A::AbstractSparseMatrix{<:FloatTypes}) = dropzeros!(chop.(A))
+function dnz(A::AbstractSparseMatrix{T}) where {T<:ExactTypes}
+    return dropzeros(A)::AbstractSparseMatrix{T}
+end
+function dnz(A::AbstractSparseMatrix{T}) where {T<:FloatTypes}
+    map!(chop, A.nzval, A.nzval)
+    return dropzeros!(A)::AbstractSparseMatrix{T}
+end
 dnz(A::Adjoint) = adjoint(dnz(adjoint(A)))
 dnz(A::Transpose) = transpose(dnz(transpose(A)))
 # dnz(A::Union{LowerTriangular, UpperTriangular}) = typeof(A)(dnz(A.data))
