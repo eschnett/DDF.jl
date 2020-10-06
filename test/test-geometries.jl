@@ -254,7 +254,6 @@ end
                 lf = l * f
                 lf::Fun{D,P,R,T}
             end
-
         end
     end
 end

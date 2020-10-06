@@ -68,6 +68,9 @@ using Test
             end
         end
 
+        # TODO: derivatives are linear, product rule; same for hodge,
+        # coderivatives etc.
+
         # Only if completely well-centred [arXiv:0802.2108 [cs.CG]]
         if Manifolds.dualkind == BarycentricDuals ||
            mfd.name ∉ ["hypercube manifold", "delaunay hypercube manifold",
@@ -134,8 +137,6 @@ using Test
                 Δf′ = laplace(f)
                 @test Δf′ == Δf
             end
-
         end
-
     end
 end

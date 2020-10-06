@@ -9,8 +9,8 @@ using StaticArrays
 P in (Pr, Dl),
 R in 0:D
 
-    # TODO: all P, all R
-    (P == Pr && R == 0) || continue
+    # TODO: all P
+    P == Pr || continue
 
     S = Float64
     mfd = simplex_manifold(Val(D), S)
@@ -19,19 +19,28 @@ R in 0:D
 
     f0 = zero(Fun{D,P,R,D,S,T}, mfd)
     nvalues = nsimplices(mfd, P == Pr ? R : D - R)
-    f1 = Fun{D,P,R,D,S,T}(mfd, [T(i) for i in 1:nvalues])
+    fi = Fun{D,P,R,D,S,T}(mfd, [T(i) for i in 1:nvalues])
+    fx = Fun{D,P,R,D,S,SVector{D,T}}(mfd, mfd.coords[R])
+    f1 = Fun{D,P,R,D,S,T}(mfd, rand(T, nvalues))
     f2 = Fun{D,P,R,D,S,T}(mfd, rand(T, nvalues))
     a = rand(T)
 
     for i in 1:nsimplices(mfd, P == Pr ? R : D - R)
-        x = mfd.coords[0][i]
+        x = mfd.coords[R][i]
+        if R == 0
+            @test evaluate(fi, x) ≈ Form{D,R}((T(i),))
+            @test evaluate(fx, x) ≈ Form{D,R}((x,))
+        end
         @test evaluate(f0, x) == zero(Form{D,R,T})
         @test evaluate(f1 + f2, x) ≈ evaluate(f1, x) + evaluate(f2, x)
         @test evaluate(a * f1, x) ≈ a * evaluate(f1, x)
     end
 
     for i in 1:10
-        x = random_point(Val(R), mfd)
+        x = random_point(Val(D), mfd)
+        if R == 0
+            @test evaluate(fx, x) ≈ Form{D,R}((x,))
+        end
         @test evaluate(f0, x) == zero(Form{D,R,T})
         @test evaluate(f1 + f2, x) ≈ evaluate(f1, x) + evaluate(f2, x)
         @test evaluate(a * f1, x) ≈ a * evaluate(f1, x)
@@ -51,11 +60,9 @@ R in 0:D
     # f(x) = Form{D,R,D,S}((prod(sin(2π * x[d]) for d in 1:D),))
     b = rand(Form{D,0,S})
     if D == 0
-        # f(x) = b
         f = x -> b
     else
         m = rand(Form{D,1,S})
-        # f(x) = m ⋅ Form{D,1,S}(x) + b
         f = x -> m ⋅ Form{D,1,S}(x) + b
     end
     T = S
@@ -63,7 +70,7 @@ R in 0:D
     f̃ = sample(Fun{D,P,R,D,S,T}, f, mfd)
 
     for i in 1:nsimplices(mfd, R)
-        x = mfd.coords[0][i]
+        x = mfd.coords[R][i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)
         f̃x::Form{D,R,T}

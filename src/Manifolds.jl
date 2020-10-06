@@ -270,7 +270,7 @@ function random_point(::Val{R}, mfd::Manifold{D,C,S}) where {D,C,R,S}
     @assert length(si) == R + 1
     # Choose point in simplex
     λ = abs.(randn(SVector{C + 1,S}))
-    λ /= norm(λ)
+    λ /= sum(λ)
     x = sum(λ[n] * mfd.coords[0][si[n]] for n in 1:N)
     return x::SVector{C,S}
 end
@@ -894,13 +894,11 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
     dualvolumes = Array{S}(undef, size(simplices, 2))
 
     if R == D
-
         @inbounds for i in 1:size(simplices, 2)
             dualvolumes[i] = 1
         end
 
     elseif R == 0
-
         lookup_D_R = lookup[(D, R)]::SparseOp{D,R,One}
 
         for i in 1:size(simplices, 2)
@@ -912,7 +910,6 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
         end
 
     elseif R == D - 1
-
         lookup_D_R = lookup[(D, R)]::SparseOp{D,R,One}
         dualcoords_R = dualcoords[R]
         dualcoords_D = dualcoords[D]
@@ -930,7 +927,6 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
         end
 
     elseif R == D - 2
-
         lookup_D_R = lookup[(D, R)]::SparseOp{D,R,One}
         lookup_D1_D = lookup[(D - 1, D)]::SparseOp{D - 1,D,One}
         lookup_R_D1 = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
@@ -960,7 +956,6 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
         end
 
     elseif R == D - 3
-
         lookup_D_R = lookup[(D, R)]::SparseOp{D,R,One}
         lookup_D1_D = lookup[(D - 1, D)]::SparseOp{D - 1,D,One}
         lookup_R_D1 = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
@@ -1000,7 +995,6 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
         end
 
     elseif R == D - 4
-
         lookup_D_R = lookup[(D, R)]::SparseOp{D,R,One}
         lookup_D1_D = lookup[(D - 1, D)]::SparseOp{D - 1,D,One}
         lookup_R_D1 = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
