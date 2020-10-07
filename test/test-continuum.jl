@@ -51,19 +51,25 @@ end
 P in (Pr, Dl),
 R in 0:D
 
-    # TODO: all P, all R
-    (P == Pr && R == 0) || continue
+    # TODO: all P
+    P == Pr || continue
 
     S = Float64
     mfd = simplex_manifold(Val(D), S)
 
     # f(x) = Form{D,R,D,S}((prod(sin(2π * x[d]) for d in 1:D),))
-    b = rand(Form{D,0,S})
-    if D == 0
-        f = x -> b
-    else
-        m = rand(Form{D,1,S})
-        f = x -> m ⋅ Form{D,1,S}(x) + b
+    m = R + 1 > D ? missing : rand(Form{D,R + 1,S})
+    m′ = R - 1 < 0 ? missing : rand(Form{D,R - 1,S})
+    b = rand(Form{D,R,S})
+    function f(x)
+        r = b
+        if m !== missing
+            r += m ⋅ Form{D,1,S}(x)
+        end
+        if m′ !== missing
+            r += m′ ∧ Form{D,1,S}(x)
+        end
+        return b::Form{D,R,T}
     end
     T = S
     f(zero(SVector{D,S}))::Form{D,R,T}
@@ -72,19 +78,27 @@ R in 0:D
     for i in 1:nsimplices(mfd, R)
         x = mfd.coords[R][i]
         fx = f(x)::Form{D,R,T}
-        f̃x = evaluate(f̃, x)
-        f̃x::Form{D,R,T}
+        f̃x = evaluate(f̃, x)::Form{D,R,T}
         Ex = norm(f̃x - fx)
-        @test 1 + Ex ≈ 1
+        if R == 0
+            @test 1 + Ex ≈ 1
+        else
+            # Sampling is only accurate on vertices
+            @test abs(Ex) ≤ 2
+        end
     end
 
     for i in 1:10
         x = random_point(Val(R), mfd)
         fx = f(x)::Form{D,R,T}
-        f̃x = evaluate(f̃, x)
-        f̃x::Form{D,R,T}
+        f̃x = evaluate(f̃, x)::Form{D,R,T}
         Ex = norm(f̃x - fx)
-        @test 1 + Ex ≈ 1
+        if R == 0
+            @test 1 + Ex ≈ 1
+        else
+            # Sampling is only accurate on vertices
+            @test abs(Ex) ≤ 2
+        end
     end
 end
 

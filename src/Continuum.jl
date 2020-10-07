@@ -1,6 +1,7 @@
 module Continuum
 
 using Bernstein
+using Combinatorics
 using ComputedFieldTypes
 using DifferentialForms
 using GrundmannMoeller
@@ -57,7 +58,6 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
             dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
             y = zero(Form{D,R,T})
             for n in 1:N
-                # y += ys[n] * basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
                 y += map(b -> ys[n] * b, basis_x(Form{D,R}, x2λ, dλ2dx, n, x))
             end
             return y
@@ -75,13 +75,44 @@ Sample a function on a manifold
 function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
                 mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
     @assert P == Pr             # TODO
-    @assert R == 0              # TODO
+    lookup_D = mfd.lookup[(D, R)]::SparseOp{D,R,One}
+    simplices_D = mfd.simplices[D]::SparseOp{0,D,One}
+    simplices_R = mfd.simplices[R]::SparseOp{0,R,One}
     values = Array{T}(undef, nsimplices(mfd, R))
     for i in 1:nsimplices(mfd, R)
+        @assert P == Pr
+
+        sj = sparse_column_rows(lookup_D, i)
+        j = sj[1]               # pick a simplex at random
+        # Coordinates of simplex vertices
+        sk = sparse_column_rows(simplices_D, j)
+        xs = SVector{D + 1,SVector{C,S}}(mfd.coords[0][k] for k in sk)
+        # Evaluate basis function
+        x2λ = cartesian2barycentric_setup(xs)
+        dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+
+        # sj = sparse_column_rows(simplices_R, i)
+        # # Coordinates of simplex vertices
+        # xs = SVector{R + 1,SVector{C,S}}(mfd.coords[0][k] for k in sj)
+        # # Evaluate basis function
+        # x2λ = cartesian2barycentric_setup(xs)
+        # dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+
+        si = sparse_column_rows(simplices_R, i)
+        bits = zero(SVector{D + 1,Bool})
+        @assert length(sk) == D + 1
+        for i′ in si
+            bits = Base.setindex(bits, true, findfirst(==(i′), sk))
+        end
+        @assert count(bits) == R + 1
+        n = DifferentialForms.Forms.bit2lin(Val(D + 1), Val(R + 1), bits)
+
         x = mfd.coords[R][i]
-        y = f(x)
-        y::Form{D,R,T}
-        values[i] = y[]::T
+        b = basis_x(Form{D,R}, x2λ, dλ2dx, n, x)::Form{D,R,S}
+        y = f(x)::Form{D,R,T}
+
+        values[i] = (b ⋅ y)[]::T / norm2(b)
+        @assert isfinite(values[i])
     end
     return Fun{D,P,R,C,S,T}(mfd, values)
 end
@@ -252,24 +283,57 @@ end
 
 # D     R     [n]
 #
+# 1     0     λ₁   λ₂
+# 1     1     (λ₁ + λ₂) (- dλ₁ + dλ₂)
+#
 # 2     0     λ₁   λ₂   λ₃
-# 2     1     (λ₁ + λ₂) (dλ₁ + dλ₂)   (λ₁ + λ₃) (dλ₁ + dλ₃)   (λ₂ + λ₃) (dλ₂ + dλ₃)
-# 2     2     (λ₁ + λ₂ + λ₃) (dλ₁₂ + dλ₁₃ + dλ₂₃)
+# 2     1     (λ₁ + λ₂) (- dλ₁ + dλ₂)   (λ₁ + λ₃) (- dλ₁ + dλ₃)
+#             (λ₂ + λ₃) (- dλ₂ + dλ₃)
+# 2     2     (λ₁ + λ₂ + λ₃) (dλ₁₂ - dλ₁₃ + dλ₂₃)
+
+# To determine signs:
+# 1. look at vertices that make up the face
+# 2. commute the derivative index to the left; that determines the parity
+
 #
 # 3     0     λ₁   λ₂   λ₃   λ₄
-# 3     1     (λ₁ + λ₂) (dλ₁ + dλ₂)   (λ₁ + λ₃) (dλ₁ + dλ₃)   (λ₁ + λ₄) (dλ₁ + dλ₄)   (λ₂ + λ₃) (dλ₂ + dλ₃)   (λ₂ + λ₄) (dλ₂ + dλ₄)   (λ₃ + λ₄) (dλ₃ + dλ₄)
-# 3     2     (λ₁ + λ₂ + λ₃) (dλ₁₂ + dλ₁₃ + dλ₂₃)   (λ₁ + λ₂ + λ₄) (dλ₁₂ + dλ₁₄ + dλ₂₄)   (λ₁ + λ₃ + λ₄) (dλ₁₃ + dλ₁₄ + dλ₃₄)   (λ₂ + λ₃ + λ₄) (dλ₂₃ + dλ₂₄ + dλ₃₄)
-# 3     3     (λ₁ + λ₂ + λ₃ + λ₄) (dλ₁₂₃ + dλ₁₂₄ + dλ₁₃₄ + dλ₂₃₄)
+# 3     1     (λ₁ + λ₂) (- dλ₁ + dλ₂)   (λ₁ + λ₃) (- dλ₁ + dλ₃)
+#             (λ₁ + λ₄) (- dλ₁ + dλ₄)   (λ₂ + λ₃) (- dλ₂ + dλ₃)
+#             (λ₂ + λ₄) (- dλ₂ + dλ₄)   (λ₃ + λ₄) (- dλ₃ + dλ₄)
+# 3     2     (λ₁ + λ₂ + λ₃) (dλ₁₂ - dλ₁₃ + dλ₂₃)
+#             (λ₁ + λ₂ + λ₄) (dλ₁₂ - dλ₁₄ + dλ₂₄)
+#             (λ₁ + λ₃ + λ₄) (dλ₁₃ - dλ₁₄ + dλ₃₄)
+#             (λ₂ + λ₃ + λ₄) (dλ₂₃ - dλ₂₄ + dλ₃₄)
+# 3     3     (λ₁ + λ₂ + λ₃ + λ₄) (- dλ₁₂₃ + dλ₁₂₄ - dλ₁₃₄ + dλ₂₃₄)
+
+# xᵢ = xⁿᵢ λₙ
+# dxᵢ = xⁿᵢ dλₙ
+
+# λₙ = Xⁱₙ xᵢ + bₙ
+# dλₙ = Xⁱₙ dxᵢ
+
+# dλ₁ + dλ₂                     = dλ₁ - dλ₁                     = 0
+# dλ₁₂ + dλ₁₃ + dλ₂₃            = dλ₁₂ - dλ₁₂ + dλ₁₂            = dλ₁₂
+# dλ₁₂₃ + dλ₁₂₄ + dλ₁₃₄ + dλ₂₃₄ = dλ₁₂₃ - dλ₁₂₃ + dλ₁₂₃ + dλ₁₂₃ = 2 dλ₁₂₃
 
 # dx1 = x1i dλi
 # dx1 ∧ dx2 = x1i dλi ∧ x2j dλj = x1i x2j dλi ∧ dλj
 # dx1 ∧ dx2 ∧ dx3 = x1i x2j x3k dλi ∧ dλj ∧ dλk
+
+# x[i] = xs[n][i] λ[n]
+# dx[i] = xs[n][i] dλ[n]
+#
+# dx[i] ∧ dx[j] = xs[n][i] dλ[n] ∧ xs[m][j] dλ[m]
+#               = xs[n][i] xs[m][j] dλ[n] ∧ dλ[m]
+
+################################################################################
 
 function basis_x(::Type{<:Form{D,R}}, x2λ, dλ2dx, n::Int,
                  x::SVector{C,T}) where {D,R,C,T}
     λ = cartesian2barycentric(x2λ, x)
     bλ = basis_λ(Form{D,R}, n, λ)::Form{D + 1,R,T}
     bx = dbarycentric2dcartesian(dλ2dx, bλ)::Form{D,R,T}
+    # @show :basis_x D R x2λ dλ2dx n x λ bλ bx
     return bx
 end
 
@@ -304,13 +368,20 @@ function dbarycentric2dcartesian_setup(::Type{<:Form{D,R}},
     # Number of physical form elements
     Nx = length(Form{D,R})
 
-    r = ones(SMatrix{Nx,Nλ,T})
+    r = zero(SMatrix{Nx,Nλ,T})
     for nx in 1:Nx, nλ in 1:Nλ
         lstx = DifferentialForms.Forms.lin2lst(Val(D), Val(R), nx)
         lstλ = DifferentialForms.Forms.lin2lst(Val(D + 1), Val(R), nλ)
-        relt = one(T)
-        for lx in lstx, lλ in lstλ
-            relt *= xs[lλ][lx]
+        relt = zero(T)
+        lstλs = permutations(lstλ)
+        for lstλ′ in lstλs
+            rterm = one(T)
+            _, p = sort_perm(lstλ′)
+            rterm *= bitsign(p)
+            for (lx, lλ) in zip(lstx, lstλ′)
+                rterm *= xs[lλ][lx]
+            end
+            relt += rterm
         end
         r = setindex(r, relt, nx, nλ)
     end
@@ -330,16 +401,20 @@ function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,
     I = DifferentialForms.binomial(Val(D + 1), Val(R + 1))
     @assert 1 <= i <= I
 
+    # Find functional dependency on λᵢ
     inds = DifferentialForms.Forms.lin2lst(Val(D + 1), Val(R + 1), i)
     rval = sum(λ[inds])
 
+    # Find contributing components and their parity
     bits = DifferentialForms.Forms.lin2bit(Val(D + 1), Val(R + 1), i)
-
     relts = zero(SVector{Nλ,T})
     for ind in inds
+        @assert bits[ind]
         bits2 = Base.setindex(bits, false, ind)
+        p = count(bits[1:(ind - 1)])
+        s = bitsign(p)
         j = DifferentialForms.Forms.bit2lin(Val(D + 1), Val(R), bits2)
-        relts = setindex(relts, relts[j] + rval, j)
+        relts = setindex(relts, relts[j] + s * rval, j)
     end
 
     return Form{D + 1,R}(relts)
