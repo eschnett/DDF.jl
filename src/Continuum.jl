@@ -44,7 +44,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
         λ = cartesian2barycentric(x2λ, x)
         # delta = S(0)
         delta = 10 * eps(S)
-        if all(λi -> -delta <= λi <= 1 + delta, λ)
+        if all(λi -> -delta ≤ λi ≤ 1 + delta, λ)
             # Found simplex
 
             @assert P == Pr
@@ -119,61 +119,87 @@ end
 
 ################################################################################
 
-@generated function integration_scheme(::Type{T}, ::Val{D},
-                                       ::Val{order}) where {T,D,order}
-    return grundmann_moeller(T, Val(D), order + iseven(order))
-end
-
 export project
 """
 Project a function onto a manifold
 """
 function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
                  mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
-    @assert P == Pr             # TODO
-    @assert R == 0              # TODO
-    N = D + 1
+    D::Int
+    R::Int
+    C::Int
+    @assert 0 ≤ R ≤ D ≤ C
     @assert C == D
+    N = D + 1
+    @assert P == Pr             # TODO
 
     if D == 0
-        values = T[f(SVector{C,S}())[]]
-        return Fun{D,P,R,C,S,T}(mfd, values)
+        value = f(SVector{C,S}())[]
+        return Fun{D,P,R,C,S,T}(mfd, T[value])
     end
 
     order = 4                   # Choice
     scheme = integration_scheme(S, Val(D), Val(order))
 
-    B = basis_products(Val(Pr), Val(R), mfd)
+    B = basis_products(Val(P), Val(R), mfd)
 
     f(zero(SVector{C,S}))::Form{D,R,T}
 
-    values = Array{T}(undef, nsimplices(mfd, R))
-    # Loop over all R-simplices
-    for i in 1:nsimplices(mfd, R)
-        value = zero(T)
-        # Loop over the support of the R-simplex's basis functions,
-        # i.e. all neighbouring top simplices
-        for j in sparse_column_rows(mfd.lookup[(D, R)], i)
-            sj = sparse_column_rows(mfd.simplices[D], j)
-            @assert length(sj) == N
-            sj = SVector{N,Int}(sj[n] for n in 1:N)
-            # Coordinates of simplex vertices
-            xs = SVector{N,SVector{C,S}}(mfd.coords[0][k] for k in sj)
-            x2λ = cartesian2barycentric_setup(xs)
+    # values = Array{T}(undef, nsimplices(mfd, R))
+    # @warn "use loop structure from :basis_products"
+    # # Loop over all R-simplices
+    # for i in 1:nsimplices(mfd, R)
+    #     value = zero(T)
+    #     # Loop over the support of the R-simplex's basis functions,
+    #     # i.e. all neighbouring top simplices
+    #     for j in sparse_column_rows(mfd.lookup[(D, R)]::SparseOp{D,R,One}, i)
+    #         sj = sparse_column_rows(mfd.simplices[D]::SparseOp{0,D,One}, j)
+    #         @assert length(sj) == N
+    #         sj = SVector{N,Int}(sj[n] for n in 1:N)
+    # 
+    #         # Coordinates of simplex vertices
+    #         xs = SVector{N,SVector{C,S}}(mfd.coords[0][k] for k in sj)
+    #         x2λ = cartesian2barycentric_setup(xs)
+    #         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+    # 
+    #         sk = sparse_column_rows(mfd.lookup[(R, D)]::SparseOp{R,D,One}, j)
+    #         n = findfirst(==(i), sk)
+    #         @error "need to loop over all n"
+    #         @assert n !== nothing
+    #         function kernel(x::SVector{C,T})
+    #             return (basis_x(Form{D,R}, x2λ, dλ2dx, n, x) ⋅ f(x))[]
+    #         end
+    # 
+    #         bf = integrate(kernel, scheme, xs)
+    # 
+    #         value += bf
+    #     end
+    #     values[i] = value
+    # end
 
-            # `findfirst` here works only for R == 0
-            @assert R == 0
-            n = findfirst(==(i), sj)
-            @assert n !== nothing
-            # `[]` here works only for R == 0
-            @assert R == 0
-            kernel(x::SVector{C,T}) = basis_x(x2λ, n, x) * f(x)[]
+    values = zeros(T, nsimplices(mfd, R))
+    # Loop over all D-simplices
+    for i in 1:nsimplices(mfd, D)
+        si = sparse_column_rows(mfd.simplices[D]::SparseOp{0,D,One}, i)
+        @assert length(si) == N
+        si = SVector{N,Int}(si[n] for n in 1:N)
 
+        # Coordinates of simplex vertices
+        xs = SVector{N,SVector{C,S}}(mfd.coords[0][n] for n in si)
+        x2λ = cartesian2barycentric_setup(xs)
+        dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+
+        # Loop over all contained R-simplices
+        lookup_RD = mfd.lookup[(R, D)]::SparseOp{R,D,One}
+        iter = enumerate(sparse_column_rows(lookup_RD, i))
+        for (nj, j) in iter
+            function kernel(x::SVector{C,S})
+                bj = basis_x(Form{D,R}, x2λ, dλ2dx, nj, x)
+                return (bj ⋅ f(x))[]
+            end
             bf = integrate(kernel, scheme, xs)
-
-            value += bf
+            values[j] += bf
         end
-        values[i] = value
     end
 
     values′ = B \ values
@@ -189,7 +215,7 @@ function basis_products(::Val{Pr}, ::Val{R},
     D::Int
     R::Int
     C::Int
-    @assert 0 <= R <= D <= C
+    @assert 0 ≤ R ≤ D ≤ C
     @assert C == D
     N = D + 1
 
@@ -202,35 +228,31 @@ function basis_products(::Val{Pr}, ::Val{R},
     J = Int[]
     V = S[]
 
-    # Loop over all R-simplices
-    for i in 1:nsimplices(mfd, R)
-        # si = sparse_column_rows(mfd.simplices[R], i)
-        # Loop over the support of this R-simplex's basis functions,
-        # i.e. all neighbouring top simplices
-        for k in sparse_column_rows(mfd.lookup[(D, R)]::SparseOp{D,R,One}, i)
-            sk = sparse_column_rows(mfd.simplices[D], k)
-            @assert length(sk) == N
-            # Loop over all contributing other basis functions, i.e.
-            # all neighbouring R-simplices
-            for j in
-                sparse_column_rows(mfd.lookup[(R, D)]::SparseOp{R,D,One}, k)
-                # sj = sparse_column_rows(mfd.simplices[R], j)
-                # @assert k ∈ sj
-                # Coordinates of simplex vertices
-                xs = SVector{N,SVector{C,S}}(mfd.coords[0][l] for l in sk)
-                x2λ = cartesian2barycentric_setup(xs)
+    # Loop over all D-simplices
+    for i in 1:nsimplices(mfd, D)
+        si = sparse_column_rows(mfd.simplices[D]::SparseOp{0,D,One}, i)
+        @assert length(si) == N
+        si = SVector{N,Int}(si[n] for n in 1:N)
 
-                # Find basis functions for simplices i and j
-                @assert R == 0
-                ni = findfirst(==(i), sk)
-                nj = findfirst(==(j), sk)
+        # Coordinates of simplex vertices
+        xs = SVector{N,SVector{C,S}}(mfd.coords[0][n] for n in si)
+        x2λ = cartesian2barycentric_setup(xs)
+        dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+
+        # Double loop over all contained R-simplices
+        lookup_RD = mfd.lookup[(R, D)]::SparseOp{R,D,One}
+        iter = enumerate(sparse_column_rows(lookup_RD, i))
+        for (nj, j) in iter
+            for (nk, k) in iter
                 function kernel(x::SVector{C,S})
-                    return basis_x(x2λ, ni, x) * basis_x(x2λ, nj, x)
+                    bj = basis_x(Form{D,R}, x2λ, dλ2dx, nj, x)
+                    bk = basis_x(Form{D,R}, x2λ, dλ2dx, nk, x)
+                    return (bj ⋅ bk)[]
                 end
                 b = integrate(kernel, scheme, xs)
 
-                push!(I, i)
-                push!(J, j)
+                push!(I, j)
+                push!(J, k)
                 push!(V, b)
             end
         end
@@ -242,16 +264,16 @@ end
 
 ################################################################################
 
-@fastmath function basis_x(setup, n::Int, x::SVector{C,T}) where {C,T}
-    λ = cartesian2barycentric(setup, x)
-    return basis_λ(n, λ)
-end
-
-# TODO: Remove this, use Bernstein polynomials instead
-@fastmath function basis_λ(n::Int, λ::SVector{N,S}) where {N,S}
-    @assert 1 <= n <= N
-    return λ[n]
-end
+# @fastmath function basis_x(setup, n::Int, x::SVector{C,T}) where {C,T}
+#     λ = cartesian2barycentric(setup, x)
+#     return basis_λ(n, λ)
+# end
+# 
+# # TODO: Remove this, use Bernstein polynomials instead
+# @fastmath function basis_λ(n::Int, λ::SVector{N,S}) where {N,S}
+#     @assert 1 ≤ n ≤ N
+#     return λ[n]
+# end
 
 # See: Douglas Arnold, Richard Falk, Ragnar Winther, "Finite element
 # exterior calculus, homological techniques, and applications", Acta
@@ -333,7 +355,6 @@ function basis_x(::Type{<:Form{D,R}}, x2λ, dλ2dx, n::Int,
     λ = cartesian2barycentric(x2λ, x)
     bλ = basis_λ(Form{D,R}, n, λ)::Form{D + 1,R,T}
     bx = dbarycentric2dcartesian(dλ2dx, bλ)::Form{D,R,T}
-    # @show :basis_x D R x2λ dλ2dx n x λ bλ bx
     return bx
 end
 
@@ -341,10 +362,10 @@ end
 function dbarycentric2dcartesian(dλ2dx::SMatrix{Nx,Nλ},
                                  dλ::Form{N,R}) where {Nx,Nλ,N,R}
     N::Int
-    @assert N >= 1
+    @assert N ≥ 1
     D = N - 1
     R::Int
-    @assert 0 <= R <= D
+    @assert 0 ≤ R ≤ D
     @assert Nx == length(Form{D,R})
     @assert Nλ == length(Form{D + 1,R})
     return Form{D,R}(dλ2dx * dλ.elts)
@@ -358,7 +379,7 @@ function dbarycentric2dcartesian_setup(::Type{<:Form{D,R}},
     # Form dimension and rank
     D::Int
     R::Int
-    @assert 0 <= R <= D
+    @assert 0 ≤ R ≤ D
     N::Int
     @assert N == D + 1
     C::Int
@@ -392,14 +413,14 @@ end
 function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,T}
     D::Int
     R::Int
-    @assert 0 <= R <= D
+    @assert 0 ≤ R ≤ D
     # Number of barycentric coordinates
     @assert N == D + 1
     # Number of barycentric form elements
     Nλ = length(Form{D + 1,R})
     # Number of basis functions
     I = DifferentialForms.binomial(Val(D + 1), Val(R + 1))
-    @assert 1 <= i <= I
+    @assert 1 ≤ i ≤ I
 
     # Find functional dependency on λᵢ
     inds = DifferentialForms.Forms.lin2lst(Val(D + 1), Val(R + 1), i)
@@ -408,6 +429,7 @@ function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,
     # Find contributing components and their parity
     bits = DifferentialForms.Forms.lin2bit(Val(D + 1), Val(R + 1), i)
     relts = zero(SVector{Nλ,T})
+    # TODO: Can this be implemented without this loop?
     for ind in inds
         @assert bits[ind]
         bits2 = Base.setindex(bits, false, ind)
@@ -417,7 +439,12 @@ function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,
         relts = setindex(relts, relts[j] + s * rval, j)
     end
 
-    return Form{D + 1,R}(relts)
+    return Form{D + 1,R}(relts) / factorial(R)
+end
+
+@generated function integration_scheme(::Type{T}, ::Val{D},
+                                       ::Val{order}) where {T,D,order}
+    return grundmann_moeller(T, Val(D), order + iseven(order))
 end
 
 end

@@ -112,7 +112,7 @@ function Base.show(io::IO, A::SparseOp{Tag1,Tag2,T}) where {Tag1,Tag2,T}
             for (i, v) in sparse_column(Aop′, j)
                 didoutput && print(io, ", ")
                 didoutput = true
-                print(io, "[$i=$v]")
+                print(io, "[$i:$v]")
             end
         end
         println(io)
