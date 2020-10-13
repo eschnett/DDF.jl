@@ -65,13 +65,13 @@ end
 
 function Defs.invariant(op::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     D::Int
-    @assert D >= 0
+    @assert D ≥ 0
     P1::PrimalDual
     R1::Int
-    @assert 0 <= R1 <= D
+    @assert 0 ≤ R1 ≤ D
     P2::PrimalDual
     R2::Int
-    @assert 0 <= R2 <= D
+    @assert 0 ≤ R2 ≤ D
     if !(op.values isa UniformScaling)
         @assert size(op.values) ==
                 (nsimplices(op.manifold, R1), nsimplices(op.manifold, R2))
@@ -83,7 +83,7 @@ end
 
 function Base.:(==)(A::M, B::M) where {M<:Op}
     @assert A.manifold == B.manifold
-    A === B && return true
+    A ≡ B && return true
     return A.values == B.values
 end
 function Base.:(<)(A::M, B::M) where {M<:Op}
@@ -116,8 +116,8 @@ Base.length(A::Op) = length(A.values)
 
 # function Base.map(op, A::Op{D,P1,R1,P2,R2},
 #                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
-#     @assert all(A.manifold == B.manifold for B in Bs)
-#     return Fun{D,R}(A.manifold, map(op, A.values, (B.values for B in Bs)...))
+#     @assert all(A.manifold == B.manifold for B ∈ Bs)
+#     return Fun{D,R}(A.manifold, map(op, A.values, (B.values for B ∈ Bs)...))
 # end
 function Base.map(fop, A::Op{D,P1,R1,P2,R2},
                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
@@ -163,8 +163,8 @@ function Forms.unit(::Type{Op{D,P1,R1,P2,R2,T}}, manifold::Manifold{D},
                     row::Int, col::Int) where {D,P1,R1,P2,R2,T}
     nrows = nsimplices(manifold, R1)
     ncols = nsimplices(manifold, R2)
-    @assert 1 <= row <= nrows
-    @assert 1 <= col <= ncols
+    @assert 1 ≤ row ≤ nrows
+    @assert 1 ≤ col ≤ ncols
     return Op{D,P1,R1,P2,R2}(manifold,
                              sparse([row], [col], [one(T)], nrows, ncols))
 end

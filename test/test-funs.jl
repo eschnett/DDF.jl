@@ -59,6 +59,5 @@ using Test
 
     e2 = map(x -> 2x, e)
     @test [2x for x in e] == [x for x in e2]
-
     @test map(+, f, g) == f + g
 end

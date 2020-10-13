@@ -116,7 +116,7 @@ R1 in 0:D
         g2 = F \ (G \ f)
         maxabs(f) = norm(f.values, Inf)
         gscale = max(1, maxabs(g1), maxabs(g2))
-        isgood = maxabs(g1 - g2) <= 1.0e-12 * gscale
+        isgood = maxabs(g1 - g2) ≤ 1.0e-12 * gscale
         if isgood || iter == 3
             @test isgood
             break

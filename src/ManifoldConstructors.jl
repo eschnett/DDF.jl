@@ -52,7 +52,7 @@ D-simplex is a (D-1)-simplex that is shifted down along the new axis,
 plus a new point on the new axis.
 """
 function regular_simplex(::Val{D}, ::Type{S}) where {D,S}
-    @assert D >= 0
+    @assert D ≥ 0
     N = D + 1
     s = Array{SVector{D,S}}(undef, N)
     if D > 0
@@ -104,7 +104,7 @@ Generate the coordinate positions for an orthogonal D-simplex with
 edge lengths 1.
 """
 function orthogonal_simplex(::Val{D}, ::Type{S}) where {D,S}
-    @assert D >= 0
+    @assert D ≥ 0
     s = zeros(SVector{D,S}, D + 1)
     w = zeros(S, D + 1)
     w[1] = Dict(0 => 0, 1 => 0, 2 => -S(1) / 2,
@@ -124,7 +124,7 @@ export hypercube_manifold
 Standard tesselation of a hypercube
 """
 function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
-    @assert D >= 0
+    @assert D ≥ 0
     N = D + 1
 
     # Find simplices
@@ -162,7 +162,7 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
 end
 
 """
-- Accumulate the simplices in `simplices`.
+- Accumulate the simplices ∈ `simplices`.
 - `vertices` is the current set of vertices as we sweep from the
   origin to diagonally opposide vertex.
 - `corner` is the current corner.
@@ -202,7 +202,7 @@ export delaunay_hypercube_manifold
 Delaunay triangulation of a hypercube
 """
 function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
-    @assert D >= 0
+    @assert D ≥ 0
     N = D + 1
 
     # Set up coordinates
@@ -229,7 +229,7 @@ export large_delaunay_hypercube_manifold
 Delaunay triangulation of a large hypercube
 """
 function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
-    @assert D >= 0
+    @assert D ≥ 0
     N = D + 1
 
     ns = Dict{Int,Int}(0 => 1, 1 => 1024, 2 => 32, 3 => 16, 4 => 4, 5 => 2)

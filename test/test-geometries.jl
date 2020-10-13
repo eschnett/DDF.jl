@@ -83,7 +83,7 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
         imax = CartesianIndex(ntuple(d -> n, D))
         for i in imin:imax
             x = SVector{D,T}(T(i[d]) / n +
-                             (i[d] in 1:(n - 1) ? (2 * rand(T) - 1) / 128n : 0)
+                             (i[d] ∈ 1:(n - 1) ? (2 * rand(T) - 1) / 128n : 0)
                              for d in 1:D)
             push!(coords, Form{D,1,T}(x))
         end
@@ -96,7 +96,7 @@ const geometries = Dict{Int,Dict{String,Geometry}}()
 
     @testset "Random Delaunay Hypercube" begin
         geom = missing
-        while geom === missing
+        while geom ≡ missing
             coords = fulltype(Form{D,1,T})[]
             imin = CartesianIndex(ntuple(d -> 0, D))
             imax = CartesianIndex(ntuple(d -> 1, D))
@@ -229,7 +229,7 @@ end
         for f in funs
             h = hodge(Val(P), Val(R), geom)
             # Require Hodge operator to be at least positive semidefinite
-            @test all(>=(0), h.values.diag)
+            @test all(≥(0), h.values.diag)
             if geom_name ∉ ["orthogonal simplex", "standard hypercube",
                 "delaunay hypercube", "random delaunay hypercube"]
                 # We want it to be positive definite, but that's not
@@ -314,7 +314,7 @@ R in 0:D
     T = Float64
     geom = geometries[D]["standard hypercube"]
 
-    # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
+    # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d ∈ 1:D),))
     b = rand(Form{D,0,T})
     m = rand(Form{D,1,T})
     f(x) = m ⋅ x + b
@@ -339,7 +339,7 @@ R in 0:D
     T = Float64
     geom = geometries[D]["standard hypercube"]
 
-    # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d in 1:D),))
+    # f(x) = Form{D,R,T}((prod(sin(2π * x[d]) for d ∈ 1:D),))
     b = rand(Form{D,R,T})
     m = rand(Form{D,1,T})
     f(x) = (m ⋅ (x::Form{D,1,T}) + b)::Form{D,R,T}
@@ -354,7 +354,7 @@ R in 0:D
     end
 end
 
-# @testset "Derivative is functorial D=$D R=$R" for D in 1:Dmax, R in 0:D-1
+# @testset "Derivative is functorial D=$D R=$R" for D ∈ 1:Dmax, R ∈ 0:D-1
 #     T = Float64
 # 
 #     # Regular simplex
@@ -362,7 +362,7 @@ end
 #     xs = Fun{D, Pr, 0}(topo, regular_simplex(Form{D, D, T}))
 #     geom = Geometry(topo, xs)
 # 
-#     for dir in 1:D, pow in 0:1
+#     for dir ∈ 1:D, pow ∈ 0:1
 #         pow==0 && dir>1 && continue
 #         @show D R dir pow
 # 
@@ -378,7 +378,7 @@ end
 #         d = deriv(Val(Pr), Val(0), geom.topo)
 #         df = d*f
 #         @show df.values
-#         for i in 1:size(R+1, geom.topo)
+#         for i ∈ 1:size(R+1, geom.topo)
 #             # for 
 #             @assert df.values[i] == dgdxs.values[i]
 #         end

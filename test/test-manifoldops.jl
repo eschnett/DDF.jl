@@ -26,7 +26,7 @@ using Test
 
         # Boundary
         R2 = R - 2s
-        if 0 <= R2 <= D
+        if 0 ≤ R2 ≤ D
             b1 = boundary(Val(P), Val(R), mfd)
             b2 = boundary(Val(P), Val(R - s), mfd)
             b21 = b2 * b1
@@ -35,7 +35,7 @@ using Test
         end
 
         R1 = R - s
-        if 0 <= R1 <= D
+        if 0 ≤ R1 ≤ D
             b = boundary(Val(P), Val(R), mfd)
             for f in funs
                 bf = b * f
@@ -48,7 +48,7 @@ using Test
 
         # Derivative
         R2 = R + 2s
-        if 0 <= R2 <= D
+        if 0 ≤ R2 ≤ D
             d1 = deriv(Val(P), Val(R), mfd)
             d2 = deriv(Val(P), Val(R + s), mfd)
             d21 = d2 * d1
@@ -57,7 +57,7 @@ using Test
         end
 
         R1 = R + s
-        if 0 <= R1 <= D
+        if 0 ≤ R1 ≤ D
             d = deriv(Val(P), Val(R), mfd)
             for f in funs
                 df = d * f
@@ -88,7 +88,7 @@ using Test
             @test isempty(h21) ||
                   all(x -> x != 0 && isfinite(x), h21.values.diag)
             if !isempty(h21)
-                @test norm((h21 - one(h21)).values, Inf) <= 10eps(S)
+                @test norm((h21 - one(h21)).values, Inf) ≤ 10eps(S)
             end
 
             for f in funs
@@ -101,7 +101,7 @@ using Test
 
             # Coderivative
             R2 = R - 2s
-            if 0 <= R2 <= D
+            if 0 ≤ R2 ≤ D
                 δ1 = coderiv(Val(P), Val(R), mfd)
                 δ2 = coderiv(Val(P), Val(R - s), mfd)
                 δ21 = δ2 * δ1
@@ -109,11 +109,11 @@ using Test
                 nδ1 = norm(δ1, Inf)
                 nδ2 = norm(δ2, Inf)
                 maxerr = nδ1 * nδ2 * 10eps(S)
-                @test norm(δ21, Inf) <= maxerr
+                @test norm(δ21, Inf) ≤ maxerr
             end
 
             R1 = R - s
-            if 0 <= R1 <= D
+            if 0 ≤ R1 ≤ D
                 δ = coderiv(Val(P), Val(R), mfd)
                 @test isempty(δ) ||
                       all(x -> x != 0 && isfinite(x), nonzeros(δ.values))

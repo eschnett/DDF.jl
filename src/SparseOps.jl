@@ -11,7 +11,7 @@ using ..Defs
 
 export sparse_column
 """
-All nonzero row indices and values for a column in a sparse matrix
+All nonzero row indices and values for a column ∈ a sparse matrix
 """
 function sparse_column(A::SparseMatrixCSC, col::Integer)
     return SparseMatrixCSCColumn(Val(:RowVal), A, col)
@@ -19,7 +19,7 @@ end
 
 export sparse_column_rows
 """
-All row indices of nonzero values for a column in a sparse matrix
+All row indices of nonzero values for a column ∈ a sparse matrix
 """
 function sparse_column_rows(A::SparseMatrixCSC, col::Integer)
     return SparseMatrixCSCColumn(Val(:Row), A, col)
@@ -27,7 +27,7 @@ end
 
 export sparse_column_values
 """
-All nonzero values for a column in a sparse matrix
+All nonzero values for a column ∈ a sparse matrix
 """
 function sparse_column_values(A::SparseMatrixCSC, col::Integer)
     return SparseMatrixCSCColumn(Val(:Val), A, col)
@@ -60,7 +60,7 @@ Base.length(iter::SparseMatrixCSCColumn) = length(iter.nzrange)
 
 function Base.iterate(iter::SparseMatrixCSCColumn, state...)
     ind_next = iterate(iter.nzrange, state...)
-    ind_next === nothing && return nothing
+    ind_next ≡ nothing && return nothing
     ind, next = ind_next
     return process(iter, ind), next
 end
@@ -125,7 +125,7 @@ end
 
 function Base.:(==)(A::SparseOp{Tag1,Tag2},
                     B::SparseOp{Tag1,Tag2}) where {Tag1,Tag2}
-    A === B && return true
+    A ≡ B && return true
     return A.op == B.op
 end
 function Base.:(<)(A::SparseOp{Tag1,Tag2},

@@ -87,7 +87,7 @@ struct Manifold{D,C,S}
                                                                                     C,
                                                                                     S}
         D::Int
-        @assert 0 <= D <= C
+        @assert 0 ≤ D ≤ C
         mfd = new{D,C,S}(name, simplices, boundaries, lookup, coords, volumes,
                          weights, dualcoords, dualvolumes, simplex_tree)
         @assert invariant(mfd)
@@ -139,8 +139,8 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
 end
 
 function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
-    D >= 0 || (@assert false; return false)
-    C >= D || (@assert false; return false)
+    D ≥ 0 || (@assert false; return false)
+    C ≥ D || (@assert false; return false)
 
     # Check simplices
     Set(keys(mfd.simplices)) == Set(0:D) || (@assert false; return false)
@@ -180,7 +180,7 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
         lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
         size(lookup) == (nsimplices(mfd, Ri), nsimplices(mfd, Rj)) ||
             (@assert false; return false)
-        if Rj >= Ri
+        if Rj ≥ Ri
             for j in 1:size(lookup, 2) # Rj-simplex
                 vj = sparse_column_rows(mfd.simplices[Rj], j)
                 length(vj) == Rj + 1 || (@assert false; return false)
@@ -231,7 +231,7 @@ end
 # Comparison
 
 function Base.:(==)(mfd1::Manifold{D,C}, mfd2::Manifold{D,C})::Bool where {D,C}
-    mfd1 === mfd2 && return true
+    mfd1 ≡ mfd2 && return true
     return mfd1.simplices[D] == mfd2.simplices[D] &&
            mfd1.coords[0] == mfd2.coords[0] &&
            mfd1.weights == mfd2.weights
@@ -258,17 +258,17 @@ nsimplices(mfd::Manifold, R::Integer) = size(mfd.simplices[R], 2)
 
 export random_point
 """
-Return random point in manifold
+Return random point ∈ manifold
 """
 function random_point(::Val{R}, mfd::Manifold{D,C,S}) where {D,C,R,S}
-    @assert 0 <= R <= D <= C
+    @assert 0 ≤ R ≤ D ≤ C
     C == 0 && return SVector{C,S}()
     N = R + 1
     # Choose simplex
     i = rand(1:nsimplices(mfd, R))
     si = sparse_column_rows(mfd.simplices[R], i)
     @assert length(si) == R + 1
-    # Choose point in simplex
+    # Choose point ∈ simplex
     λ = abs.(randn(SVector{C + 1,S}))
     λ /= sum(λ)
     x = sum(λ[n] * mfd.coords[0][si[n]] for n in 1:N)
@@ -282,7 +282,7 @@ end
 function Manifold(name::String, simplicesD::SparseOp{0,D,One},
                   coords0::Vector{SVector{C,S}},
                   weights::Vector{S}) where {D,C,S}
-    @assert 0 <= D <= C
+    @assert 0 ≤ D ≤ C
 
     nvertices, nsimplices = size(simplicesD)
     @assert length(coords0) == nvertices
@@ -369,8 +369,8 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
                 # This might indicate a severe bug; shouldn't faces have
                 # opposite orientations when viewed from two neighbouring
                 # simplices?
-                # @assert all(s -> -1 <= s <= 1, boundary_faces)
-                @assert all(s -> -2 <= s <= 2, boundary_faces)
+                # @assert all(s -> -1 ≤ s ≤ 1, boundary_faces)
+                @assert all(s -> -2 ≤ s ≤ 2, boundary_faces)
                 interior_vertices = ones(Bool, length(coords[0]))
                 @assert length(boundary_faces) == size(simplices[D - 1], 2)
                 for j in 1:size(simplices[D - 1], 2)
@@ -519,7 +519,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
     # @show "optimize_weights.0" D C
     D::Int
     C::Int
-    @assert 0 <= D <= C
+    @assert 0 ≤ D ≤ C
 
     D == 0 && return weights
 
@@ -601,8 +601,8 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
     for R in 0:D
         if !isempty(dualvolumes[R])
             volR = sum(dualvolumes[R]) / length(dualvolumes[R])
-            allpositive &= all(>=(volR / 100), dualvolumes[R])
-            num_nonpositive += count(<=(0), dualvolumes[R])
+            allpositive &= all(≥(volR / 100), dualvolumes[R])
+            num_nonpositive += count(≤(0), dualvolumes[R])
             num_toosmall += count(<(volR / 100), dualvolumes[R])
             min_scaledvol = min(min_scaledvol, minimum(dualvolumes[R]) / volR)
         end
@@ -611,7 +611,7 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
     println("optimize_weights: Dual volumes: nonpositive: $num_nonpositive, ",
             "toosmall: $num_toosmall, minscaled: $min_scaledvol, cost: $cost")
     # println("weights: ", weights)
-    # for R in 0:D
+    # for R ∈ 0:D
     #     println("dualcoords[$R]: ", dualcoords[R])
     #     println("dualvolumes[$R]: ", dualvolumes[R])
     #     println("d(dualcoords)/d(weights)[$R]: ",
@@ -640,7 +640,7 @@ function optimize_vertices(::Val{dualkind}, ::Val{D},
     # @show "optimize_vertices.0" D C
     D::Int
     C::Int
-    @assert 0 <= D <= C
+    @assert 0 ≤ D ≤ C
 
     D == 0 && return coords
 
@@ -776,8 +776,8 @@ function optimize_vertices(::Val{dualkind}, ::Val{D},
     for R in 0:D
         if !isempty(dualvolumes[R])
             volR = sum(dualvolumes[R]) / length(dualvolumes[R])
-            allpositive &= all(>=(volR / 100), dualvolumes[R])
-            num_nonpositive += count(<=(0), dualvolumes[R])
+            allpositive &= all(≥(volR / 100), dualvolumes[R])
+            num_nonpositive += count(≤(0), dualvolumes[R])
             num_toosmall += count(<(volR / 100), dualvolumes[R])
             min_scaledvol = min(min_scaledvol, minimum(dualvolumes[R]) / volR)
         end
@@ -786,7 +786,7 @@ function optimize_vertices(::Val{dualkind}, ::Val{D},
     println("optimize_vertices: Dual volumes: nonpositive: $num_nonpositive, ",
             "toosmall: $num_toosmall, minscaled: $min_scaledvol, cost: $cost")
     # println("weights: ", weights)
-    # for R in 0:D
+    # for R ∈ 0:D
     #     println("dualcoords[$R]: ", dualcoords[R])
     #     println("dualvolumes[$R]: ", dualvolumes[R])
     #     println("d(dualcoords)/d(weights)[$R]: ",
@@ -889,7 +889,7 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
     D::Int
     R::Int
     C::Int
-    @assert 0 <= R <= D <= C
+    @assert 0 ≤ R ≤ D ≤ C
 
     dualvolumes = Array{S}(undef, size(simplices, 2))
 
@@ -1087,7 +1087,7 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
     C::Int
     S = valtype1(Sc)
     @assert !(S <: ForwardDiff.Dual)
-    @assert 0 <= R <= R1 <= D
+    @assert 0 ≤ R ≤ R1 ≤ D
     @assert R1 == R + 1
     nvertices, nsimplices = size(simplices)
     dualvolumes = Array{Sd}(undef, nsimplices)
@@ -1151,7 +1151,7 @@ valtype1(::Type{T}) where {T} = T
 valtype1(::Type{ForwardDiff.Dual{T,V,N}}) where {T,V,N} = V
 
 """
-Check Delaunay condition: No vertex must lie in the circumcentre of a
+Check Delaunay condition: No vertex must lie ∈ the circumcentre of a
 simplex
 """
 function check_delaunay(simplices::SparseOp{0,D,One},
@@ -1160,7 +1160,7 @@ function check_delaunay(simplices::SparseOp{0,D,One},
                         dualcoords::Vector{SVector{C,S}}) where {D,D1,C,S}
     D::Int
     D1::Int
-    @assert 0 <= D1 <= D
+    @assert 0 ≤ D1 ≤ D
     @assert D1 == D - 1
     C::Int
 
@@ -1186,7 +1186,7 @@ function check_delaunay(simplices::SparseOp{0,D,One},
                         if l ∉ si
                             xl = Form{C,1}(coords[l])
                             d2 = norm2(xl - cci)
-                            @assert d2 >= cri2 || d2 ≈ cri2
+                            @assert d2 ≥ cri2 || d2 ≈ cri2
                         end
                     end
                 end

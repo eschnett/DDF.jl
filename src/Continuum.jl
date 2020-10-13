@@ -63,7 +63,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
             return y
         end
     end
-    return error("Coordinate $x not found in manifold $(mfd.name)")
+    return error("Coordinate $x not found ∈ manifold $(mfd.name)")
 end
 
 ################################################################################
@@ -144,38 +144,6 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
     B = basis_products(Val(P), Val(R), mfd)
 
     f(zero(SVector{C,S}))::Form{D,R,T}
-
-    # values = Array{T}(undef, nsimplices(mfd, R))
-    # @warn "use loop structure from :basis_products"
-    # # Loop over all R-simplices
-    # for i in 1:nsimplices(mfd, R)
-    #     value = zero(T)
-    #     # Loop over the support of the R-simplex's basis functions,
-    #     # i.e. all neighbouring top simplices
-    #     for j in sparse_column_rows(mfd.lookup[(D, R)]::SparseOp{D,R,One}, i)
-    #         sj = sparse_column_rows(mfd.simplices[D]::SparseOp{0,D,One}, j)
-    #         @assert length(sj) == N
-    #         sj = SVector{N,Int}(sj[n] for n in 1:N)
-    # 
-    #         # Coordinates of simplex vertices
-    #         xs = SVector{N,SVector{C,S}}(mfd.coords[0][k] for k in sj)
-    #         x2λ = cartesian2barycentric_setup(xs)
-    #         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
-    # 
-    #         sk = sparse_column_rows(mfd.lookup[(R, D)]::SparseOp{R,D,One}, j)
-    #         n = findfirst(==(i), sk)
-    #         @error "need to loop over all n"
-    #         @assert n !== nothing
-    #         function kernel(x::SVector{C,T})
-    #             return (basis_x(Form{D,R}, x2λ, dλ2dx, n, x) ⋅ f(x))[]
-    #         end
-    # 
-    #         bf = integrate(kernel, scheme, xs)
-    # 
-    #         value += bf
-    #     end
-    #     values[i] = value
-    # end
 
     values = zeros(T, nsimplices(mfd, R))
     # Loop over all D-simplices
@@ -294,7 +262,7 @@ end
 # 3     2     dx∧dy   dx∧dz   dy∧dz   x dy dz - y dx dz + z dx dy
 # 3     3     dx∧dy∧dz
 
-# Expressed in terms of barycentric coordinates:
+# Expressed ∈ terms of barycentric coordinates:
 
 # x = xⁱ λᵢ = x¹ λ₁ + x² λ₂ + x³ λ₃
 # y = yⁱ λᵢ = y¹ λ₁ + y² λ₂ + y³ λ₃

@@ -32,7 +32,7 @@ end
 
 function plot_manifold(filename::String, mfd::Manifold{D,S}) where {D,S}
     D::Int
-    @assert D >= 0
+    @assert D ≥ 0
 
     @assert size(mfd.coords, 2) == D
 
@@ -63,7 +63,7 @@ function plot_manifold(filename::String, mfd::Manifold{D,S}) where {D,S}
 
     # # Dual edges
     # edges = SVector{D,S}[]
-    # for i in 1:nsimplices(mfd, D-1)
+    # for i ∈ 1:nsimplices(mfd, D-1)
     #     si = collect(sparse_column_rows(mfd.simplices[D-1], i))
     #     @assert length(si) == 2
     #     xs1 = SVector{D,S}(mfd.dualcoords[si[1], :])

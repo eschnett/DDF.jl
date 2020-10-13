@@ -60,13 +60,13 @@ end
     v = volume(xs)
     @test v == T(1) / factorial(N - 1)
 
-    if N >= 2
+    if N ≥ 2
         xs = SVector{N}(xs[2], xs[1], xs[3:end]...)
         v = volume(xs)
         @test v == T(1) / factorial(N - 1)
     end
 
-    if N >= 2
+    if N ≥ 2
         xs = SVector{N}(xs[2:end]..., xs[1])
         v = volume(xs)
         @test v == T(1) / factorial(N - 1)

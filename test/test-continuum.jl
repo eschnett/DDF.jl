@@ -38,34 +38,34 @@ R in 0:D
             elseif D == 2 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3)][n]
                 dx = mfd.coords[0][v2] - mfd.coords[0][v1]
-                @test bx ≈ Form{D,R}((i ∈ (v1, v2)) * dx)
+                @test bx ≈ Form{D,R}((i in (v1, v2)) * dx)
             elseif D == 3 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3), (1, 4), (2, 4), (3, 4)][n]
                 dx = mfd.coords[0][v2] - mfd.coords[0][v1]
-                @test bx ≈ Form{D,R}((i ∈ (v1, v2)) * dx)
+                @test bx ≈ Form{D,R}((i in (v1, v2)) * dx)
             elseif D == 4 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3), (1, 4), (2, 4), (3, 4),
                           (1, 5), (2, 5), (3, 5), (4, 5)][n]
                 dx = mfd.coords[0][v2] - mfd.coords[0][v1]
-                @test bx ≈ Form{D,R}((i ∈ (v1, v2)) * dx)
+                @test bx ≈ Form{D,R}((i in (v1, v2)) * dx)
             elseif D == 5 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3), (1, 4), (2, 4), (3, 4),
                           (1, 5), (2, 5), (3, 5), (4, 5), (1, 6), (2, 6),
                           (3, 6), (4, 6), (5, 6)][n]
                 dx = Form{D,R}(mfd.coords[0][v2] - mfd.coords[0][v1])
-                @test bx ≈ (i ∈ (v1, v2)) * dx
+                @test bx ≈ (i in (v1, v2)) * dx
             elseif D == 3 && R == 2
                 v1, v2, v3 = [(1, 2, 3), (1, 2, 4), (1, 3, 4), (2, 3, 4)][n]
                 dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
                      Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) / 2
-                @test bx ≈ (i ∈ (v1, v2, v3)) * dx
+                @test bx ≈ (i in (v1, v2, v3)) * dx
             elseif D == 4 && R == 2
                 v1, v2, v3 = [(1, 2, 3), (1, 2, 4), (1, 3, 4), (2, 3, 4),
                               (1, 2, 5), (1, 3, 5), (2, 3, 5), (1, 4, 5),
                               (2, 4, 5), (3, 4, 5)][n]
                 dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
                      Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) / 2
-                @test bx ≈ (i ∈ (v1, v2, v3)) * dx
+                @test bx ≈ (i in (v1, v2, v3)) * dx
             elseif D == 5 && R == 2
                 v1, v2, v3 = [(1, 2, 3), (1, 2, 4), (1, 3, 4), (2, 3, 4),
                               (1, 2, 5), (1, 3, 5), (2, 3, 5), (1, 4, 5),
@@ -74,18 +74,18 @@ R in 0:D
                               (1, 5, 6), (2, 5, 6), (3, 5, 6), (4, 5, 6)][n]
                 dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
                      Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) / 2
-                @test bx ≈ (i ∈ (v1, v2, v3)) * dx
+                @test bx ≈ (i in (v1, v2, v3)) * dx
             elseif D == 4 && R == 3
                 v1, v2, v3, v4 = [(1, 2, 3, 4), (1, 2, 3, 5), (1, 2, 4, 5),
                                   (1, 3, 4, 5), (2, 3, 4, 5)][n]
                 dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
                      Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) ∧
                      Form{D,1}(mfd.coords[0][v4] - mfd.coords[0][v1]) / 6
-                @test bx ≈ (i ∈ (v1, v2, v3, v4)) * dx
+                @test bx ≈ (i in (v1, v2, v3, v4)) * dx
             end
         end
 
-        #TODO for i in 1:nsimplices(mfd, P == Pr ? R : D - R)
+        #TODO for i  in  1:nsimplices(mfd, P == Pr ? R : D - R)
         #TODO     x = mfd.coords[R][i]
         #TODO     bx = Continuum.basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
         #TODO     @test bx ≈ Form{D,R}((n == i,))
@@ -145,7 +145,7 @@ R in 0:D
     S = Float64
     mfd = simplex_manifold(Val(D), S)
 
-    # f(x) = Form{D,R,D,S}((prod(sin(2π * x[d]) for d in 1:D),))
+    # f(x) = Form{D,R,D,S}((prod(sin(2π * x[d]) for d  in  1:D),))
     m = R + 1 > D ? missing : rand(Form{D,R + 1,S})
     m′ = R - 1 < 0 ? missing : rand(Form{D,R - 1,S})
     b = rand(Form{D,R,S})
@@ -203,7 +203,7 @@ R in 0:D
     S = Float64
     mfd = simplex_manifold(Val(D), S)
 
-    # f(x) = Form{D,R,D,S}((prod(sin(2π * x[d]) for d in 1:D),))
+    # f(x) = Form{D,R,D,S}((prod(sin(2π * x[d]) for d  in  1:D),))
     m = R + 1 > D ? missing : rand(Form{D,R + 1,S})
     m′ = R - 1 < 0 ? missing : rand(Form{D,R - 1,S})
     b = rand(Form{D,R,S})
