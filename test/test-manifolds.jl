@@ -145,3 +145,24 @@ end
     @test sum(mfd.dualvolumes[0]) ≈ vol
     @test all(==(1), mfd.dualvolumes[D])
 end
+
+@testset "Boundary simplex manifold D=$D" for D in 0:Dmax
+    S = Float64
+    mfd = boundary_simplex_manifold(Val(D), S)
+    @test invariant(mfd)
+    for R in 0:D
+        @test nsimplices(mfd, R) == binomial(D + 2, R + 1)
+    end
+
+    N = D + 2
+    for i in 1:N, j in (i + 1):N
+        @test norm(mfd.coords[0][i] - mfd.coords[0][j]) ≈ 1
+    end
+
+    for R in 0:D
+        # <https://en.wikipedia.org/wiki/Simplex#Volume>
+        vol = sqrt(S(R + 1) / 2^R) / factorial(R)
+        @test all(≈(vol), mfd.volumes[R])
+        @test all(>(0), mfd.dualvolumes[R])
+    end
+end

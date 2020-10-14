@@ -286,4 +286,78 @@ function refined_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     return mfd
 end
 
+################################################################################
+
+export boundary_manifold
+"""
+Boundar manifold
+"""
+function boundary_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
+    @assert D > 0
+    # Find boundary faces
+    B = mfd0.boundaries[D]::SparseOp{D - 1,D,Int8}
+    volume_weights = ones(Int8, nsimplices(mfd0, D))
+    keep_face = B.op * volume_weights
+    keep_face::Vector{Int8}
+    @assert all(x -> abs(x) ≤ 1, keep_face)
+    faces_old2new = zeros(Int, nsimplices(mfd0, D - 1))
+    faces_new2old = Int[]
+    for j in 1:nsimplices(mfd0, D - 1)
+        if keep_face[j] ≠ 0
+            push!(faces_new2old, j)
+            faces_old2new[j] = length(faces_new2old)
+        end
+    end
+    nfaces_new = length(faces_new2old)
+    # Find boundary vertices
+    F = mfd0.simplices[D - 1]::SparseOp{0,D - 1,One}
+    keep_vertex = falses(nsimplices(mfd0, 0))
+    for j in faces_new2old
+        for i in sparse_column_rows(F, j)
+            keep_vertex[i] = true
+        end
+    end
+    vertices_old2new = zeros(Int, nsimplices(mfd0, 0))
+    vertices_new2old = Int[]
+    for i in 1:nsimplices(mfd0, 0)
+        if keep_vertex[i]
+            push!(vertices_new2old, i)
+            vertices_old2new[i] = length(vertices_new2old)
+        end
+    end
+    nvertices_new = length(vertices_new2old)
+    # Define new manifold
+    name = "boundary $(mfd0.name)"
+    I = Int[]
+    J = Int[]
+    V = One[]
+    for jnew in 1:nfaces_new
+        jold = faces_new2old[jnew]
+        for iold in sparse_column_rows(F, jold)
+            inew = vertices_old2new[iold]
+            push!(I, inew)
+            push!(J, jnew)
+            push!(V, One())
+        end
+    end
+    simplices = SparseOp{0,D - 1,One}(sparse(I, J, V, nvertices_new,
+                                             nfaces_new))
+    coords = mfd0.coords[0][vertices_new2old]
+    weights = mfd0.weights[vertices_new2old]
+    mfd = Manifold(name, simplices, coords, weights)
+    return mfd
+end
+
+################################################################################
+
+export boundary_simplex_manifold
+"""
+Boundary simplex manifold
+"""
+function boundary_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
+    mfd0 = simplex_manifold(Val(D + 1), S)
+    mfd = boundary_manifold(mfd0)
+    return mfd
+end
+
 end

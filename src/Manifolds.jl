@@ -1045,6 +1045,72 @@ function calc_dualvolumes(::Val{BarycentricDuals}, ::Val{D}, ::Val{R},
             dualvolumes[i] = vol
         end
 
+    elseif R == D - 5
+        lookup_D_R = lookup[(D, R)]::SparseOp{D,R,One}
+        lookup_D1_D = lookup[(D - 1, D)]::SparseOp{D - 1,D,One}
+        lookup_R_D1 = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
+        lookup_D2_D1 = lookup[(D - 2, D - 1)]::SparseOp{D - 2,D - 1,One}
+        lookup_R_D2 = lookup[(R, D - 2)]::SparseOp{R,D - 2,One}
+        lookup_D3_D2 = lookup[(D - 3, D - 2)]::SparseOp{D - 3,D - 2,One}
+        lookup_R_D3 = lookup[(R, D - 3)]::SparseOp{R,D - 3,One}
+        lookup_D4_D3 = lookup[(D - 4, D - 3)]::SparseOp{D - 4,D - 3,One}
+        lookup_R_D4 = lookup[(R, D - 4)]::SparseOp{R,D - 4,One}
+        dualcoords_R = dualcoords[R]
+        dualcoords_D = dualcoords[D]
+        dualcoords_D1 = dualcoords[D - 1]
+        dualcoords_D2 = dualcoords[D - 2]
+        dualcoords_D3 = dualcoords[D - 3]
+        dualcoords_D4 = dualcoords[D - 4]
+
+        # Loop over all `R`-forms
+        @inbounds for i in 1:size(simplices, 2)
+            bci = dualcoords_R[i]
+
+            vol = S(0)
+            # Loop over all neighbouring `D`-forms
+            for j in sparse_column_rows(lookup_D_R, i)
+                bcj = dualcoords_D[j]
+
+                # Loop over all contained `D-1`-forms that contain `i`
+                for k in sparse_column_rows(lookup_D1_D, j)
+                    if i ∈ sparse_column_rows(lookup_R_D1, k)
+                        bck = dualcoords_D1[k]
+
+                        # Loop over all contained `D-2`-forms that contain `i`
+                        for l in sparse_column_rows(lookup_D2_D1, k)
+                            if i ∈ sparse_column_rows(lookup_R_D2, l)
+                                bcl = dualcoords_D2[l]
+
+                                # Loop over all contained `D-3`-forms
+                                # that contain `i`
+                                for m in sparse_column_rows(lookup_D3_D2, l)
+                                    if i ∈ sparse_column_rows(lookup_R_D3, m)
+                                        bcm = dualcoords_D3[m]
+
+                                        # Loop over all contained
+                                        # `D-4`-forms that contain `i`
+                                        for n in
+                                            sparse_column_rows(lookup_D4_D3, m)
+                                            if i ∈
+                                               sparse_column_rows(lookup_R_D4,
+                                                                  n)
+                                                bcn = dualcoords_D3[n]
+
+                                                vol += volume(SVector(bci, bcj,
+                                                                      bck, bcl,
+                                                                      bcm, bcn))
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            dualvolumes[i] = vol
+        end
+
     else
         @assert false
     end

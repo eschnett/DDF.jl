@@ -12,12 +12,14 @@ using Test
             hypercube_manifold(Val(D), S),
             delaunay_hypercube_manifold(Val(D), S),
             large_delaunay_hypercube_manifold(Val(D), S),
-            refined_simplex_manifold(Val(D), S)]
+            refined_simplex_manifold(Val(D), S),
+            boundary_simplex_manifold(Val(D), S)]
 
     for mfd in mfds
-        funs = Fun{D,P,R,D,S}[]
-        push!(funs, zero(Fun{D,P,R,D,S,S}, mfd))
-        e = id(Fun{D,P,0,D,S,SVector{D,S}}, mfd)
+        C = length(eltype(mfd.coords[0]))
+        funs = Fun{D,P,R,C,S}[]
+        push!(funs, zero(Fun{D,P,R,C,S,S}, mfd))
+        e = id(Fun{D,P,0,C,S,SVector{C,S}}, mfd)
         if R == 0
             push!(funs, e)
         end
@@ -40,7 +42,7 @@ using Test
             for f in funs
                 bf = b * f
                 T = eltype(f)
-                bf::Fun{D,P,R1,D,S,T}
+                bf::Fun{D,P,R1,C,S,T}
                 bf′ = boundary(f)
                 @test bf′ == bf
             end
@@ -62,7 +64,7 @@ using Test
             for f in funs
                 df = d * f
                 T = eltype(f)
-                df::Fun{D,P,R1,D,S,T}
+                df::Fun{D,P,R1,C,S,T}
                 df′ = deriv(f)
                 @test df′ == df
             end
@@ -94,7 +96,7 @@ using Test
             for f in funs
                 hf = h * f
                 T = eltype(f)
-                hf::Fun{D,!P,R,D,S,T}
+                hf::Fun{D,!P,R,C,S,T}
                 hf′ = ⋆f
                 @test hf′ == hf
             end
@@ -120,7 +122,7 @@ using Test
                 for f in funs
                     δf = δ * f
                     T = eltype(f)
-                    δf::Fun{D,P,R1,D,S,T}
+                    δf::Fun{D,P,R1,C,S,T}
                     δf′ = coderiv(f)
                     @test δf′ == δf
                 end
@@ -133,7 +135,7 @@ using Test
             for f in funs
                 Δf = Δ * f
                 T = eltype(f)
-                Δf::Fun{D,P,R,D,S,T}
+                Δf::Fun{D,P,R,C,S,T}
                 Δf′ = laplace(f)
                 @test Δf′ == Δf
             end
