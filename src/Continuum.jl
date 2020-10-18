@@ -102,7 +102,17 @@ function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
         bits = zero(SVector{D + 1,Bool})
         @assert length(sk) == D + 1
         for i′ in si
-            bits = Base.setindex(bits, true, findfirst(==(i′), sk))
+            # `findfirst` returns the key, i.e. the row number
+            # n = findfirst(==(i′), sk)
+            n = nothing
+            for (n′, k′) in enumerate(sk)
+                if k′ == i′
+                    n = n′
+                    break
+                end
+            end
+            @assert n ≢ nothing
+            bits = Base.setindex(bits, true, n)
         end
         @assert count(bits) == R + 1
         n = DifferentialForms.Forms.bit2lin(Val(D + 1), Val(R + 1), bits)

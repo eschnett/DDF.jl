@@ -17,6 +17,7 @@ function sparse_column(A::SparseMatrixCSC, col::Integer)
     return SparseMatrixCSCColumn(Val(:RowVal), A, col)
 end
 
+# TODO: write this as `keys(sparse_column(...))`
 export sparse_column_rows
 """
 All row indices of nonzero values for a column ∈ a sparse matrix
