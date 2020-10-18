@@ -80,6 +80,9 @@ scene = Scene()
 poly!(scene, coordinates, connectivity, color=color, strokecolor=(:black, 0.6),
       strokewidth=4)
 scale!(scene, 1, 1)
+
+# using Makie
+# Makie.save("simplex.png", scene; resolution=(350,300))
 ```
 
 ![Simplex manifold](simplex.png)
