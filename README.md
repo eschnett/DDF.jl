@@ -1,14 +1,88 @@
 # Discrete Differential Forms
 
-A Julia package.
+A Julia package for discretizing functions via finite elements.
 
 * [GitHub](https://github.com/eschnett/DDF.jl): Source code repository
 * [![GitHub CI](https://github.com/eschnett/DDF.jl/workflows/CI/badge.svg)](https://github.com/eschnett/DDF.jl/actions)
 
-Based on [FEEC](http://www-users.math.umn.edu/~arnold/), the Finite
-Element Exterior Calculus.
+## Overview
 
-- <https://fenicsproject.org/documentation/>.
+The `DDF` package discretizes functions on arbitrary domains. The
+domain is decomposed into simplices, and the function is represented
+via a basis in each simplex. This is a form of a Finite Element
+discretization. For example, a scalar function in two dimensions might
+be represented via its values at the vertices. In between the vertices
+it might be defined via linear interpolation.
+
+The `DDF` package is based on
+[FEEC](http://www-users.math.umn.edu/~arnold/), the Finite Element
+Exterior Calculus. FEEC bears a certain similarity to
+[DEC](https://en.wikipedia.org/wiki/Discrete_exterior_calculus), the
+Discrete Exterior Calculus.
+
+The design goals of the `DDF` package are:
+- supports unstructured meshes (e.g. simplices)
+- works in arbitrary dimensions
+- supports higher order accurate discretizations
+- is efficient enough for parallel/distributed calculations with large
+  meshes with billions of elements
+- is flexible and relatively easy to use so that it is useful for
+  experimental mathematics
+
+The `DDF` package is currently (2020-10-17) work in progress.
+Functionality is missing, and the current API is too tedious (too many
+details need to be specified explicitly).
+
+## Examples
+
+Define a 2d manifold with `Float64` coordinates that consists of a
+single simplex:
+```Julia
+using DDF
+D = 2
+mfd = simplex_manifold(Val(D), Float64)
+mfd = refined_manifold(mfd);
+mfd = refined_manifold(mfd);
+```
+
+Calculate the gradient operator for the primal mesh:
+```Julia
+grad = deriv(Val(Pr), Val(0), mfd)
+```
+
+Calculate the hodge dual operator for scalars on the primal mesh:
+```Julia
+h = hodge(Val(Pr), Val(0), mfd)
+```
+
+Define a scalar function living on the primal vertices:
+```Julia
+using DifferentialForms
+f(x) = Form{D,0}((sin(x[1]) * cos(x[2]), ))
+f̃ = sample(Fun{D,Pr,0,D,Float64,Float64}, f, mfd)
+```
+
+Plot the scalar function:
+```Julia
+using AbstractPlotting
+using GLMakie
+using StaticArrays
+
+coordinates = [mfd.coords[0][i][d] for i in 1:nsimplices(mfd, 0), d in 1:D]
+connectivity = [SVector{D + 1}(i
+                               for i in sparse_column_rows(mfd.simplices[D], j))
+                for j in 1:size(mfd.simplices[D], 2)];
+connectivity = [connectivity[i][n]
+                for i in 1:nsimplices(mfd, D), n in 1:(D + 1)]
+color = f̃.values;
+
+scene = Scene()
+poly!(scene, coordinates, connectivity, color=color, strokecolor=(:black, 0.6),
+      strokewidth=4)
+scale!(scene, 1, 1)
+```
+
+## Literature and Related Work
 
 - Douglas N. Arnold, Richard S. Falk, and Ragnar Winther, "Finite
   element exterior calculus, homological techniques, and
@@ -19,6 +93,11 @@ Element Exterior Calculus.
   exterior calculus: from Hodge theory to numerical stability",
   [arXiv:0906.4325 [math.NA]](https://arxiv.org/abs/0906.4325).
 
+- <https://fenicsproject.org/documentation/>.
+
+- Anil N. Hirani, "Discrete Exterior Calculus", PhD thesis,
+  <http://www.cs.jhu.edu/~misha/Fall09/Hirani03.pdf>.
+
 - Nathan Bell, Anil N. Hirani, "PyDEC: Software and Algorithms for
   Discretization of Exterior Calculus",
   [arXiv:1103.3076](https://arxiv.org/abs/1103.3076),
@@ -26,41 +105,3 @@ Element Exterior Calculus.
 
 - Sharif Elcott, Peter Schröder, "Building your own DEC at home",
   <https://doi.org/10.1145/1198555.1198667>.
-
-- G. Westendorp, "A formula for the N-circumsphere of an N-simplex",
-  <https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm>,
-  April 2013.
-
-- Gerard Westendorp, "Space-time triangles",
-  <https://westy31.home.xs4all.nl/SpaceTimeTriangles/Space_Time_Triangles.html>.
-
-- Charles G. Gunn, "Course notes: Geometric Algebra for Computer
-  Graphics", SIGGRAPH 2019,
-  <https://bivector.net/PROJECTIVE_GEOMETRIC_ALGEBRA.pdf>.
-
-- <https://cseweb.ucsd.edu/classes/fa17/cse252A-a/lec4.pdf>.
-
-- Anil N. Hirani, Kaushik Kalyanaraman, Evan B. VanderZee, "Delaunay
-  Hodge Star", [arXiv:1204.0747v4
-  [cs.CG]](https://arxiv.org/abs/1204.0747): Delaunay hodge,
-  conditions for well-centred meshes.
-
-- MAYBE: Anil N. Hirani, "Discrete Exterior Calculus", PhD thesis.
-
-- Volker Springel, "E pur si muove: Galiliean-invariant cosmological
-  hydrodynamical simulations on a moving mesh", [arXiv:0901.4107
-  [astro-ph.CO]](https://arxiv.org/abs/0901.4107).
-
-- Michael Reed, "Differential geometric algebra with Leibniz and
-  Grassmann", Proceedings of JuliaCon 2019,
-  <https://crucialflow.com/grassmann-juliacon-2019.pdf>.
-
-
-
-- WriteVTK.jl
-
-
-
-[Glitter](<https://en.wikipedia.org/wiki/Glitter>)
-
-... and [Glitterati](https://songmeanings.com/songs/view/2890/).

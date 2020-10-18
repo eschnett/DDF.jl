@@ -72,18 +72,18 @@ B = [B0.values N01.values; N10.values N1.values];
 @assert B * B == B
 c = [u₀.values; n1.values];
 
-A′ = (E - B) * A + B
-b′ = (E - B) * b + B * c
+A′ = (E - B) * A + B;
+b′ = (E - B) * b + B * c;
 
-x = A′ \ b′
+x = A′ \ b′;
 
 u = Fun{D,Pr,0,D,S,T}(mfd, @view x[1:nsimplices(mfd, 0)])
 f = Fun{D,Pr,1,D,S,T}(mfd, @view x[(nsimplices(mfd, 0) + 1):end])
 
-norm((E0-B0) * (laplace(u) - ρ), Inf)
+norm((E0 - B0) * (laplace(u) - ρ), Inf)
 norm(B0 * u - u₀, Inf)
 
-err = (E0-B0) * (laplace(u) - ρ) + B0 * u - u₀;
+err = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀;
 
 ################################################################################
 
