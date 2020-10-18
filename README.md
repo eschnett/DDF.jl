@@ -82,6 +82,8 @@ poly!(scene, coordinates, connectivity, color=color, strokecolor=(:black, 0.6),
 scale!(scene, 1, 1)
 ```
 
+![Simplex manifold](simplex.png)
+
 ## Literature and Related Work
 
 - Douglas N. Arnold, Richard S. Falk, and Ragnar Winther, "Finite
