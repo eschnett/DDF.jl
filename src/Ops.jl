@@ -119,7 +119,7 @@ Base.length(A::Op) = length(A.values)
 #     @assert all(A.manifold == B.manifold for B ∈ Bs)
 #     return Fun{D,R}(A.manifold, map(op, A.values, (B.values for B ∈ Bs)...))
 # end
-function Base.map(fop, A::Op{D,P1,R1,P2,R2},
+function Base.map(op, A::Op{D,P1,R1,P2,R2},
                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
     @assert all(B.manifold == A.manifold for B in Bs)
     U = typeof(op(zero(eltype(A)), (zero(eltype(B)) for B in Bs)...))

@@ -1,6 +1,6 @@
 module Funs
 
-using DifferentialForms: Forms
+using DifferentialForms: Forms, unit
 using LinearAlgebra
 using SparseArrays
 using StaticArrays
@@ -129,11 +129,13 @@ function Base.zero(::Type{Fun{D,P,R,C,S,T}},
     nelts = nsimplices(manifold, R)
     return Fun{D,P,R}(manifold, zeros(T, nelts))
 end
+Base.zero(f::Fun) = zero(typeof(f), f.manifold)
 Base.iszero(f::Fun) = iszero(f.values)
 
 LinearAlgebra.norm(f::Fun) = norm(f.values)
 LinearAlgebra.norm(f::Fun, p::Real) = norm(f.values, p)
 
+export unit
 function Forms.unit(::Type{Fun{D,P,R,C,S,T}}, manifold::Manifold{D,C,S},
                     n::Int) where {D,P,R,C,S,T}
     nelts = nsimplices(manifold, R)
@@ -175,6 +177,10 @@ end
 function Base.:/(f::Fun{D,P,R,C,S}, a::Number) where {D,P,R,C,S}
     return Fun{D,P,R,C,S}(f.manifold, f.values / a)
 end
+
+Base.:~(f::Fun) = map(~, f)
+Base.:&(f::Fun, g::Fun) = map(&, f, g)
+Base.:|(f::Fun, g::Fun) = map(|, f, g)
 
 # Functions are a category
 

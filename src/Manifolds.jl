@@ -25,7 +25,8 @@ Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 export DualKind, BarycentricDuals, CircumcentricDuals
 @enum DualKind BarycentricDuals CircumcentricDuals
 
-const dualkind = BarycentricDuals
+# const dualkind = BarycentricDuals
+const dualkind = CircumcentricDuals
 
 # Weighted duals need to be circumcentric duals
 const use_weighted_duals = false
@@ -415,9 +416,15 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     elseif dualkind == CircumcentricDuals
         dualvolumes[D] = fill(S(1), nsimplices)
         for R in (D - 1):-1:0
-            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
-                                              simplices, lookup, coords[0],
-                                              dualcoords)
+            # dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
+            #                                   simplices, lookup, coords[0],
+            #                                   dualcoords)
+            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D),
+                                              simplices[R], simplices[R + 1],
+                                              lookup[(R + 1, R)], coords[0],
+                                              volumes[R], dualcoords[R],
+                                              dualcoords[R + 1],
+                                              dualvolumes[R + 1])
         end
     else
         @assert false
@@ -853,6 +860,25 @@ function calc_dualcoords(::Val{BarycentricDuals}, simplices::SparseOp{0,D,One},
 end
 
 """
+Calculate circumcentric dual coordinates
+"""
+function calc_dualcoords(::Val{CircumcentricDuals},
+                         simplices::SparseOp{0,D,One},
+                         coords::Vector{SVector{C,Sc}}) where {D,C,Sc}
+    nvertices, nsimplices = size(simplices)
+    @assert length(coords) == nvertices
+    D == 0 && return coords
+    dualcoords = Array{SVector{C,Sc}}(undef, nsimplices)
+    @inbounds for i in 1:nsimplices
+        si = SVector{D + 1,Int}(sparse_column_rows(simplices, i)[n]
+                                for n in 1:(D + 1))
+        xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
+        dualcoords[i] = circumcentre(xs)
+    end
+    return dualcoords
+end
+
+"""
 Calculate weighted circumcentric dual coordinates
 """
 function calc_dualcoords(::Val{CircumcentricDuals},
@@ -1183,7 +1209,7 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
             ysj = map(y -> y - xsj[1], deleteat(xsj, 1))   # R+1
             @assert !isempty(ysj)
             ni = ∧(ysj) ⋅ ∧(ysi)   # 1
-            ni::Form{D,1,Sc}
+            ni::Form{C,1,Sc}
             qsi = map(y -> norm(ni ⋅ y) < 10 * eps(S), ysi)
             @assert all(qsi)
             lni = norm(ni)
@@ -1191,10 +1217,10 @@ function calc_dualvolumes_cost(::Val{CircumcentricDuals}, ::Val{D},
             nni = ni / lni
 
             s0 = (bcj - xsi[1]) ⋅ nni
-            s0::Form{D,0,Sc}
+            s0::Form{C,0,Sc}
             s = bitsign(signbit(s0[]))
             h0 = (ccj - cci) ⋅ nni
-            h0::Form{D,0,Sd}
+            h0::Form{C,0,Sd}
             h = s * h0[]
 
             b = dualvolumes1[j]

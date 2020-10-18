@@ -56,8 +56,10 @@ end
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    for R in 0:D
-        @test all(>(0), mfd.dualvolumes[R])
+    if Manifolds.dualkind ≠ CircumcentricDuals
+        for R in 0:D
+            @test all(>(0), mfd.dualvolumes[R])
+        end
     end
 
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
@@ -76,8 +78,10 @@ end
     @test nsimplices(mfd, D) == factorial(D)
     # TODO: Find rule for other dimensions
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    for R in 0:D
-        @test all(>(0), mfd.dualvolumes[R])
+    if Manifolds.dualkind ≠ CircumcentricDuals
+        for R in 0:D
+            @test all(>(0), mfd.dualvolumes[R])
+        end
     end
 
     vol = 1
@@ -93,8 +97,10 @@ end
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == 2^D
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    for R in 0:D
-        @test all(>(0), mfd.dualvolumes[R])
+    if Manifolds.dualkind ≠ CircumcentricDuals
+        for R in 0:D
+            @test all(>(0), mfd.dualvolumes[R])
+        end
     end
 
     vol = 1
@@ -111,8 +117,10 @@ end
     n = D == 0 ? 1 : round(Int, nsimplices(mfd, 0)^(1 / D)) - 1
     @test nsimplices(mfd, 0) == (n + 1)^D
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    for R in 0:D
-        @test all(>(0), mfd.dualvolumes[R])
+    if Manifolds.dualkind ≠ CircumcentricDuals
+        for R in 0:D
+            @test all(>(0), mfd.dualvolumes[R])
+        end
     end
 
     vol = 1
@@ -136,7 +144,9 @@ end
             vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
             @test all(≈(vol), mfd.volumes[R])
         end
-        @test all(>(0), mfd.dualvolumes[R])
+        if Manifolds.dualkind ≠ CircumcentricDuals || D ≤ 2
+            @test all(>(0), mfd.dualvolumes[R])
+        end
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
