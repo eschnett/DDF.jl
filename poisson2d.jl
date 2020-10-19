@@ -87,6 +87,23 @@ err = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀;
 
 ################################################################################
 
+using WriteVTK
+
+points = [mfd.coords[0][i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
+cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [i
+                             for i in sparse_column_rows(mfd.simplices[D], j)])
+                for j in 1:size(mfd.simplices[D], 2)]
+vtkfile = vtk_grid("triangle.vtu", points, cells)
+
+vtkfile["∂0", VTKPointData()] = Int8.(∂0.values)
+vtkfile["ρ", VTKPointData()] = ρ.values
+vtkfile["u", VTKPointData()] = u.values
+vtkfile["err", VTKPointData()] = err.values
+
+vtk_save(vtkfile)
+
+################################################################################
+
 using AbstractPlotting
 using GLMakie
 using StaticArrays
@@ -99,10 +116,13 @@ connectivity = [connectivity[i][n]
                 for i in 1:nsimplices(mfd, D), n in 1:(D + 1)]
 # color = ∂0.values
 # color = ρ.values
-# color = u.values
-color = err.values
+color = u.values
+# color = err.values
 
 scene = Scene()
 poly!(scene, coordinates, connectivity, color=color, strokecolor=(:black, 0.6),
       strokewidth=4)
 scale!(scene, 1, 1)
+
+using Makie
+Makie.save("triangle.png", scene; resolution=(700, 400))
