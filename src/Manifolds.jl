@@ -29,7 +29,7 @@ export DualKind, BarycentricDuals, CircumcentricDuals
 const dualkind = CircumcentricDuals
 
 # Weighted duals need to be circumcentric duals
-const use_weighted_duals = false
+const use_weighted_duals = true
 
 ################################################################################
 
@@ -416,9 +416,6 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     elseif dualkind == CircumcentricDuals
         dualvolumes[D] = fill(S(1), nsimplices)
         for R in (D - 1):-1:0
-            # dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
-            #                                   simplices, lookup, coords[0],
-            #                                   dualcoords)
             dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D),
                                               simplices[R], simplices[R + 1],
                                               lookup[(R + 1, R)], coords[0],
