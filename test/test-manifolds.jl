@@ -56,7 +56,8 @@ end
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind ≠ CircumcentricDuals
+    if Manifolds.dualkind == BarycentricDuals ||
+       (D ≤ 2 && Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
         for R in 0:D
             @test all(>(0), mfd.dualvolumes[R])
         end
@@ -78,7 +79,8 @@ end
     @test nsimplices(mfd, D) == factorial(D)
     # TODO: Find rule for other dimensions
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind ≠ CircumcentricDuals
+    if Manifolds.dualkind == BarycentricDuals ||
+       (Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
         for R in 0:D
             @test all(>(0), mfd.dualvolumes[R])
         end
@@ -97,7 +99,8 @@ end
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == 2^D
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind ≠ CircumcentricDuals
+    if Manifolds.dualkind == BarycentricDuals ||
+       (D ≤ 3 && Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
         for R in 0:D
             @test all(>(0), mfd.dualvolumes[R])
         end
@@ -117,7 +120,8 @@ end
     n = D == 0 ? 1 : round(Int, nsimplices(mfd, 0)^(1 / D)) - 1
     @test nsimplices(mfd, 0) == (n + 1)^D
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind ≠ CircumcentricDuals
+    if Manifolds.dualkind == BarycentricDuals ||
+       (D ≤ 1 && Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
         for R in 0:D
             @test all(>(0), mfd.dualvolumes[R])
         end
@@ -144,7 +148,9 @@ end
             vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
             @test all(≈(vol), mfd.volumes[R])
         end
-        if Manifolds.dualkind ≠ CircumcentricDuals || D ≤ 2
+        if Manifolds.dualkind == BarycentricDuals || (D ≤ 4 &&
+            Manifolds.dualkind == CircumcentricDuals &&
+            use_weighted_duals)
             @test all(>(0), mfd.dualvolumes[R])
         end
     end

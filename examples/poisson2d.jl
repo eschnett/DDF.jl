@@ -23,6 +23,22 @@ mfd = mfd2;
 # δ f == ρ
 # B f == 0
 
+# Can we rewrite this without δ or ⋆?
+
+# DA: need to remove harmonic forms from f: P(1-H) f. only for strong
+# form?
+
+# DA: R[u]=0: von Neumann bc
+#     R[u]=D-1: Dirichlet bc
+
+# DA: mixed weak formulations have no hodge dual
+#     magnetic bc: R=1   (or R=2?)
+#     electric bc: R=2   (or R=1?)
+
+# DA: Hodge Laplacian is always well posed! choose complexes (and
+# respective basis functions), then solve in the discrete with the
+# same mixed weak formulation.
+
 ρ = unit(Fun{D,Pr,0,D,S,T}, mfd, nsimplices(mfd, 0));
 u₀ = zero(Fun{D,Pr,0,D,S,T}, mfd);
 
@@ -90,9 +106,9 @@ err = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀;
 using WriteVTK
 
 points = [mfd.coords[0][i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
-cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [i
-                             for i in sparse_column_rows(mfd.simplices[D], j)])
-                for j in 1:size(mfd.simplices[D], 2)]
+cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE,
+                  [i for i in sparse_column_rows(mfd.simplices[D], j)])
+         for j in 1:size(mfd.simplices[D], 2)]
 vtkfile = vtk_grid("triangle.vtu", points, cells)
 
 vtkfile["∂0", VTKPointData()] = Int8.(∂0.values)

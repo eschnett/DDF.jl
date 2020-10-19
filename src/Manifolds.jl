@@ -15,6 +15,29 @@ using ..ZeroOrOne
 
 ################################################################################
 
+function cartesian2barycentric(s::SMatrix{N,D,T}, p::SVector{D,T}) where {N,D,T}
+    if !(N ≥ D + 1)
+        @show N D
+    end
+    @assert N ≥ D + 1
+    # Algorithm as described on
+    # <https://en.wikipedia.org/wiki/Barycentric_coordinate_system>,
+    # section "Conversion between barycentric and Cartesian
+    # coordinates"
+    A = SMatrix{D + 1,N}(i == D + 1 ? T(1) : s[j, i]
+                         for i in 1:(D + 1), j in 1:N)
+    b = SVector{D + 1}(p..., T(1))
+    return A \ b
+end
+
+function cartesian2barycentric(s::SVector{N,SVector{D,T}},
+                               p::SVector{D,T}) where {D,N,T}
+    return cartesian2barycentric(SMatrix{N,D,T}(s[i][j] for i in 1:N, j in 1:D),
+                                 p)
+end
+
+################################################################################
+
 export PrimalDual, Pr, Dl
 @enum PrimalDual::Bool Pr Dl
 
@@ -29,6 +52,7 @@ export DualKind, BarycentricDuals, CircumcentricDuals
 const dualkind = CircumcentricDuals
 
 # Weighted duals need to be circumcentric duals
+export use_weighted_duals
 const use_weighted_duals = true
 
 ################################################################################
@@ -355,8 +379,55 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     if use_weighted_duals
         @assert dualkind == CircumcentricDuals
         # Optimize weights
-        weights = optimize_weights(Val(dualkind), Val(D), simplices, lookup,
-                                   coords[0], volumes, weights)
+        if false
+            weights = optimize_weights(Val(dualkind), Val(D), simplices, lookup,
+                                       coords[0], volumes, weights)
+        elseif false
+            weights = optimize_weights_directly(Val(dualkind), Val(D),
+                                                simplices, coords[0], weights)
+        else
+            # Calculate mask for boundary vertices (which must not be moved)
+            if D > 0
+                boundary_faces = zeros(Int8, size(boundaries[D], 1))
+                for j in 1:size(boundaries[D], 2)
+                    for (i, s) in sparse_column(boundaries[D], j)
+                        boundary_faces[i] += s
+                    end
+                end
+                # This might indicate a severe bug; shouldn't faces have
+                # opposite orientations when viewed from two neighbouring
+                # simplices?
+                # @assert all(s -> -1 ≤ s ≤ 1, boundary_faces)
+                @assert all(s -> -2 ≤ s ≤ 2, boundary_faces)
+                movable = ones(Bool, length(coords[0]))
+                @assert length(boundary_faces) == size(simplices[D - 1], 2)
+                for j in 1:size(simplices[D - 1], 2)
+                    if isodd(boundary_faces[j])
+                        for i in sparse_column_rows(simplices[D - 1], j)
+                            movable[i] = false
+                        end
+                    end
+                end
+            else
+                movable = zeros(Bool, length(coords[0]))
+            end
+            movable::Vector{Bool}
+            coords0, weights = optimize_coords_weights_directly(Val(dualkind),
+                                                                Val(D),
+                                                                simplices,
+                                                                coords[0],
+                                                                movable,
+                                                                weights)
+            # Re-calculate coordinates and volumes
+            coords = Dict{Int,Vector{SVector{C,S}}}()
+            volumes = Dict{Int,Vector{S}}()
+            for R in 0:D
+                # TODO: Combine these two calculations
+                coords[R] = calc_coords(simplices[R], coords0)
+                volumes[R] = calc_volumes(simplices[R], coords0)
+                @assert all(x -> x != 0 && isfinite(x), volumes[R])
+            end
+        end
 
         if false
             # Optimize vertices
@@ -629,6 +700,80 @@ function optimize_weights(::Val{dualkind}, ::Val{D}, simplices::OpDict{Int,One},
 
     # @show "optimize_weights.9" D C
     return weights
+end
+
+function optimize_coords_weights_directly(::Val{CircumcentricDuals}, ::Val{D},
+                                          simplices::OpDict{Int,One},
+                                          coords::Vector{SVector{C,S}},
+                                          movable::Vector{Bool},
+                                          weights::Vector{S}) where {D,C,S}
+    D::Int
+    C::Int
+    @assert 0 ≤ D ≤ C
+
+    α = S(1) / 2D
+    for iter in 1:100
+        new_coords = copy(coords)
+        new_weights = copy(weights)
+        for R in 1:D
+            new_cs, new_ws = optimize_coords_weights_directly(Val(CircumcentricDuals),
+                                                              Val(D),
+                                                              simplices[R],
+                                                              coords, weights)
+            for i in 1:length(new_coords)
+                # TODO: Use a matrix instead of `movable`
+                if movable[i]
+                    new_coords[i] += α * new_cs[i]
+                end
+            end
+            new_weights .+= α * new_ws
+        end
+        new_weights .-= sum(new_weights) / length(new_weights)
+        if !(sum(new_weights) + 1 ≈ 1)
+            @show maximum(abs.(new_weights)) sum(new_weights)
+        end
+        @assert sum(new_weights) + 1 ≈ 1
+        coords = new_coords
+        weights = new_weights
+    end
+
+    return coords, weights
+end
+
+function optimize_coords_weights_directly(::Val{CircumcentricDuals}, ::Val{D},
+                                          simplices::SparseOp{0,R,One},
+                                          coords::Vector{SVector{C,S}},
+                                          weights::Vector{S}) where {D,R,C,S}
+    D::Int
+    C::Int
+    @assert 0 ≤ D ≤ C
+
+    new_coords = zeros(SVector{C,S}, length(coords))
+    new_weights = zeros(S, length(weights))
+    count = 0
+    for j in 1:size(simplices, 2)
+        si = sparse_column_rows(simplices, j)
+        si = SVector{R + 1}(i for i in si)
+        xs = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
+        ws = SVector{R + 1}(Form{C,0}((weights[i],)) for i in si)
+
+        bc = barycentre(xs)
+        cc = circumcentre(xs, ws)
+
+        for n in 1:(R + 1)
+            i = si[n]
+            β = ((xs[n] - bc) ⋅ (cc - bc))[]
+            new_coords[i] -= β / norm2(xs[n] - bc) *
+                             convert(SVector, xs[n] - bc)
+            new_weights[i] += β
+        end
+        count += 1
+    end
+    α = length(new_weights) / (S(R + 1) * count)
+    new_coords .*= α
+    new_weights .*= α
+
+    return new_coords, new_weights
 end
 
 """
