@@ -18,7 +18,7 @@ The empty manifold
 """
 function empty_manifold(::Val{D}, ::Type{S}) where {D,S}
     return Manifold("empty manifold", zero(SparseOp{0,D,One}, 0, 0),
-                    zeros(SVector{D,S}, 0))
+                    zeros(SVector{D,S}, 0), zeros(S, 0))
 end
 
 ################################################################################
@@ -30,6 +30,7 @@ Manifold with one standard simplex
 function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     nvertices = D + 1
     coords = regular_simplex(Val(D), S)
+    weights = fill(S(0), length(coords))
     I = Int[]
     J = Int[]
     V = One[]
@@ -39,7 +40,7 @@ function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
         push!(V, One())
     end
     simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, 1))
-    return Manifold("simplex manifold", simplices, coords)
+    return Manifold("simplex manifold", simplices, coords, weights)
 end
 
 """
@@ -84,7 +85,8 @@ Manifold with one orthogonal simplex
 """
 function orthogonal_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     N = D + 1
-    coords = orthogonal_simplex(Val(D), S)
+    coords, weights = orthogonal_simplex(Val(D), S)
+    weights = fill(S(0), length(coords))
     I = Int[]
     J = Int[]
     V = One[]
@@ -94,7 +96,7 @@ function orthogonal_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
         push!(V, One())
     end
     simplices = SparseOp{0,D,One}(sparse(I, J, V, N, 1))
-    return Manifold("orthogonal simplex manifold", simplices, coords)
+    return Manifold("orthogonal simplex manifold", simplices, coords, weights)
 end
 
 """
@@ -104,10 +106,15 @@ edge lengths 1.
 function orthogonal_simplex(::Val{D}, ::Type{S}) where {D,S}
     @assert D ≥ 0
     s = zeros(SVector{D,S}, D + 1)
+    w = zeros(S, D + 1)
+    w[1] = Dict(0 => 0, 1 => 0, 2 => -S(1) / 2,
+                # 2 => -S(1) / 8,
+                3 => -S(1) / 2, 4 => -S(2) / 3, 5 => -S(2) / 3)[D]
+    w[1] = -1 + S(1) / D
     for d in 1:D
         s[d + 1] = setindex(zero(SVector{D,S}), 1, d)
     end
-    return s
+    return s, w
 end
 
 ################################################################################
@@ -137,6 +144,7 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     end
     nvertices = length(coords)
     @assert nvertices == 2^D
+    weights = zeros(S, nvertices)
 
     I = Int[]
     J = Int[]
@@ -150,7 +158,7 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     end
     simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, nsimplices))
 
-    return Manifold("hypercube manifold", simplices, coords)
+    return Manifold("hypercube manifold", simplices, coords, weights)
 end
 
 """
@@ -207,10 +215,11 @@ function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     end
     nvertices = length(coords)
     @assert nvertices == 2^D
+    weights = fill(S(0), length(coords))
 
     simplices = SparseOp{0,D,One}(delaunay_mesh(coords))
 
-    return Manifold("delaunay hypercube manifold", simplices, coords)
+    return Manifold("delaunay hypercube manifold", simplices, coords, weights)
 end
 
 ################################################################################
@@ -241,11 +250,13 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     end
     nvertices = length(coords)
     @assert nvertices == (n + 1)^D
+    weights = fill(S(0), length(coords))
 
     simplices = delaunay_mesh(coords)
     simplices = SparseOp{0,D,One}(simplices)
 
-    return Manifold("large delaunay hypercube manifold", simplices, coords)
+    return Manifold("large delaunay hypercube manifold", simplices, coords,
+                    weights)
 end
 
 ################################################################################
@@ -257,8 +268,9 @@ Refined manifold
 function refined_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
     D == 0 && return mfd0
     coords = refine_coords(mfd0.lookup[(0, 1)], mfd0.coords[0])
+    weights = fill(S(0), length(coords))
     simplices = SparseOp{0,D}(delaunay_mesh(coords))
-    mfd = Manifold("refined $(mfd0.name)", simplices, coords)
+    mfd = Manifold("refined $(mfd0.name)", simplices, coords, weights)
     return mfd
 end
 
@@ -331,7 +343,8 @@ function boundary_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
     simplices = SparseOp{0,D - 1,One}(sparse(I, J, V, nvertices_new,
                                              nfaces_new))
     coords = mfd0.coords[0][vertices_new2old]
-    mfd = Manifold(name, simplices, coords)
+    weights = mfd0.weights[vertices_new2old]
+    mfd = Manifold(name, simplices, coords, weights)
     return mfd
 end
 

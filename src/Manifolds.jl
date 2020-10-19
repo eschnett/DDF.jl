@@ -281,7 +281,8 @@ end
 # Outer constructor
 
 function Manifold(name::String, simplicesD::SparseOp{0,D,One},
-                  coords0::Vector{SVector{C,S}}) where {D,C,S}
+                  coords0::Vector{SVector{C,S}},
+                  weights::Vector{S}) where {D,C,S}
     @assert 0 ≤ D ≤ C
 
     nvertices, nsimplices = size(simplicesD)
@@ -351,7 +352,6 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         @assert all(x -> x != 0 && isfinite(x), volumes[R])
     end
 
-    weights = zeros(S, length(coords[0]))
     if use_weighted_duals
         @assert dualkind == CircumcentricDuals
         # Optimize weights
