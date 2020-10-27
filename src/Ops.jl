@@ -12,21 +12,21 @@ using ..Manifolds
 export Op
 struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
     manifold::Manifold{D}
-    values::Union{AbstractMatrix{T},UniformScaling{T}}
+    # values::Union{AbstractMatrix{T},UniformScaling{T}}
+    values::AbstractMatrix{T}
 
     function Op{D,P1,R1,P2,R2,T}(manifold::Manifold{D},
-                                 values::Union{AbstractMatrix{T},
-                                               UniformScaling{T}}) where {D,P1,
-                                                                          R1,P2,
-                                                                          R2,T}
+                                 # values::Union{AbstractMatrix{T},UniformScaling{T}}
+                                 values::AbstractMatrix{T}) where {D,P1,R1,P2,
+                                                                   R2,T}
         op = new{D,P1,R1,P2,R2,T}(manifold, dnz(values))
         @assert invariant(op)
         return op
     end
     function Op{D,P1,R1,P2,R2}(manifold::Manifold{D},
-                               values::Union{AbstractMatrix{T},
-                                             UniformScaling{T}}) where {D,P1,R1,
-                                                                        P2,R2,T}
+                               # values::Union{AbstractMatrix{T},UniformScaling{T}}
+                               values::AbstractMatrix{T}) where {D,P1,R1,P2,R2,
+                                                                 T}
         return Op{D,P1,R1,P2,R2,T}(manifold, values)
     end
 end
@@ -72,10 +72,10 @@ function Defs.invariant(op::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     P2::PrimalDual
     R2::Int
     @assert 0 ≤ R2 ≤ D
-    if !(op.values isa UniformScaling)
-        @assert size(op.values) ==
-                (nsimplices(op.manifold, R1), nsimplices(op.manifold, R2))
-    end
+    # if !(op.values isa UniformScaling)
+    @assert size(op.values) ==
+            (nsimplices(op.manifold, R1), nsimplices(op.manifold, R2))
+    # end
     return true
 end
 
@@ -207,12 +207,16 @@ end
 
 # Operators are a ring
 
-function Base.one(::Type{Op{D,R,P,R,P}}, manifold::Manifold{D}) where {D,R,P}
-    return Op{D,R,P,R,P}(manifold, I)
+function Base.one(::Type{Op{D,P,R,P,R}}, manifold::Manifold{D}) where {D,P,R}
+    # return Op{D,P,R,P,R}(manifold, I)
+    nrows = nsimplices(manifold, R)
+    return Op{D,P,R,P,R}(manifold, Diagonal(ones(nrows)))
 end
-function Base.one(::Type{Op{D,R,P,R,P,T}},
-                  manifold::Manifold{D}) where {D,R,P,T}
-    return Op{D,R,P,R,P}(manifold, one(T) * I)
+function Base.one(::Type{Op{D,P,R,P,R,T}},
+                  manifold::Manifold{D}) where {D,P,R,T}
+    # return Op{D,P,R,P,R}(manifold, one(T) * I)
+    nrows = nsimplices(manifold, R)
+    return Op{D,P,R,P,R}(manifold, Diagonal(ones(T, nrows)))
 end
 Base.one(A::Op) = one(typeof(A), A.manifold)
 Base.isone(A::Op{D,P,R,P,R}) where {D,P,R} = A.values == I
