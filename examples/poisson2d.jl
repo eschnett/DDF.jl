@@ -12,7 +12,8 @@ T = Float64
 mfd0 = simplex_manifold(Val(D), S);
 mfd1 = refined_manifold(mfd0);
 mfd2 = refined_manifold(mfd1);
-mfd = mfd2;
+mfd3 = refined_manifold(mfd2);
+mfd = mfd3;
 
 ################################################################################
 
@@ -36,8 +37,16 @@ mfd = mfd2;
 #     electric bc: R=2   (or R=1?)
 
 # DA: Hodge Laplacian is always well posed! choose complexes (and
-# respective basis functions), then solve in the discrete with the
-# same mixed weak formulation.
+#     respective basis functions), then solve in the discrete with the
+#     same mixed weak formulation.
+
+# DA: trace is projection onto boundary; trace maps D-dim form onto
+#     (D-1)-dim form
+
+# DA: 0-forms: naturally piecewise continuous (FE), polynomial
+#     D-forms: naturally piecewise discontinuous (DG), polynomial
+#     - DOFs need to be located on either of vertices, edges, faces, etc.
+#     - must be unisolvent (be a basis?)
 
 ρ = unit(Fun{D,Pr,0,D,S,T}, mfd, nsimplices(mfd, 0));
 u₀ = zero(Fun{D,Pr,0,D,S,T}, mfd);
@@ -101,6 +110,9 @@ norm(B0 * u - u₀, Inf)
 
 err = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀;
 
+# Can plot ∂0, ρ, u, err
+plot_function(u, "poisson2d.png")
+
 ################################################################################
 
 using WriteVTK
@@ -109,7 +121,7 @@ points = [mfd.coords[0][i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE,
                   [i for i in sparse_column_rows(mfd.simplices[D], j)])
          for j in 1:size(mfd.simplices[D], 2)]
-vtkfile = vtk_grid("triangle.vtu", points, cells)
+vtkfile = vtk_grid("poisson2d.vtu", points, cells)
 
 vtkfile["∂0", VTKPointData()] = Int8.(∂0.values)
 vtkfile["ρ", VTKPointData()] = ρ.values
@@ -120,25 +132,4 @@ vtk_save(vtkfile)
 
 ################################################################################
 
-using AbstractPlotting
-using GLMakie
-using StaticArrays
-
-coordinates = [mfd.coords[0][i][d] for i in 1:nsimplices(mfd, 0), d in 1:D]
-connectivity = [SVector{D + 1}(i
-                               for i in sparse_column_rows(mfd.simplices[D], j))
-                for j in 1:size(mfd.simplices[D], 2)]
-connectivity = [connectivity[i][n]
-                for i in 1:nsimplices(mfd, D), n in 1:(D + 1)]
-# color = ∂0.values
-# color = ρ.values
-color = u.values
-# color = err.values
-
-scene = Scene()
-poly!(scene, coordinates, connectivity, color=color, strokecolor=(:black, 0.6),
-      strokewidth=4)
-scale!(scene, 1, 1)
-
-using Makie
-Makie.save("triangle.png", scene; resolution=(700, 400))
+return nothing

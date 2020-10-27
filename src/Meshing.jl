@@ -24,6 +24,7 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
 
     # Triangulate
     mesh = delaunay(S[coords[i][c] for i in 1:nvertices, c in 1:C])
+    # [:Qbb, :Qc, :Qz, :Q12, :QJ]
 
     # Convert to sparse matrix
     nsimplices = size(mesh.simplices, 1)
@@ -38,6 +39,8 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
             push!(V, One())
         end
     end
+    # @assert all(i -> 1 ≤ i ≤ nvertices, I)
+    # @assert all(j -> 1 ≤ j ≤ nsimplices, J)
     simplices = sparse(I, J, V, nvertices, nsimplices)
 
     return simplices
@@ -60,6 +63,11 @@ function refine_coords(oldedges::SparseOp{0,1,One},
         si = sparse_column_rows(oldedges, i)
         @assert length(si) == 2
         x = sum(coords[j] for j in si) / length(si)
+        # x1 = coords[si[1]]
+        # x2 = coords[si[2]]
+        # # x = (x0+x1)/2
+        # q = S(0.375) + S(0.25) * rand(S)
+        # x = q * x1 + (q - 1) * x2
         push!(coords, x)
     end
     return coords

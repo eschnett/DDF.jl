@@ -30,7 +30,7 @@ Manifold with one standard simplex
 function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     nvertices = D + 1
     coords = regular_simplex(Val(D), S)
-    weights = fill(S(0), length(coords))
+    weights = zeros(S, length(coords))
     I = Int[]
     J = Int[]
     V = One[]
@@ -86,7 +86,7 @@ Manifold with one orthogonal simplex
 function orthogonal_simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
     N = D + 1
     coords, weights = orthogonal_simplex(Val(D), S)
-    weights = fill(S(0), length(coords))
+    weights = zeros(S, length(coords))
     I = Int[]
     J = Int[]
     V = One[]
@@ -215,7 +215,7 @@ function delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     end
     nvertices = length(coords)
     @assert nvertices == 2^D
-    weights = fill(S(0), length(coords))
+    weights = zeros(S, length(coords))
 
     simplices = SparseOp{0,D,One}(delaunay_mesh(coords))
 
@@ -228,29 +228,77 @@ export large_delaunay_hypercube_manifold
 """
 Delaunay triangulation of a large hypercube
 """
-function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
+function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
+                                           n::Union{Nothing,Int}=nothing) where {D,
+                                                                                 S}
     @assert D ≥ 0
     N = D + 1
 
-    ns = Dict{Int,Int}(0 => 1, 1 => 1024, 2 => 32, 3 => 16, 4 => 4, 5 => 2)
-    n = ns[D]
+    if n ≡ nothing
+        ns = Dict{Int,Int}(0 => 1, 1 => 1024, 2 => 32, 3 => 16, 4 => 4, 5 => 2)
+        n = ns[D]
+    end
+    # All n should be powers of 2 to avoid round-off below
+    @assert ispow2(n)
 
     rng = MersenneTwister(1)
 
     # Set up coordinates
     coords = SVector{D,S}[]
+    # coords′ = SVector{D,S}[]
     imin = CartesianIndex(ntuple(d -> 0, D))
     imax = CartesianIndex(ntuple(d -> n, D))
     for i in imin:imax
-        # x = SVector{D,S}(i.I) / n
-        dx = SVector{D,S}(i[d] == 0 || i[d] == n ? 0 :
-                          S(rand(rng, -256:256)) / 65536 for d in 1:D)
-        x = SVector{D,S}(i[d] + dx[d] for d in 1:D) / n
+
+        # # We also set up slightly different coordinates to help the
+        # # Delaunay triangulation
+        # # 1. Perturb points in the interior randomly to avoid
+        # #    degeneracies
+        # # 2. Make points on the boundary bulge outwards to avoid
+        # #    degeneracies
+        # 
+        # x = SVector{D,S}(i[d] for d in 1:D) / n
+        # 
+        # # # Avoid floating-point round-off errors
+        # # x = x .+ S(5) / 2
+        # 
+        # # Add noise
+        # isbnd(d) = i[d] ∈ (0, n)
+        # x += SVector{D,S}(isbnd(d) ? 0 : (2 * rand(rng, S) - 1) / (256 * n)
+        #                   for d in 1:D)
+        # 
+        # # These are the coordinates we want
+        # push!(coords, x)
+        # 
+        # # x′ = x
+        # # 
+        # # # Barrel transformation
+        # # r = norm(2 * x′ .- 1)
+        # # x′ = ((2 * x′ .- 1) * (1 - r / (256^3 * n)) .+ 1) / 2
+        # # 
+        # # push!(coords′, x′)
+
+        # Stagger every second point, except boundary points
+        x = SVector{D,S}(i[d] for d in 1:D) / n
+        for d in 1:D
+            for d′ in 1:(d - 1)
+                i[d′] ∈ (0, n) && continue
+                di = (S(1) / 2) / sqrt(S(d - 1))
+                x1 = x[d′]
+                x1 = x1 * n / (n + di)
+                if isodd(i[d])
+                    x1 = x1 + di / (n + di)
+                end
+                x = Base.setindex(x, x1, d′)
+            end
+        end
+
         push!(coords, x)
     end
+    # @assert length(coords′) == length(coords)
     nvertices = length(coords)
     @assert nvertices == (n + 1)^D
-    weights = fill(S(0), length(coords))
+    weights = zeros(S, length(coords))
 
     simplices = delaunay_mesh(coords)
     simplices = SparseOp{0,D,One}(simplices)
@@ -268,7 +316,7 @@ Refined manifold
 function refined_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
     D == 0 && return mfd0
     coords = refine_coords(mfd0.lookup[(0, 1)], mfd0.coords[0])
-    weights = fill(S(0), length(coords))
+    weights = zeros(S, length(coords))
     simplices = SparseOp{0,D}(delaunay_mesh(coords))
     mfd = Manifold("refined $(mfd0.name)", simplices, coords, weights)
     return mfd

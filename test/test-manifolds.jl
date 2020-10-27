@@ -11,10 +11,6 @@ using LinearAlgebra
     end
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
     for R in 0:D
-        @test all(>(0), mfd.dualvolumes[R])
-    end
-
-    for R in 0:D
         @test isempty(mfd.volumes[R])
         @test isempty(mfd.dualvolumes[R])
     end
@@ -38,7 +34,9 @@ end
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
         vol = sqrt(S(R + 1) / 2^R) / factorial(R)
         @test all(≈(vol), mfd.volumes[R])
+        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
         @test all(>(0), mfd.dualvolumes[R])
+        @test minimum(mfd.dualvolumes[R]) / maximum(mfd.dualvolumes[R]) ≥ 0.01
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
@@ -56,10 +54,14 @@ end
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind == BarycentricDuals ||
-       (D ≤ 2 && Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
-        for R in 0:D
+    for R in 0:D
+        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        if Manifolds.dualkind == BarycentricDuals || (D ≤ 2 &&
+            Manifolds.dualkind == CircumcentricDuals &&
+            use_weighted_duals)
             @test all(>(0), mfd.dualvolumes[R])
+            @test minimum(mfd.dualvolumes[R]) / maximum(mfd.dualvolumes[R]) ≥
+                  0.01
         end
     end
 
@@ -79,10 +81,13 @@ end
     @test nsimplices(mfd, D) == factorial(D)
     # TODO: Find rule for other dimensions
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind == BarycentricDuals ||
-       (Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
-        for R in 0:D
+    for R in 0:D
+        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        if Manifolds.dualkind == BarycentricDuals ||
+           (Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
             @test all(>(0), mfd.dualvolumes[R])
+            @test minimum(mfd.dualvolumes[R]) / maximum(mfd.dualvolumes[R]) ≥
+                  0.01
         end
     end
 
@@ -93,16 +98,20 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-@testset "Delaunay hypercube manifolds D=$D" for D in 0:Dmax
+@testset "Delaunay hypercube manifold D=$D" for D in 0:Dmax
     S = Float64
     mfd = delaunay_hypercube_manifold(Val(D), S)
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == 2^D
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind == BarycentricDuals ||
-       (D ≤ 3 && Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
-        for R in 0:D
+    for R in 0:D
+        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        if Manifolds.dualkind == BarycentricDuals || (D ≤ 3 &&
+            Manifolds.dualkind == CircumcentricDuals &&
+            use_weighted_duals)
             @test all(>(0), mfd.dualvolumes[R])
+            @test minimum(mfd.dualvolumes[R]) / maximum(mfd.dualvolumes[R]) ≥
+                  0.01
         end
     end
 
@@ -113,17 +122,23 @@ end
     @test all(==(1), mfd.dualvolumes[D])
 end
 
-@testset "Large delaunay hypercube manifolds D=$D" for D in 0:Dmax
+@testset "Large delaunay hypercube manifold D=$D" for D in 0:Dmax
     S = Float64
     mfd = large_delaunay_hypercube_manifold(Val(D), S)
     @test invariant(mfd)
     n = D == 0 ? 1 : round(Int, nsimplices(mfd, 0)^(1 / D)) - 1
     @test nsimplices(mfd, 0) == (n + 1)^D
     @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
-    if Manifolds.dualkind == BarycentricDuals ||
-       (D ≤ 1 && Manifolds.dualkind == CircumcentricDuals && use_weighted_duals)
-        for R in 0:D
+    for R in 0:D
+        if Manifolds.dualkind == BarycentricDuals || D ≤ 3
+            @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        end
+        if Manifolds.dualkind == BarycentricDuals || (D ≤ 2 &&
+            Manifolds.dualkind == CircumcentricDuals &&
+            use_weighted_duals)
             @test all(>(0), mfd.dualvolumes[R])
+            @test minimum(mfd.dualvolumes[R]) / maximum(mfd.dualvolumes[R]) ≥
+                  0.01
         end
     end
 
@@ -148,10 +163,17 @@ end
             vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
             @test all(≈(vol), mfd.volumes[R])
         end
+        if Manifolds.dualkind == BarycentricDuals || D ≤ 3
+            @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        end
         if Manifolds.dualkind == BarycentricDuals || (D ≤ 4 &&
             Manifolds.dualkind == CircumcentricDuals &&
             use_weighted_duals)
             @test all(>(0), mfd.dualvolumes[R])
+            if D ≤ 3
+                @test minimum(mfd.dualvolumes[R]) /
+                      maximum(mfd.dualvolumes[R]) ≥ 0.01
+            end
         end
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
@@ -179,6 +201,8 @@ end
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
         vol = sqrt(S(R + 1) / 2^R) / factorial(R)
         @test all(≈(vol), mfd.volumes[R])
+        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
         @test all(>(0), mfd.dualvolumes[R])
+        @test minimum(mfd.dualvolumes[R]) / maximum(mfd.dualvolumes[R]) ≥ 0.01
     end
 end

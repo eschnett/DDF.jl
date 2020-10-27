@@ -1,17 +1,14 @@
 using Revise
 
 using DDF
+using DifferentialForms
 using LinearAlgebra
 
 D = 3
 S = Float64
 T = Float64
 
-mfd0 = hypercube_manifold(Val(D), S);
-mfd1 = refined_manifold(mfd0);
-# mfd2 = refined_manifold(mfd1);
-# mfd3 = refined_manifold(mfd2);
-mfd = mfd0;
+mfd = large_delaunay_hypercube_manifold(Val(D), S, 4);
 
 ################################################################################
 
@@ -22,7 +19,11 @@ mfd = mfd0;
 # δ f == ρ
 # B f == 0
 
-ρ = unit(Fun{D,Pr,0,D,S,T}, mfd, nsimplices(mfd, 0));
+x₀ = zero(Form{D,1,S}) .+ S(0.5)
+W = S(0.1)
+ρ₀(x) = Form{D,0}((exp(-norm2(x - x₀) / (2 * W^2)),))
+
+ρ = sample(Fun{D,Pr,0,D,S,T}, ρ₀, mfd);
 u₀ = zero(Fun{D,Pr,0,D,S,T}, mfd);
 
 d = deriv(Val(Pr), Val(0), mfd);
@@ -84,6 +85,9 @@ norm(B0 * u - u₀, Inf)
 
 err = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀;
 
+# Can plot ∂0, ρ, u, err
+plot_function(u, "poisson3d.png")
+
 ################################################################################
 
 using WriteVTK
@@ -92,7 +96,7 @@ points = [mfd.coords[0][i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
 cells = [MeshCell(VTKCellTypes.VTK_TETRA,
                   [i for i in sparse_column_rows(mfd.simplices[D], j)])
          for j in 1:size(mfd.simplices[D], 2)]
-vtkfile = vtk_grid("cube.vtu", points, cells)
+vtkfile = vtk_grid("poisson3d.vtu", points, cells)
 
 vtkfile["∂0", VTKPointData()] = Int8.(∂0.values)
 vtkfile["ρ", VTKPointData()] = ρ.values
@@ -100,3 +104,7 @@ vtkfile["u", VTKPointData()] = u.values
 vtkfile["err", VTKPointData()] = err.values
 
 vtk_save(vtkfile)
+
+################################################################################
+
+return nothing

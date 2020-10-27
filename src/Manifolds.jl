@@ -3,6 +3,7 @@ module Manifolds
 using ComputedFieldTypes
 using DifferentialForms
 using ForwardDiff
+using LinearAlgebra
 using NearestNeighbors
 using Optim: Optim, optimize
 using SparseArrays
@@ -373,6 +374,10 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         # TODO: Combine these two calculations
         coords[R] = calc_coords(simplices[R], coords0)
         volumes[R] = calc_volumes(simplices[R], coords0)
+        if !(all(x -> x != 0 && isfinite(x), volumes[R]))
+            @show volumes[R]
+            @show D R
+        end
         @assert all(x -> x != 0 && isfinite(x), volumes[R])
     end
 
@@ -385,7 +390,7 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         elseif false
             weights = optimize_weights_directly(Val(dualkind), Val(D),
                                                 simplices, coords[0], weights)
-        else
+        elseif true
             # Calculate mask for boundary vertices (which must not be moved)
             if D > 0
                 boundary_faces = zeros(Int8, size(boundaries[D], 1))
@@ -399,24 +404,40 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
                 # simplices?
                 # @assert all(s -> -1 ≤ s ≤ 1, boundary_faces)
                 @assert all(s -> -2 ≤ s ≤ 2, boundary_faces)
-                movable = ones(Bool, length(coords[0]))
+
+                # @assert C == D
+                coords0 = coords[0]
+                dof = ones(SMatrix{C,C,S}, length(coords0))
                 @assert length(boundary_faces) == size(simplices[D - 1], 2)
                 for j in 1:size(simplices[D - 1], 2)
                     if isodd(boundary_faces[j])
+                        sj = sparse_column_rows(simplices[D - 1], j)
+                        sj = SVector{D,Int}(sj[n] for n in 1:D)
+                        # initially, no directions are allowed
+                        P = zero(SMatrix{C,C,S})
+                        for n in 2:D
+                            x = coords0[sj[n]] - coords0[sj[1]]
+                            # ensure x is orthogonal to the directions in P
+                            x -= P * x
+                            Q = x * x' / norm2(x)
+                            # add one allowed direction
+                            P += Q
+                        end
                         for i in sparse_column_rows(simplices[D - 1], j)
-                            movable[i] = false
+                            dof[i] = P * dof[i] * P
+                            dof[i] = (dof[i] + dof[i]') / 2
                         end
                     end
                 end
+
             else
-                movable = zeros(Bool, length(coords[0]))
+                dof = zeros(SMatrix{C,C,S}, length(coords[0]))
             end
-            movable::Vector{Bool}
+            dof::Vector{SMatrix{C,C,S}}
             coords0, weights = optimize_coords_weights_directly(Val(dualkind),
                                                                 Val(D),
                                                                 simplices,
-                                                                coords[0],
-                                                                movable,
+                                                                coords[0], dof,
                                                                 weights)
             # Re-calculate coordinates and volumes
             coords = Dict{Int,Vector{SVector{C,S}}}()
@@ -427,6 +448,8 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
                 volumes[R] = calc_volumes(simplices[R], coords0)
                 @assert all(x -> x != 0 && isfinite(x), volumes[R])
             end
+        else
+            # do nothing
         end
 
         if false
@@ -505,6 +528,9 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     end
     if !allpositive
         @warn "Not all dual volumes are strictly positive"
+        @show [count(≤(0), dualvolumes[d]) for d in 0:D]
+        @show [findmin(dualvolumes[d]) for d in 0:D]
+        @show [dualcoords[d][findmin(dualvolumes[d])[2]] for d in 0:D]
     end
 
     if D > 0
@@ -705,48 +731,74 @@ end
 function optimize_coords_weights_directly(::Val{CircumcentricDuals}, ::Val{D},
                                           simplices::OpDict{Int,One},
                                           coords::Vector{SVector{C,S}},
-                                          movable::Vector{Bool},
+                                          dof::Vector{SMatrix{C,C,S}},
                                           weights::Vector{S}) where {D,C,S}
     D::Int
     C::Int
     @assert 0 ≤ D ≤ C
 
-    α = S(1) / 2D
-    for iter in 1:100
-        new_coords = copy(coords)
-        new_weights = copy(weights)
-        for R in 1:D
-            new_cs, new_ws = optimize_coords_weights_directly(Val(CircumcentricDuals),
-                                                              Val(D),
-                                                              simplices[R],
-                                                              coords, weights)
-            for i in 1:length(new_coords)
-                # TODO: Use a matrix instead of `movable`
-                if movable[i]
-                    new_coords[i] += α * new_cs[i]
+    for D′ in D:D
+        α = S(1) / 2D′
+        for iter in 1:100
+            new_coords = copy(coords)
+            new_weights = copy(weights)
+            for R in 1:D′
+                new_cs, new_ws = optimize_coords_weights_directly(Val(CircumcentricDuals),
+                                                                  simplices[R],
+                                                                  coords,
+                                                                  weights)
+                for i in 1:length(new_coords)
+                    # nnzev = count(isapprox(1), eigvals(dof[i]))
+                    # if nnzev ≤ D′
+                    new_coords[i] += α * dof[i] * new_cs[i]
+                    new_weights[i] += α * new_ws[i]
+                    # end
                 end
             end
-            new_weights .+= α * new_ws
+            new_weights .-= sum(new_weights) / length(new_weights)
+            if !(sum(new_weights) + 1 ≈ 1)
+                @show maximum(abs.(new_weights)) sum(new_weights)
+            end
+            @assert sum(new_weights) + 1 ≈ 1
+            coords = new_coords
+            weights = new_weights
         end
-        new_weights .-= sum(new_weights) / length(new_weights)
-        if !(sum(new_weights) + 1 ≈ 1)
-            @show maximum(abs.(new_weights)) sum(new_weights)
-        end
-        @assert sum(new_weights) + 1 ≈ 1
-        coords = new_coords
-        weights = new_weights
     end
+
+    # α = S(1) / 2D
+    # for iter in 1:100
+    #     new_coords = copy(coords)
+    #     new_weights = copy(weights)
+    #     for R in 1:D
+    #         new_cs, new_ws = optimize_coords_weights_directly(Val(CircumcentricDuals),
+    #                                                           simplices[R],
+    #                                                           coords, weights)
+    #         for i in 1:length(new_coords)
+    #             # if movable[i]
+    #             #     new_coords[i] += α * new_cs[i]
+    #             # end
+    #             new_coords[i] += α * dof[i] * new_cs[i]
+    #         end
+    #         new_weights .+= α * new_ws
+    #     end
+    #     new_weights .-= sum(new_weights) / length(new_weights)
+    #     if !(sum(new_weights) + 1 ≈ 1)
+    #         @show maximum(abs.(new_weights)) sum(new_weights)
+    #     end
+    #     @assert sum(new_weights) + 1 ≈ 1
+    #     coords = new_coords
+    #     weights = new_weights
+    # end
 
     return coords, weights
 end
 
-function optimize_coords_weights_directly(::Val{CircumcentricDuals}, ::Val{D},
+function optimize_coords_weights_directly(::Val{CircumcentricDuals},
                                           simplices::SparseOp{0,R,One},
                                           coords::Vector{SVector{C,S}},
                                           weights::Vector{S}) where {D,R,C,S}
-    D::Int
     C::Int
-    @assert 0 ≤ D ≤ C
+    @assert 0 ≤ C
 
     new_coords = zeros(SVector{C,S}, length(coords))
     new_weights = zeros(S, length(weights))
@@ -763,8 +815,8 @@ function optimize_coords_weights_directly(::Val{CircumcentricDuals}, ::Val{D},
         for n in 1:(R + 1)
             i = si[n]
             β = ((xs[n] - bc) ⋅ (cc - bc))[]
-            new_coords[i] -= β / norm2(xs[n] - bc) *
-                             convert(SVector, xs[n] - bc)
+            new_coords[i] -= 0 * convert(SVector,
+                                     β * (xs[n] - bc) / norm2(xs[n] - bc))
             new_weights[i] += β
         end
         count += 1
