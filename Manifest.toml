@@ -436,7 +436,9 @@ version = "1.1.0"
 
 [[MiniQhull]]
 deps = ["CMake", "Libdl", "Qhull_jll"]
-path = "/Users/eschnett/.julia/dev/MiniQhull"
+git-tree-sha1 = "f979a1780ecc96868f513ac66c6309df7722ff48"
+repo-rev = "eschnett/flags"
+repo-url = "https://github.com/eschnett/MiniQhull.jl"
 uuid = "978d7f02-9e05-4691-894f-ae31a51d76ca"
 version = "0.2.1"
 
