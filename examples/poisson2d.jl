@@ -3,6 +3,7 @@ module Poisson2d
 using Revise
 
 using DDF
+using GLMakie
 using LinearAlgebra
 using WriteVTK
 

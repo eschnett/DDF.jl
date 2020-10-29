@@ -2,7 +2,6 @@ module Plotting
 
 using AbstractPlotting
 using AbstractPlotting.MakieLayout
-using GLMakie
 using LinearAlgebra
 using StaticArrays
 

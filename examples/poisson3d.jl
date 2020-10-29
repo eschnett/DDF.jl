@@ -5,6 +5,7 @@ using Revise
 # using Arpack
 using DDF
 using DifferentialForms
+using GLMakie
 # using IncompleteLU
 using IterativeSolvers
 using LinearAlgebra
