@@ -1,6 +1,7 @@
 module Ops
 
 using DifferentialForms: Forms
+using FillArrays
 using LinearAlgebra
 using SparseArrays
 
@@ -12,11 +13,9 @@ using ..Manifolds
 export Op
 struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
     manifold::Manifold{D}
-    # values::Union{AbstractMatrix{T},UniformScaling{T}}
     values::AbstractMatrix{T}
 
     function Op{D,P1,R1,P2,R2,T}(manifold::Manifold{D},
-                                 # values::Union{AbstractMatrix{T},UniformScaling{T}}
                                  values::AbstractMatrix{T}) where {D,P1,R1,P2,
                                                                    R2,T}
         op = new{D,P1,R1,P2,R2,T}(manifold, dnz(values))
@@ -24,7 +23,6 @@ struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
         return op
     end
     function Op{D,P1,R1,P2,R2}(manifold::Manifold{D},
-                               # values::Union{AbstractMatrix{T},UniformScaling{T}}
                                values::AbstractMatrix{T}) where {D,P1,R1,P2,R2,
                                                                  T}
         return Op{D,P1,R1,P2,R2,T}(manifold, values)
@@ -72,10 +70,8 @@ function Defs.invariant(op::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
     P2::PrimalDual
     R2::Int
     @assert 0 ≤ R2 ≤ D
-    # if !(op.values isa UniformScaling)
     @assert size(op.values) ==
             (nsimplices(op.manifold, R1), nsimplices(op.manifold, R2))
-    # end
     return true
 end
 
@@ -153,6 +149,10 @@ function Base.zero(::Type{Op{D,P1,R1,P2,R2,T}},
     ncols = nsimplices(manifold, R2)
     return Op{D,P1,R1,P2,R2}(manifold, spzeros(T, nrows, ncols))
 end
+function Base.zero(::Type{Op{D,P1,R1,P2,R2}},
+                   manifold::Manifold{D}) where {D,P1,R1,P2,R2}
+    return zero(Op{D,P1,R1,P2,R2,Bool}, manifold)
+end
 Base.zero(A::Op) = zero(typeof(A), A.manifold)
 Base.iszero(A::Op) = iszero(A.values)
 
@@ -207,16 +207,13 @@ end
 
 # Operators are a ring
 
-function Base.one(::Type{Op{D,P,R,P,R}}, manifold::Manifold{D}) where {D,P,R}
-    # return Op{D,P,R,P,R}(manifold, I)
-    nrows = nsimplices(manifold, R)
-    return Op{D,P,R,P,R}(manifold, Diagonal(ones(nrows)))
-end
 function Base.one(::Type{Op{D,P,R,P,R,T}},
                   manifold::Manifold{D}) where {D,P,R,T}
-    # return Op{D,P,R,P,R}(manifold, one(T) * I)
     nrows = nsimplices(manifold, R)
-    return Op{D,P,R,P,R}(manifold, Diagonal(ones(T, nrows)))
+    return Op{D,P,R,P,R}(manifold, Diagonal(Fill(one(T), (nrows, nrows))))
+end
+function Base.one(::Type{Op{D,P,R,P,R}}, manifold::Manifold{D}) where {D,P,R}
+    return one(Op{D,P,R,P,R,Bool}, manifold)
 end
 Base.one(A::Op) = one(typeof(A), A.manifold)
 Base.isone(A::Op{D,P,R,P,R}) where {D,P,R} = A.values == I

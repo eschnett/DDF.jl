@@ -76,6 +76,7 @@ struct Manifold{D,C,S}
     # `boundaries[R][i,j] = s`, then `R`-simplex `j` has
     # `(R-1)`-simplex `i` as boundary with orientation `s`. `R ∈ 1:D`.
     boundaries::OpDict{Int,Int8}
+    isboundary::OpDict{Int,One}
 
     # Lookup tables from `Ri`-simplices to `Rj`-simplices. If
     # `lookup[(Ri,Rj)][i,j]` is present, then `Rj`-simplex `j`
@@ -104,6 +105,7 @@ struct Manifold{D,C,S}
 
     function Manifold{D,C,S}(name::String, simplices::OpDict{Int,One},
                              boundaries::OpDict{Int,Int8},
+                             isboundary::OpDict{Int,One},
                              lookup::OpDict{Tuple{Int,Int},One},
                              coords::Dict{Int,Vector{SVector{C,S}}},
                              volumes::Dict{Int,Vector{S}}, weights::Vector{S},
@@ -114,13 +116,14 @@ struct Manifold{D,C,S}
                                                                                     S}
         D::Int
         @assert 0 ≤ D ≤ C
-        mfd = new{D,C,S}(name, simplices, boundaries, lookup, coords, volumes,
-                         weights, dualcoords, dualvolumes, simplex_tree)
+        mfd = new{D,C,S}(name, simplices, boundaries, isboundary, lookup,
+                         coords, volumes, weights, dualcoords, dualvolumes,
+                         simplex_tree)
         @assert invariant(mfd)
         return mfd
     end
     function Manifold(name::String, simplices::OpDict{Int,One},
-                      boundaries::OpDict{Int,Int8},
+                      boundaries::OpDict{Int,Int8}, isboundary::OpDict{Int,One},
                       lookup::OpDict{Tuple{Int,Int},One},
                       coords::Dict{Int,Vector{SVector{C,S}}},
                       volumes::Dict{Int,Vector{S}}, weights::Vector{S},
@@ -129,9 +132,9 @@ struct Manifold{D,C,S}
                       simplex_tree::KDTree{SVector{C,S},Euclidean,S}) where {C,
                                                                              S}
         D = maximum(keys(simplices))
-        return Manifold{D,C,S}(name, simplices, boundaries, lookup, coords,
-                               volumes, weights, dualcoords, dualvolumes,
-                               simplex_tree)
+        return Manifold{D,C,S}(name, simplices, boundaries, isboundary, lookup,
+                               coords, volumes, weights, dualcoords,
+                               dualvolumes, simplex_tree)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -147,6 +150,9 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
     end
     for R in 1:D
         println(io, "    boundaries[$R]=$(mfd.boundaries[R])")
+    end
+    for R in 0:(D - 1)
+        println(io, "    isboundary[$R]=$(mfd.isboundary[R])")
     end
     for R in 0:D
         println(io, "    coords[$R]=$(mfd.coords[R])")
@@ -198,6 +204,15 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
             end
         end
     end
+
+    # Check isboundary
+    Set(keys(mfd.isboundary)) == Set(0:(D - 1)) || (@assert false; return false)
+    for R in 0:(D - 1)
+        isboundary = mfd.isboundary[R]::SparseOp{R,R,One}
+        size(isboundary) == (nsimplices(mfd, R), nsimplices(mfd, R)) ||
+            (@assert false; return false)
+    end
+    # TODO: check content as well
 
     # Check lookup tables
     Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
@@ -365,6 +380,47 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     # Check
     for Ri in 0:D, Rj in 0:D
         lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
+    end
+
+    # Calculate isboundary
+    isboundary = OpDict{Int,One}()
+    if D > 0
+        isbndface = falses(size(boundaries[D], 1))
+        for j in 1:size(boundaries[D], 2)
+            for i in sparse_column_rows(boundaries[D], j)
+                isbndface[i] = !isbndface[i]
+            end
+        end
+        begin
+            I = Int[]
+            J = Int[]
+            V = One[]
+            for (i, b) in enumerate(isbndface)
+                if b
+                    push!(I, i)
+                    push!(J, i)
+                    push!(V, One())
+                end
+            end
+            nfaces = length(isbndface)
+            isboundary[D - 1] = SparseOp{D - 1,D - 1}(sparse(I, J, V, nfaces,
+                                                             nfaces))
+        end
+        for R in 0:(D - 2)
+            lup = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
+            I = Int[]
+            J = Int[]
+            V = One[]
+            for j in findnz(isboundary[D - 1].op)[1]
+                for i in sparse_column_rows(lup, j)
+                    push!(I, i)
+                    push!(J, i)
+                    push!(V, One())
+                end
+            end
+            nelts = size(lup, 1)
+            isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts))
+        end
     end
 
     # Calculate coordinates and volumes
@@ -541,8 +597,8 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     simplex_tree = KDTree(coords[0])
 
     # Create D-manifold
-    return Manifold(name, simplices, boundaries, lookup, coords, volumes,
-                    weights, dualcoords, dualvolumes, simplex_tree)
+    return Manifold(name, simplices, boundaries, isboundary, lookup, coords,
+                    volumes, weights, dualcoords, dualvolumes, simplex_tree)
 end
 
 ################################################################################

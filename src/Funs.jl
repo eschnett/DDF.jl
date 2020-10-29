@@ -129,6 +129,10 @@ function Base.zero(::Type{Fun{D,P,R,C,S,T}},
     nelts = nsimplices(manifold, R)
     return Fun{D,P,R}(manifold, zeros(T, nelts))
 end
+function Base.zero(::Type{Fun{D,P,R,C,S}},
+                   manifold::Manifold{D,C,S}) where {D,P,R,C,S,T}
+    return zero(Fun{D,P,R,C,S,Bool}, manifold)
+end
 Base.zero(f::Fun) = zero(typeof(f), f.manifold)
 Base.iszero(f::Fun) = iszero(f.values)
 
