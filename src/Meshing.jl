@@ -1,8 +1,8 @@
 module Meshing
 
-# using Delaunay
+using Delaunay
 using DifferentialForms
-using MiniQhull
+# using MiniQhull
 using SparseArrays
 using StaticArrays
 
@@ -25,7 +25,8 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
         return simplices
     end
 
-    if false
+    if true
+        # Use Delaunay.jl
 
         # Triangulate
         mesh = delaunay(S[coords[i][c] for i in 1:nvertices, c in 1:C])
@@ -49,6 +50,7 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
         simplices = sparse(I, J, V, nvertices, nsimplices)
 
     else
+        # Use MiniQhull.jl
 
         # Triangulate
         mesh = delaunay(S[coords[i][c] for c in 1:C, i in 1:nvertices],
