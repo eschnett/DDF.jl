@@ -2,13 +2,13 @@ module Poisson3d
 
 using Revise
 
-using Arpack
+# using Arpack
 using DDF
 using DifferentialForms
-using IncompleteLU
+# using IncompleteLU
 using IterativeSolvers
 using LinearAlgebra
-using Preconditioners
+# using Preconditioners
 using SparseArrays
 using StaticArrays
 using WriteVTK
