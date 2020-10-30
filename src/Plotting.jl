@@ -65,7 +65,7 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     # Dual edges
     dualedges = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D - 1)
-        sj = collect(sparse_column_rows(mfd.lookup[(D, D - 1)], i))
+        sj = collect(sparse_column_rows(lookup(Val(D), Val(D - 1), mfd), i))
         for j in sj
             xs1 = dualcoords(D - 1, mfd)[i]
             xs2 = dualcoords(D, mfd)[j]
@@ -144,7 +144,7 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     # Dual edges
     dualedges = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D - 1)
-        sj = collect(sparse_column_rows(mfd.lookup[(D, D - 1)], i))
+        sj = collect(sparse_column_rows(lookup(Val(D), Val(D - 1), mfd), i))
         for j in sj
             xs1 = dualcoords(D - 1, mfd)[i]
             xs2 = dualcoords(D, mfd)[j]

@@ -315,7 +315,7 @@ Refined manifold
 """
 function refined_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
     D == 0 && return mfd0
-    coords = refine_coords(mfd0.lookup[(0, 1)], mfd0.coords[0])
+    coords = refine_coords(lookup(Val(0), Val(1), mfd0), mfd0.coords[0])
     weights = zeros(S, length(coords))
     simplices = SparseOp{0,D}(delaunay_mesh(coords))
     mfd = Manifold("refined $(mfd0.name)", simplices, coords, weights)

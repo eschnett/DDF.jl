@@ -32,8 +32,8 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
 
     i, dist = nn(simplex_tree(mfd), x)
     # Search all neighbouring simplices to find containing simplex
-    lookup_D = mfd.lookup[(D, 0)]::SparseOp{D,0,One}
-    lookup_R = mfd.lookup[(R, D)]::SparseOp{R,D,One}
+    lookup_D = lookup(Val(D), Val(0), mfd)::SparseOp{D,0,One}
+    lookup_R = lookup(Val(R), Val(D), mfd)::SparseOp{R,D,One}
     for j in sparse_column_rows(lookup_D, i)
         sj = sparse_column_rows(mfd.simplices[D], j)
         sj = SVector{D + 1,Int}(sj[n] for n in 1:(D + 1))
@@ -75,7 +75,7 @@ Sample a function on a manifold
 function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
                 mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
     @assert P == Pr             # TODO
-    lookup_D = mfd.lookup[(D, R)]::SparseOp{D,R,One}
+    lookup_D = lookup(Val(D), Val(R), mfd)::SparseOp{D,R,One}
     simplices_D = mfd.simplices[D]::SparseOp{0,D,One}
     simplices_R = mfd.simplices[R]::SparseOp{0,R,One}
     values = Array{T}(undef, nsimplices(mfd, R))
@@ -168,7 +168,7 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
         # Loop over all contained R-simplices
-        lookup_RD = mfd.lookup[(R, D)]::SparseOp{R,D,One}
+        lookup_RD = lookup(Val(R), Val(D), mfd)::SparseOp{R,D,One}
         iter = enumerate(sparse_column_rows(lookup_RD, i))
         for (nj, j) in iter
             function kernel(x::SVector{C,S})
@@ -218,7 +218,7 @@ function basis_products(::Val{Pr}, ::Val{R},
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
         # Double loop over all contained R-simplices
-        lookup_RD = mfd.lookup[(R, D)]::SparseOp{R,D,One}
+        lookup_RD = lookup(Val(R), Val(D), mfd)::SparseOp{R,D,One}
         iter = enumerate(sparse_column_rows(lookup_RD, i))
         for (nj, j) in iter
             for (nk, k) in iter

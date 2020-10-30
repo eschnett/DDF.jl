@@ -9,7 +9,7 @@ using LinearAlgebra
     for R in 0:D
         @test nsimplices(mfd, R) == 0
     end
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
         @test isempty(mfd.volumes[R])
         @test isempty(dualvolumes(R, mfd))
@@ -23,7 +23,7 @@ end
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
 
     N = D + 1
     for i in 1:N, j in (i + 1):N
@@ -53,7 +53,7 @@ end
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
         @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
         if mfd.dualkind == BarycentricDuals || (D ≤ 2 &&
@@ -80,7 +80,7 @@ end
     @test nsimplices(mfd, 0) == 2^D
     @test nsimplices(mfd, D) == factorial(D)
     # TODO: Find rule for other dimensions
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
         @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
         if mfd.dualkind == BarycentricDuals ||
@@ -103,7 +103,7 @@ end
     mfd = delaunay_hypercube_manifold(Val(D), S)
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == 2^D
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
         @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
         if mfd.dualkind == BarycentricDuals || (D ≤ 3 &&
@@ -128,7 +128,7 @@ end
     @test invariant(mfd)
     n = D == 0 ? 1 : round(Int, nsimplices(mfd, 0)^(1 / D)) - 1
     @test nsimplices(mfd, 0) == (n + 1)^D
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
         if mfd.dualkind == BarycentricDuals || D ≤ 3
             @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
@@ -155,7 +155,7 @@ end
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == binomial(D + 1, 1) + binomial(D + 1, 2)
     @test nsimplices(mfd, D) == 2^D
-    @test mfd.lookup[(0, D)] ≡ mfd.simplices[D]
+    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
 
     for R in 0:D
         if R == 0 || R == D

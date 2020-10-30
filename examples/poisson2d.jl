@@ -1,15 +1,30 @@
 module Poisson2d
 
-using Revise
-
 using DDF
+using DifferentialForms
 using GLMakie
+using IterativeSolvers
 using LinearAlgebra
+using SparseArrays
+using StaticArrays
 using WriteVTK
 
-# Base.chop(x::Number) = abs2(x) < eps(x)^2 ? zero(x) : x
+const CSI = "\e["
+
+function vsplit(A::Array, sizes...)
+    size(A, 1) == sum(sizes) ||
+        throw(BoundsError("Excpected: size(A,1) == sum(sizes)"))
+    @assert ndims(A) == 1       # TODO
+    limits = (0, cumsum(sizes)...)
+    # return Tuple((@view A[(limits[i] + 1):limits[i + 1]]) for i in sizes)
+    return Tuple(A[(limits[i] + 1):limits[i + 1]] for i in 1:length(sizes))
+end
+
+################################################################################
 
 function main()
+    println("Create manifold...")
+
     D = 2
     S = Float64
     T = Float64
@@ -28,64 +43,43 @@ function main()
     # δ f == ρ
     # B f == 0
 
-    # Can we rewrite this without δ or ⋆?
+    println("Sample RHS...")
 
-    # DA: need to remove harmonic forms from f: P(1-H) f. only for strong
-    # form?
+    x₀ = zero(Form{D,1,S}) .+ S(0.1)
+    W = S(0.1)
+    ρ₀(x) = Form{D,0}((exp(-norm2(x - x₀) / (2 * W^2)),))
 
-    # DA: R[u]=0: von Neumann bc
-    #     R[u]=D-1: Dirichlet bc
-
-    # DA: mixed weak formulations have no hodge dual
-    #     magnetic bc: R=1   (or R=2?)
-    #     electric bc: R=2   (or R=1?)
-
-    # DA: Hodge Laplacian is always well posed! choose complexes (and
-    #     respective basis functions), then solve in the discrete with the
-    #     same mixed weak formulation.
-
-    # DA: trace is projection onto boundary; trace maps D-dim form onto
-    #     (D-1)-dim form
-
-    # DA: 0-forms: naturally piecewise continuous (FE), polynomial
-    #     D-forms: naturally piecewise discontinuous (DG), polynomial
-    #     - DOFs need to be located on either of vertices, edges, faces, etc.
-    #     - must be unisolvent (be a basis?)
-
-    ρ = unit(Fun{D,Pr,0,D,S,T}, mfd, nsimplices(mfd, 0))
+    ρ = sample(Fun{D,Pr,0,D,S,T}, ρ₀, mfd)
     u₀ = zero(Fun{D,Pr,0,D,S,T}, mfd)
 
-    d = deriv(Val(Pr), Val(0), mfd)
-    δ = coderiv(Val(Pr), Val(1), mfd)
+    ############################################################################
 
-    # A mask for all simplices
-    χ = Fun{D,Pr,D,D,S,Bool}(mfd, ones(Bool, nsimplices(mfd, D)))
-    # A mask for all boundary faces
-    ∂χ = map(isodd, boundary(χ))
-    # A mask for all boundary vertices
-    ∂0 = Fun{D,Pr,0,D,S,Bool}(mfd,
-                              map(≠(0),
-                                  map(Bool, mfd.lookup[(0, D - 1)]).op *
-                                  ∂χ.values))
+    println("Determine boundaries...")
+
     # Boundary operator for vertices
-    B0 = Op{D,Pr,0,Pr,0}(mfd, Diagonal(∂0.values))
+    B0 = isboundary(Val(Pr), Val(0), mfd)
 
-    N0 = zero(Op{D,Pr,0,Pr,0,Bool}, mfd)
-    N1 = zero(Op{D,Pr,1,Pr,1,Bool}, mfd)
-    E0 = one(Op{D,Pr,0,Pr,0,Bool}, mfd)
-    E1 = one(Op{D,Pr,1,Pr,1,Bool}, mfd)
-    n0 = zero(Fun{D,Pr,0,D,S,Bool}, mfd)
-    n1 = zero(Fun{D,Pr,1,D,S,Bool}, mfd)
+    N0 = zero(Op{D,Pr,0,Pr,0}, mfd)
+    N1 = zero(Op{D,Pr,1,Pr,1}, mfd)
+    E0 = one(Op{D,Pr,0,Pr,0}, mfd)
+    E1 = one(Op{D,Pr,1,Pr,1}, mfd)
+    n0 = zero(Fun{D,Pr,0,D,S}, mfd)
+    n1 = zero(Fun{D,Pr,1,D,S}, mfd)
 
-    N01 = zero(Op{D,Pr,0,Pr,1,Bool}, mfd)
-    N10 = zero(Op{D,Pr,1,Pr,0,Bool}, mfd)
+    N01 = zero(Op{D,Pr,0,Pr,1}, mfd)
+    N10 = zero(Op{D,Pr,1,Pr,0}, mfd)
 
     E = [E0.values N01.values; N10.values E1.values]
+    @assert issparse(E)
     @assert E * E == E
 
+    ############################################################################
+
+    println("Define operators...")
+
     # We want to solve this:
-    #     [0  δ] [u] = [ρ]
-    #     [d -1] [f] = [0]
+    #     [0   δ] [u] = [ρ]
+    #     [-d  1] [f] = [0]
     #     A x == b
     # but need to handle boundary conditions. The boundary conditions are:
     #     [B  0] [u] = [u₀]
@@ -95,47 +89,104 @@ function main()
     #     (1-B) A x == (1-B) b
     #     A′ x = b′
 
-    A = [N0.values δ.values; d.values -E1.values]
+    d = deriv(Val(Pr), Val(0), mfd)
+    δ = coderiv(Val(Pr), Val(1), mfd)
+
+    # The call to `sparse` is necessary for efficiency
+    # <https://github.com/JuliaLang/julia/issues/38209>
+    A = [N0.values δ.values; -d.values sparse(E1.values)]
+    @assert issparse(A)
     b = [ρ.values; n1.values]
 
     B = [B0.values N01.values; N10.values N1.values]
+    @assert issparse(B)
     @assert B * B == B
     c = [u₀.values; n1.values]
 
     A′ = (E - B) * A + B
+    @assert issparse(A′)
     b′ = (E - B) * b + B * c
+
+    ############################################################################
+
+    println("Solve...")
 
     x = A′ \ b′
 
-    u = Fun{D,Pr,0,D,S,T}(mfd, @view x[1:nsimplices(mfd, 0)])
-    f = Fun{D,Pr,1,D,S,T}(mfd, @view x[(nsimplices(mfd, 0) + 1):end])
+    # Pl = Identity()
+    # 
+    # t0 = time_ns()
+    # 
+    # x = zeros(T, size(A′, 1))
+    # solve = bicgstabl_iterator!(x, A′, b′; Pl=Pl)
+    # lastlog = t0
+    # iter = 0
+    # for _ in solve
+    #     iter += 1
+    #     t1 = time_ns()
+    #     tlog = (t1 - lastlog) / 1.0e+9
+    #     if tlog ≥ 1
+    #         lastlog = t1
+    #         tsol = (t1 - t0) / 1.0e+9
+    #         print("\r    iter=$iter time=$(round(tsol; digits=3)) ",
+    #               "res=$(round(solve.residual; sigdigits=3))$(CSI)K")
+    #     end
+    # end
+    # 
+    # t1 = time_ns()
+    # tsol = (t1 - t0) / 1.0e+9
+    # print("\r    iter=$iter time=$(round(tsol; digits=3)) ",
+    #       "res=$(round(solve.residual; sigdigits=3))$(CSI)K")
+    # println()
+    # x = solve.x
 
-    norm((E0 - B0) * (laplace(u) - ρ), Inf)
-    norm(B0 * u - u₀, Inf)
+    ############################################################################
 
-    err = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀
+    println("Analyse solution...")
+
+    uv, fv = vsplit(x, nsimplices(mfd, 0), nsimplices(mfd, 1))
+    u = Fun{D,Pr,0,D,S,T}(mfd, uv)
+    f = Fun{D,Pr,1,D,S,T}(mfd, fv)
+
+    nsol = norm((E0 - B0) * (laplace(u) - ρ), Inf)
+    nbnd = norm(B0 * u - u₀, Inf)
+    println("    ‖residual[sol]‖∞=$nsol")
+    println("    ‖residual[bnd]‖∞=$nbnd")
+
+    res = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀
+    nres = norm(res)
+    println("    ‖residual‖₂=$nres")
+
+    ############################################################################
 
     if nsimplices(mfd, 0) ≤ 10000
-        # Can plot ∂0, ρ, u, err
+        println("Plot result...")
+        # Can plot ρ, u, res
         plot_function(u, "poisson2d.png")
     end
 
     ############################################################################
 
+    println("Write result to file...")
+
     points = [mfd.coords[0][i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
     cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE,
-                      [i for i in sparse_column_rows(mfd.simplices[D], j)])
+                      SVector{D + 1}(i
+                                     for i in
+                                         sparse_column_rows(mfd.simplices[D],
+                                                            j)))
              for j in 1:size(mfd.simplices[D], 2)]
     vtkfile = vtk_grid("poisson2d.vtu", points, cells)
 
-    vtkfile["∂0", VTKPointData()] = Int8.(∂0.values)
     vtkfile["ρ", VTKPointData()] = ρ.values
     vtkfile["u", VTKPointData()] = u.values
-    vtkfile["err", VTKPointData()] = err.values
+    vtkfile["res", VTKPointData()] = res.values
 
     vtk_save(vtkfile)
 
     ############################################################################
+
+    println("Done.")
 
     return nothing
 end

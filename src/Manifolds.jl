@@ -50,13 +50,13 @@ mutable struct Manifold{D,C,S}
     # `boundaries[R][i,j] = s`, then `R`-simplex `j` has
     # `(R-1)`-simplex `i` as boundary with orientation `s`. `R ∈ 1:D`.
     boundaries::OpDict{Int,Int8}
-    isboundary::OpDict{Int,One}
+    _isboundary::OpDict{Int,One}
 
     # Lookup tables from `Ri`-simplices to `Rj`-simplices. If
     # `lookup[(Ri,Rj)][i,j]` is present, then `Rj`-simplex `j`
     # contains `Ri`-simplex `i`. `Ri ∈ 0:D, Rj ∈ 0:D`. Many of these
     # are trivial and could be omitted.
-    lookup::OpDict{Tuple{Int,Int},One}
+    _lookup::OpDict{Tuple{Int,Int},One}
     # lookup::Dict{Tuple{Int,Int},Array{Int,2}}
 
     # coords::Array{S,2}
@@ -69,27 +69,27 @@ mutable struct Manifold{D,C,S}
     # Coordinates of vertices of dual grid, i.e.
     # barycentres/circumcentres of primal top-simplices
     # dualcoords::Array{S,2}
-    dualcoords::Dict{Int,Vector{SVector{C,S}}}
+    _dualcoords::Dict{Int,Vector{SVector{C,S}}}
     # `dualvolumes[R]` are the volumes of the simplices dual to the
     # primal `R`-simplices
-    dualvolumes::Dict{Int,Vector{S}}
+    _dualvolumes::Dict{Int,Vector{S}}
 
     # Nearest neighbour tree for simplex vertices
-    simplex_tree::Maybe{KDTree{SVector{C,S},Euclidean,S}}
+    _simplex_tree::Maybe{KDTree{SVector{C,S},Euclidean,S}}
 
     function Manifold{D,C,S}(name::String, dualkind::DualKind,
                              use_weighted_duals::Bool,
                              simplices::OpDict{Int,One},
                              boundaries::OpDict{Int,Int8},
-                             lookup::OpDict{Tuple{Int,Int},One},
                              coords::Dict{Int,Vector{SVector{C,S}}},
                              volumes::Dict{Int,Vector{S}},
                              weights::Vector{S}) where {D,C,S}
         D::Int
         @assert 0 ≤ D ≤ C
         mfd = new{D,C,S}(name, dualkind, use_weighted_duals, simplices,
-                         boundaries, OpDict{Int,One}(), lookup, coords, volumes,
-                         weights, Dict{Int,Vector{SVector{C,S}}}(),
+                         boundaries, OpDict{Int,One}(),
+                         OpDict{Tuple{Int,Int},One}(), coords, volumes, weights,
+                         Dict{Int,Vector{SVector{C,S}}}(),
                          Dict{Int,AbstractVector{S}}(), nothing)
         @assert invariant(mfd)
         return mfd
@@ -97,13 +97,12 @@ mutable struct Manifold{D,C,S}
     function Manifold(name::String, dualkind::DualKind,
                       use_weighted_duals::Bool, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8},
-                      lookup::OpDict{Tuple{Int,Int},One},
                       coords::Dict{Int,Vector{SVector{C,S}}},
                       volumes::Dict{Int,Vector{S}},
                       weights::Vector{S}) where {C,S}
         D = maximum(keys(simplices))
         return Manifold{D,C,S}(name, dualkind, use_weighted_duals, simplices,
-                               boundaries, lookup, coords, volumes, weights)
+                               boundaries, coords, volumes, weights)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -189,31 +188,31 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
     # end
     # # TODO: check content as well
 
-    # Check lookup tables
-    Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
-        (@assert false; return false)
-    for Ri in 0:D, Rj in 0:D
-        lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
-        size(lookup) == (nsimplices(mfd, Ri), nsimplices(mfd, Rj)) ||
-            (@assert false; return false)
-        if Rj ≥ Ri
-            for j in 1:size(lookup, 2) # Rj-simplex
-                vj = sparse_column_rows(mfd.simplices[Rj], j)
-                length(vj) == Rj + 1 || (@assert false; return false)
-                sj = sparse_column_rows(lookup, j)
-                length(sj) == binomial(Rj + 1, Ri + 1) ||
-                    (@assert false; return false)
-                for i in sj         # Ri-simplex
-                    si = sparse_column_rows(mfd.simplices[Ri], i)
-                    for k in si     # vertices
-                        k ∈ vj || (@assert false; return false)
-                    end
-                end
-            end
-            mfd.lookup[(Ri, Rj)] == mfd.lookup[(Rj, Ri)]' ||
-                (@assert false; return false)
-        end
-    end
+    # # Check lookup tables
+    # Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
+    #     (@assert false; return false)
+    # for Ri in 0:D, Rj in 0:D
+    #     lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
+    #     size(lookup) == (nsimplices(mfd, Ri), nsimplices(mfd, Rj)) ||
+    #         (@assert false; return false)
+    #     if Rj ≥ Ri
+    #         for j in 1:size(lookup, 2) # Rj-simplex
+    #             vj = sparse_column_rows(mfd.simplices[Rj], j)
+    #             length(vj) == Rj + 1 || (@assert false; return false)
+    #             sj = sparse_column_rows(lookup, j)
+    #             length(sj) == binomial(Rj + 1, Ri + 1) ||
+    #                 (@assert false; return false)
+    #             for i in sj         # Ri-simplex
+    #                 si = sparse_column_rows(mfd.simplices[Ri], i)
+    #                 for k in si     # vertices
+    #                     k ∈ vj || (@assert false; return false)
+    #                 end
+    #             end
+    #         end
+    #         mfd.lookup[(Ri, Rj)] == mfd.lookup[(Rj, Ri)]' ||
+    #             (@assert false; return false)
+    #     end
+    # end
 
     Set(keys(mfd.coords)) == Set(0:D) || (@assert false; return false)
     for R in 0:D
@@ -313,92 +312,6 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         boundaries[R] = boundariesR
     end
 
-    # Calculate lookup tables
-    lookup = OpDict{Tuple{Int,Int},One}()
-    # Simplex definitions
-    for R in 0:D
-        if !haskey(lookup, (0, R))
-            # println("$D (0,$R) simplices")
-            lookup[(0, R)] = simplices[R]
-        end
-    end
-    # Identity
-    for R in 0:D
-        nsimplicesR = size(simplices[R], 2)
-        if !haskey(lookup, (R, R))
-            # println("$D ($R,$R) id")
-            lookup[(R, R)] = SparseOp{R,R}(sparse(1:nsimplicesR, 1:nsimplicesR,
-                                                  fill(One(), nsimplicesR)))
-        end
-    end
-    # Absolute value of boundaries
-    for R in 1:D
-        if !haskey(lookup, (R - 1, R))
-            # println("$D ($(R-1),$R) boundaries")
-            lookup[(R - 1, R)] = map(x -> One(x != 0), boundaries[R])
-        end
-    end
-    # Chain of two lookup tables
-    for Ri in 0:D, Rj in (Ri + 2):D
-        if !haskey(lookup, (Ri, Rj))
-            # println("$D ($Ri,$Rj) mul")
-            Rk = Rj - 1
-            lookup[(Ri, Rj)] = map(x -> One(x != 0),
-                                   lookup[(Ri, Rk)] * lookup[(Rk, Rj)])
-        end
-    end
-    # Transpose
-    for Ri in 0:D, Rj in 0:(Ri - 1)
-        @assert !haskey(lookup, (Ri, Rj))
-        # println("$D ($Ri,$Rj) transpose")
-        lookup[(Ri, Rj)] = lookup[(Rj, Ri)]'
-    end
-    # Check
-    for Ri in 0:D, Rj in 0:D
-        lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
-    end
-
-    # # Calculate isboundary
-    # isboundary = OpDict{Int,One}()
-    # if D > 0
-    #     isbndface = falses(size(boundaries[D], 1))
-    #     for j in 1:size(boundaries[D], 2)
-    #         for i in sparse_column_rows(boundaries[D], j)
-    #             isbndface[i] = !isbndface[i]
-    #         end
-    #     end
-    #     begin
-    #         I = Int[]
-    #         J = Int[]
-    #         V = One[]
-    #         for (i, b) in enumerate(isbndface)
-    #             if b
-    #                 push!(I, i)
-    #                 push!(J, i)
-    #                 push!(V, One())
-    #             end
-    #         end
-    #         nfaces = length(isbndface)
-    #         isboundary[D - 1] = SparseOp{D - 1,D - 1}(sparse(I, J, V, nfaces,
-    #                                                          nfaces))
-    #     end
-    #     for R in 0:(D - 2)
-    #         lup = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
-    #         I = Int[]
-    #         J = Int[]
-    #         V = One[]
-    #         for j in findnz(isboundary[D - 1].op)[1]
-    #             for i in sparse_column_rows(lup, j)
-    #                 push!(I, i)
-    #                 push!(J, i)
-    #                 push!(V, One())
-    #             end
-    #         end
-    #         nelts = size(lup, 1)
-    #         isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts))
-    #     end
-    # end
-
     # Calculate coordinates and volumes
     coords = Dict{Int,Vector{SVector{C,S}}}()
     volumes = Dict{Int,Vector{S}}()
@@ -480,24 +393,68 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
 
     # Create D-manifold
     return Manifold(name, dualkind, use_weighted_duals, simplices, boundaries,
-                    lookup, coords, volumes, weights)
+                    coords, volumes, weights)
 end
 
 ################################################################################
 
+export lookup
+@inline function lookup(::Val{Ri}, ::Val{Rj},
+                        mfd::Manifold{D,C,S}) where {Ri,Rj,D,C,S}
+    @assert 0 ≤ Rj ≤ D
+    @assert 0 ≤ Ri ≤ D
+    !haskey(mfd._lookup, (Ri, Rj)) && calc_lookup!(mfd, Ri, Rj)
+    return mfd._lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
+end
+@inline function lookup(Ri::Int, Rj::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+    return lookup(Val(Ri), Val(Rj), mfd)
+end
+
+function calc_lookup!(mfd::Manifold{D,C,S}, Ri::Int, Rj::Int) where {D,C,S}
+    @assert 0 ≤ Rj ≤ D
+    @assert 0 ≤ Ri ≤ D
+    @assert !haskey(mfd._lookup, (Ri, Rj))
+
+    sizei = size(mfd.simplices[Ri], 2)
+    sizej = size(mfd.simplices[Rj], 2)
+
+    if Ri == 0
+        # Simplex definitions
+        mfd._lookup[(Ri, Rj)] = mfd.simplices[Rj]
+    elseif Ri == Rj
+        # Identity
+        mfd._lookup[(Ri, Rj)] = SparseOp{Ri,Rj}(sparse(1:sizei, 1:sizej,
+                                                       fill(One(), sizei)))
+    elseif Ri == Rj - 1
+        # Absolute value of boundaries
+        mfd._lookup[(Ri, Rj)] = map(x -> One(x ≠ 0), mfd.boundaries[Rj])
+    elseif Ri < Rj - 1
+        # Chain of two lookup tables
+        Rk = Rj - 1
+        mfd._lookup[(Ri, Rj)] = map(x -> One(x ≠ 0),
+                                    lookup(Val(Ri), Val(Rk), mfd) *
+                                    lookup(Val(Rk), Val(Rj), mfd))
+    else
+        # Transpose
+        mfd._lookup[(Ri, Rj)] = lookup(Val(Rj), Val(Ri), mfd)'
+    end
+
+    return nothing
+end
+
 export isboundary
 @inline function isboundary(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R < D
-    !haskey(mfd.isboundary, R) && calc_isboundary!(mfd, R)
-    return mfd.isboundary[R]::SparseOp{R,R,One}
+    !haskey(mfd._isboundary, R) && calc_isboundary!(mfd, R)
+    return mfd._isboundary[R]::SparseOp{R,R,One}
 end
 @inline function isboundary(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
     return isboundary(Val(R), mfd)
 end
 
-function calc_isboundary!(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
+function calc_isboundary!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R < D
-    @assert !haskey(mfd.isboundary, R)
+    @assert !haskey(mfd._isboundary, R)
 
     I = Int[]
     J = Int[]
@@ -518,17 +475,16 @@ function calc_isboundary!(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
             end
         end
     else
-        lookup = mfd.lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
+        lup = lookup(Val(R), Val(D - 1), mfd)::SparseOp{R,D - 1,One}
         for j in findnz(isboundary(D - 1, mfd).op)[1]
-            for i in sparse_column_rows(lookup, j)
+            for i in sparse_column_rows(lup, j)
                 push!(I, i)
                 push!(J, i)
                 push!(V, One())
             end
         end
     end
-    mfd.isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts;
-                                             combine=max))
+    mfd._isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts, max))
 
     return nothing
 end
@@ -536,8 +492,8 @@ end
 export dualcoords
 @inline function dualcoords(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
-    !haskey(mfd.dualcoords, R) && calc_dualcoords!(mfd, R)
-    return mfd.dualcoords[R]::Vector{SVector{C,S}}
+    !haskey(mfd._dualcoords, R) && calc_dualcoords!(mfd, R)
+    return mfd._dualcoords[R]::Vector{SVector{C,S}}
 end
 @inline function dualcoords(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
     return dualcoords(Val(R), mfd)
@@ -545,13 +501,14 @@ end
 
 function calc_dualcoords!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
-    @assert !haskey(mfd.dualcoords, R)
+    @assert !haskey(mfd._dualcoords, R)
     if mfd.use_weighted_duals
-        mfd.dualcoords[R] = calc_dualcoords(Val(mfd.dualkind), mfd.simplices[R],
-                                            mfd.coords[0], mfd.weights)
+        mfd._dualcoords[R] = calc_dualcoords(Val(mfd.dualkind),
+                                             mfd.simplices[R], mfd.coords[0],
+                                             mfd.weights)
     else
-        mfd.dualcoords[R] = calc_dualcoords(Val(mfd.dualkind), mfd.simplices[R],
-                                            mfd.coords[0])
+        mfd._dualcoords[R] = calc_dualcoords(Val(mfd.dualkind),
+                                             mfd.simplices[R], mfd.coords[0])
     end
     return nothing
 end
@@ -559,8 +516,8 @@ end
 export dualvolumes
 @inline function dualvolumes(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
-    !haskey(mfd.dualvolumes, R) && calc_dualvolumes!(mfd, R)
-    return mfd.dualvolumes[R]::Vector{S}
+    !haskey(mfd._dualvolumes, R) && calc_dualvolumes!(mfd, R)
+    return mfd._dualvolumes[R]::Vector{S}
 end
 @inline function dualvolumes(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
     return dualvolumes(Val(R), mfd)
@@ -568,36 +525,38 @@ end
 
 function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
-    @assert !haskey(mfd.dualvolumes, R)
+    @assert !haskey(mfd._dualvolumes, R)
     if mfd.dualkind == BarycentricDuals
-        mfd.dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D), Val(R),
-                                              mfd.simplices[R], mfd.lookup,
-                                              mfd.coords[0], mfd.volumes[D])
+        mfd._dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
+                                               Val(R), mfd.simplices[R],
+                                               mfd.lookup, mfd.coords[0],
+                                               mfd.volumes[D])
         @assert all(x -> x != 0 && isfinite(x), mfd.dualvolumes[R])
     elseif mfd.dualkind == CircumcentricDuals
         if R == D
-            mfd.dualvolumes[D] = fill(S(1), nsimplices(mfd, D))
+            mfd._dualvolumes[D] = fill(S(1), nsimplices(mfd, D))
         else
-            mfd.dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
-                                                  mfd.simplices[R],
-                                                  mfd.simplices[R + 1],
-                                                  mfd.lookup[(R + 1, R)],
-                                                  mfd.coords[0], mfd.volumes[R],
-                                                  dualcoords(R, mfd),
-                                                  dualcoords(R + 1, mfd),
-                                                  dualvolumes(R + 1, mfd))
+            mfd._dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
+                                                   mfd.simplices[R],
+                                                   mfd.simplices[R + 1],
+                                                   lookup(Val(R + 1), Val(R),
+                                                          mfd), mfd.coords[0],
+                                                   mfd.volumes[R],
+                                                   dualcoords(R, mfd),
+                                                   dualcoords(R + 1, mfd),
+                                                   dualvolumes(R + 1, mfd))
         end
     else
         @assert false
     end
 
     # Ensure that all dual volumes are strictly positive
-    allpositive = all(>(0), mfd.dualvolumes[R])
+    allpositive = all(>(0), mfd._dualvolumes[R])
     if !allpositive
         @warn "Not all dual $R-volumes are strictly positive"
-        @show count(≤(0), mfd.dualvolumes[R])
-        @show findmin(mfd.dualvolumes[R])
-        @show dualcoords(R, mfd)[findmin(mfd.dualvolumes[R])[2]]
+        @show count(≤(0), mfd._dualvolumes[R])
+        @show findmin(mfd._dualvolumes[R])
+        @show dualcoords(R, mfd)[findmin(mfd._dualvolumes[R])[2]]
     end
 
     return nothing
@@ -605,13 +564,13 @@ end
 
 export simplex_tree
 @inline function simplex_tree(mfd::Manifold{D,C,S}) where {D,C,S}
-    mfd.simplex_tree === nothing && calc_simplex_tree!(mfd)
-    return mfd.simplex_tree::KDTree{SVector{C,S},Euclidean,S}
+    mfd._simplex_tree === nothing && calc_simplex_tree!(mfd)
+    return mfd._simplex_tree::KDTree{SVector{C,S},Euclidean,S}
 end
 
 function calc_simplex_tree!(mfd::Manifold{D,C,S}) where {D,C,S}
-    @assert mfd.simplex_tree === nothing
-    mfd.simplex_tree = KDTree(mfd.coords[0])
+    @assert mfd._simplex_tree === nothing
+    mfd._simplex_tree = KDTree(mfd.coords[0])
     return nothing
 end
 

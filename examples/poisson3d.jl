@@ -1,7 +1,5 @@
 module Poisson3d
 
-using Revise
-
 # using Arpack
 using DDF
 using DifferentialForms
