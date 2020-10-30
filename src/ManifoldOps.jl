@@ -25,10 +25,10 @@ end
 
 boundary(f::Fun{D,P,R}) where {D,P,R} = boundary(Val(P), Val(R), f.manifold) * f
 
-export isboundary
-function isboundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
+function Manifolds.isboundary(::Val{Pr}, ::Val{R},
+                              manifold::Manifold{D}) where {R,D}
     @assert 0 ≤ R < D
-    return Op{D,Pr,R,Pr,R}(manifold, map(Bool, manifold.isboundary[R]).op)
+    return Op{D,Pr,R,Pr,R}(manifold, map(Bool, isboundary(Val(R), manifold).op))
 end
 
 # Derivative (coboundary)

@@ -21,13 +21,15 @@ Base.Int8(a::ZeroOne) = Int8(Bool(a))
 Base.Int(a::ZeroOne) = Int(Bool(a))
 
 # ZeroOne(b::Bool)
-ZeroOne(b::Integer) = ZeroOne(b != 0)
+ZeroOne(b::Integer) = ZeroOne(b ≠ 0)
 
 Base.:+(a::ZeroOne) = a
 Base.:+(a::ZeroOne, b::ZeroOne) = ZeroOne(a.some | b.some)
 Base.:*(a::ZeroOne, b::ZeroOne) = ZeroOne(a.some & b.some)
 Base.abs(a::ZeroOne) = a
 Base.abs2(a::ZeroOne) = a
+Base.max(a::ZeroOne, b::ZeroOne) = a ≥ b ? a : b
+Base.min(a::ZeroOne, b::ZeroOne) = a ≤ b ? a : b
 
 Base.:-(a::ZeroOne) = -Int(a)
 Base.:-(a::ZeroOne, b::ZeroOne) = Int(a) - Int(b)
@@ -60,6 +62,8 @@ Base.:+(::One, ::One) = One()
 Base.:*(::One, ::One) = One()
 Base.abs(::One) = One()
 Base.abs2(::One) = One()
+Base.max(::One, ::One) = One()
+Base.min(::One, ::One) = One()
 
 Base.:-(::One) = -1
 Base.:-(::One, ::One) = 0

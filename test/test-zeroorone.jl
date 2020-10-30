@@ -5,10 +5,15 @@ using DDF
     @test ZeroOne(0) + ZeroOne(1) == ZeroOne(1)
     @test ZeroOne(1) + ZeroOne(0) == ZeroOne(1)
     @test ZeroOne(1) + ZeroOne(1) == ZeroOne(1)
+    @test max(ZeroOne(0), ZeroOne(0)) == ZeroOne(0)
+    @test max(ZeroOne(0), ZeroOne(1)) == ZeroOne(1)
+    @test max(ZeroOne(1), ZeroOne(0)) == ZeroOne(1)
+    @test max(ZeroOne(1), ZeroOne(1)) == ZeroOne(1)
 end
 
 @testset "One" begin
     @test One(1) + One(1) == One(1)
+    @test max(One(), One()) == One()
     @test One(1) + ZeroOne(0) == ZeroOne(1)
     @test ZeroOne(0) + One(1) == ZeroOne(1)
     @test One(One(1) + ZeroOne(0)) == One(1)

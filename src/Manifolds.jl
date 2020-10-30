@@ -81,7 +81,6 @@ mutable struct Manifold{D,C,S}
                              use_weighted_duals::Bool,
                              simplices::OpDict{Int,One},
                              boundaries::OpDict{Int,Int8},
-                             isboundary::OpDict{Int,One},
                              lookup::OpDict{Tuple{Int,Int},One},
                              coords::Dict{Int,Vector{SVector{C,S}}},
                              volumes::Dict{Int,Vector{S}},
@@ -89,7 +88,7 @@ mutable struct Manifold{D,C,S}
         D::Int
         @assert 0 ≤ D ≤ C
         mfd = new{D,C,S}(name, dualkind, use_weighted_duals, simplices,
-                         boundaries, isboundary, lookup, coords, volumes,
+                         boundaries, OpDict{Int,One}(), lookup, coords, volumes,
                          weights, Dict{Int,Vector{SVector{C,S}}}(),
                          Dict{Int,AbstractVector{S}}(), nothing)
         @assert invariant(mfd)
@@ -97,15 +96,14 @@ mutable struct Manifold{D,C,S}
     end
     function Manifold(name::String, dualkind::DualKind,
                       use_weighted_duals::Bool, simplices::OpDict{Int,One},
-                      boundaries::OpDict{Int,Int8}, isboundary::OpDict{Int,One},
+                      boundaries::OpDict{Int,Int8},
                       lookup::OpDict{Tuple{Int,Int},One},
                       coords::Dict{Int,Vector{SVector{C,S}}},
                       volumes::Dict{Int,Vector{S}},
                       weights::Vector{S}) where {C,S}
         D = maximum(keys(simplices))
         return Manifold{D,C,S}(name, dualkind, use_weighted_duals, simplices,
-                               boundaries, isboundary, lookup, coords, volumes,
-                               weights)
+                               boundaries, lookup, coords, volumes, weights)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -123,7 +121,9 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
         println(io, "    boundaries[$R]=$(mfd.boundaries[R])")
     end
     for R in 0:(D - 1)
-        println(io, "    isboundary[$R]=$(mfd.isboundary[R])")
+        if haskey(mfd.isboundary, R)
+            println(io, "    isboundary[$R]=$(mfd.isboundary[R])")
+        end
     end
     for R in 0:D
         println(io, "    coords[$R]=$(mfd.coords[R])")
@@ -180,14 +180,14 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
         end
     end
 
-    # Check isboundary
-    Set(keys(mfd.isboundary)) == Set(0:(D - 1)) || (@assert false; return false)
-    for R in 0:(D - 1)
-        isboundary = mfd.isboundary[R]::SparseOp{R,R,One}
-        size(isboundary) == (nsimplices(mfd, R), nsimplices(mfd, R)) ||
-            (@assert false; return false)
-    end
-    # TODO: check content as well
+    # # Check isboundary
+    # Set(keys(mfd.isboundary)) == Set(0:(D - 1)) || (@assert false; return false)
+    # for R in 0:(D - 1)
+    #     isboundary = mfd.isboundary[R]::SparseOp{R,R,One}
+    #     size(isboundary) == (nsimplices(mfd, R), nsimplices(mfd, R)) ||
+    #         (@assert false; return false)
+    # end
+    # # TODO: check content as well
 
     # Check lookup tables
     Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
@@ -234,7 +234,7 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
     #     length(mfd.dualcoords[R]) == nsimplices(mfd, R) ||
     #         (@assert false; return false)
     # end
-    # 
+
     # Set(keys(mfd.dualvolumes)) == Set(0:D) || (@assert false; return false)
     # for R in 0:D
     #     length(mfd.dualvolumes[R]) == nsimplices(mfd, R) ||
@@ -358,46 +358,46 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
     end
 
-    # Calculate isboundary
-    isboundary = OpDict{Int,One}()
-    if D > 0
-        isbndface = falses(size(boundaries[D], 1))
-        for j in 1:size(boundaries[D], 2)
-            for i in sparse_column_rows(boundaries[D], j)
-                isbndface[i] = !isbndface[i]
-            end
-        end
-        begin
-            I = Int[]
-            J = Int[]
-            V = One[]
-            for (i, b) in enumerate(isbndface)
-                if b
-                    push!(I, i)
-                    push!(J, i)
-                    push!(V, One())
-                end
-            end
-            nfaces = length(isbndface)
-            isboundary[D - 1] = SparseOp{D - 1,D - 1}(sparse(I, J, V, nfaces,
-                                                             nfaces))
-        end
-        for R in 0:(D - 2)
-            lup = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
-            I = Int[]
-            J = Int[]
-            V = One[]
-            for j in findnz(isboundary[D - 1].op)[1]
-                for i in sparse_column_rows(lup, j)
-                    push!(I, i)
-                    push!(J, i)
-                    push!(V, One())
-                end
-            end
-            nelts = size(lup, 1)
-            isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts))
-        end
-    end
+    # # Calculate isboundary
+    # isboundary = OpDict{Int,One}()
+    # if D > 0
+    #     isbndface = falses(size(boundaries[D], 1))
+    #     for j in 1:size(boundaries[D], 2)
+    #         for i in sparse_column_rows(boundaries[D], j)
+    #             isbndface[i] = !isbndface[i]
+    #         end
+    #     end
+    #     begin
+    #         I = Int[]
+    #         J = Int[]
+    #         V = One[]
+    #         for (i, b) in enumerate(isbndface)
+    #             if b
+    #                 push!(I, i)
+    #                 push!(J, i)
+    #                 push!(V, One())
+    #             end
+    #         end
+    #         nfaces = length(isbndface)
+    #         isboundary[D - 1] = SparseOp{D - 1,D - 1}(sparse(I, J, V, nfaces,
+    #                                                          nfaces))
+    #     end
+    #     for R in 0:(D - 2)
+    #         lup = lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
+    #         I = Int[]
+    #         J = Int[]
+    #         V = One[]
+    #         for j in findnz(isboundary[D - 1].op)[1]
+    #             for i in sparse_column_rows(lup, j)
+    #                 push!(I, i)
+    #                 push!(J, i)
+    #                 push!(V, One())
+    #             end
+    #         end
+    #         nelts = size(lup, 1)
+    #         isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts))
+    #     end
+    # end
 
     # Calculate coordinates and volumes
     coords = Dict{Int,Vector{SVector{C,S}}}()
@@ -480,10 +480,58 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
 
     # Create D-manifold
     return Manifold(name, dualkind, use_weighted_duals, simplices, boundaries,
-                    isboundary, lookup, coords, volumes, weights)
+                    lookup, coords, volumes, weights)
 end
 
 ################################################################################
+
+export isboundary
+@inline function isboundary(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
+    @assert 0 ≤ R < D
+    !haskey(mfd.isboundary, R) && calc_isboundary!(mfd, R)
+    return mfd.isboundary[R]::SparseOp{R,R,One}
+end
+@inline function isboundary(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+    return isboundary(Val(R), mfd)
+end
+
+function calc_isboundary!(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
+    @assert 0 ≤ R < D
+    @assert !haskey(mfd.isboundary, R)
+
+    I = Int[]
+    J = Int[]
+    V = One[]
+    nelts = nsimplices(mfd, R)
+    if R == D - 1
+        isbndface = falses(size(mfd.boundaries[D], 1))
+        for j in 1:size(mfd.boundaries[D], 2)
+            for i in sparse_column_rows(mfd.boundaries[D], j)
+                isbndface[i] = !isbndface[i]
+            end
+        end
+        for (i, b) in enumerate(isbndface)
+            if b
+                push!(I, i)
+                push!(J, i)
+                push!(V, One())
+            end
+        end
+    else
+        lookup = mfd.lookup[(R, D - 1)]::SparseOp{R,D - 1,One}
+        for j in findnz(isboundary(D - 1, mfd).op)[1]
+            for i in sparse_column_rows(lookup, j)
+                push!(I, i)
+                push!(J, i)
+                push!(V, One())
+            end
+        end
+    end
+    mfd.isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts;
+                                             combine=max))
+
+    return nothing
+end
 
 export dualcoords
 @inline function dualcoords(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
