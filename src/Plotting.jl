@@ -67,8 +67,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     for i in 1:nsimplices(mfd, D - 1)
         sj = collect(sparse_column_rows(mfd.lookup[(D, D - 1)], i))
         for j in sj
-            xs1 = mfd.dualcoords[D - 1][i]
-            xs2 = mfd.dualcoords[D][j]
+            xs1 = dualcoords(mfd, D - 1)[i]
+            xs2 = dualcoords(mfd, D)[j]
             if visible(xs1) && visible(xs2)
                 push!(dualedges, xs1)
                 push!(dualedges, xs2)
@@ -80,7 +80,7 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     # Dual vertices
     dualvertices = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D)
-        xs1 = mfd.dualcoords[D][i]
+        xs1 = dualcoords(mfd, D)[i]
         if visible(xs1)
             push!(dualvertices, xs1)
         end
@@ -146,8 +146,8 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     for i in 1:nsimplices(mfd, D - 1)
         sj = collect(sparse_column_rows(mfd.lookup[(D, D - 1)], i))
         for j in sj
-            xs1 = mfd.dualcoords[D - 1][i]
-            xs2 = mfd.dualcoords[D][j]
+            xs1 = dualcoords(mfd, D - 1)[i]
+            xs2 = dualcoords(mfd, D)[j]
             if visible(xs1) && visible(xs2)
                 push!(dualedges, xs1)
                 push!(dualedges, xs2)
@@ -159,7 +159,7 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     # Dual vertices
     dualvertices = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D)
-        xs1 = mfd.dualcoords[D][i]
+        xs1 = dualcoords(mfd, D)[i]
         if visible(xs1)
             push!(dualvertices, xs1)
         end

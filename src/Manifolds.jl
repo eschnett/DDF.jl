@@ -86,14 +86,14 @@ mutable struct Manifold{D,C,S}
                              isboundary::OpDict{Int,One},
                              lookup::OpDict{Tuple{Int,Int},One},
                              coords::Dict{Int,Vector{SVector{C,S}}},
-                             volumes::Dict{Int,Vector{S}}, weights::Vector{S},
-                             dualcoords::Dict{Int,Vector{SVector{C,S}}},
-                             dualvolumes::Dict{Int,Vector{S}}) where {D,C,S}
+                             volumes::Dict{Int,Vector{S}},
+                             weights::Vector{S}) where {D,C,S}
         D::Int
         @assert 0 ≤ D ≤ C
         mfd = new{D,C,S}(name, simplices, boundaries, isboundary, lookup,
-                         coords, volumes, weights, dualcoords, dualvolumes,
-                         nothing)
+                         coords, volumes, weights,
+                         Dict{Int,Vector{SVector{C,S}}}(),
+                         Dict{Int,AbstractVector{S}}(), nothing)
         @assert invariant(mfd)
         return mfd
     end
@@ -101,13 +101,11 @@ mutable struct Manifold{D,C,S}
                       boundaries::OpDict{Int,Int8}, isboundary::OpDict{Int,One},
                       lookup::OpDict{Tuple{Int,Int},One},
                       coords::Dict{Int,Vector{SVector{C,S}}},
-                      volumes::Dict{Int,Vector{S}}, weights::Vector{S},
-                      dualcoords::Dict{Int,Vector{SVector{C,S}}},
-                      dualvolumes::Dict{Int,Vector{S}}) where {C,S}
+                      volumes::Dict{Int,Vector{S}},
+                      weights::Vector{S}) where {C,S}
         D = maximum(keys(simplices))
         return Manifold{D,C,S}(name, simplices, boundaries, isboundary, lookup,
-                               coords, volumes, weights, dualcoords,
-                               dualvolumes)
+                               coords, volumes, weights)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -135,10 +133,14 @@ function Base.show(io::IO, mfd::Manifold{D}) where {D}
     end
     println(io, "    weights=$(mfd.weights)")
     for R in 0:D
-        println(io, "    dualcoords[$R]=$(mfd.dualcoords[R])")
+        if haskey(mfd.dualcoords, R)
+            println(io, "    dualcoords[$R]=$(mfd.dualcoords[R])")
+        end
     end
     for R in 0:D
-        println(io, "    dualvolumes[$R]=$(mfd.dualvolumes[R])")
+        if haskey(mfd.dualvolumes, R)
+            println(io, "    dualvolumes[$R]=$(mfd.dualvolumes[R])")
+        end
     end
     return print(io, ")")
 end
@@ -227,17 +229,17 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
 
     length(mfd.weights) == nsimplices(mfd, 0) || (@assert false; return false)
 
-    Set(keys(mfd.dualcoords)) == Set(0:D) || (@assert false; return false)
-    for R in 0:D
-        length(mfd.dualcoords[R]) == nsimplices(mfd, R) ||
-            (@assert false; return false)
-    end
-
-    Set(keys(mfd.dualvolumes)) == Set(0:D) || (@assert false; return false)
-    for R in 0:D
-        length(mfd.dualvolumes[R]) == nsimplices(mfd, R) ||
-            (@assert false; return false)
-    end
+    # Set(keys(mfd.dualcoords)) == Set(0:D) || (@assert false; return false)
+    # for R in 0:D
+    #     length(mfd.dualcoords[R]) == nsimplices(mfd, R) ||
+    #         (@assert false; return false)
+    # end
+    # 
+    # Set(keys(mfd.dualvolumes)) == Set(0:D) || (@assert false; return false)
+    # for R in 0:D
+    #     length(mfd.dualvolumes[R]) == nsimplices(mfd, R) ||
+    #         (@assert false; return false)
+    # end
 
     return true
 end
@@ -469,75 +471,92 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         end
     end
 
-    # Calculate dual coordinates and dual volumes
-    dualcoords = Dict{Int,Vector{SVector{C,S}}}()
-    dualvolumes = Dict{Int,Vector{S}}()
-    # TODO: Combine these two calculations?
+    # TODO: Move this to invariant, maybe add `haskey` for dualcoords
+    # if D > 0
+    #     check_delaunay(simplices[D], lookup[(D - 1, D)], lookup[(D, D - 1)],
+    #                    coords[0], dualcoords[D])
+    # end
+
+    # Create D-manifold
+    return Manifold(name, simplices, boundaries, isboundary, lookup, coords,
+                    volumes, weights)
+end
+
+################################################################################
+
+export dualcoords
+@inline function dualcoords(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
+    @assert 0 ≤ R ≤ D
+    !haskey(mfd.dualcoords, R) && calc_dualcoords!(mfd, R)
+    return mfd.dualcoords[R]::Vector{SVector{C,S}}
+end
+
+function calc_dualcoords!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
+    @assert 0 ≤ R ≤ D
+    @assert !haskey(mfd.dualcoords, R)
     if use_weighted_duals
-        for R in 0:D
-            dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R],
-                                            coords[0], weights)
-        end
+        mfd.dualcoords[R] = calc_dualcoords(Val(dualkind), mfd.simplices[R],
+                                            mfd.coords[0], mfd.weights)
     else
-        for R in 0:D
-            dualcoords[R] = calc_dualcoords(Val(dualkind), simplices[R],
-                                            coords[0])
-        end
+        mfd.dualcoords[R] = calc_dualcoords(Val(dualkind), mfd.simplices[R],
+                                            mfd.coords[0])
     end
+    return nothing
+end
+
+export dualvolumes
+@inline function dualvolumes(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
+    @assert 0 ≤ R ≤ D
+    !haskey(mfd.dualvolumes, R) && calc_dualvolumes!(mfd, R)
+    return mfd.dualvolumes[R]::Vector{S}
+end
+
+function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
+    @assert 0 ≤ R ≤ D
+    @assert !haskey(mfd.dualvolumes, R)
     if dualkind == BarycentricDuals
-        for R in 0:D
-            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
-                                              simplices[R], lookup, coords[0],
-                                              volumes[D], dualcoords)
-            @assert all(x -> x != 0 && isfinite(x), dualvolumes[R])
-        end
+        mfd.dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
+                                              mfd.simplices[R], mfd.lookup,
+                                              mfd.coords[0], mfd.volumes[D])
+        @assert all(x -> x != 0 && isfinite(x), mfd.dualvolumes[R])
     elseif dualkind == CircumcentricDuals
-        dualvolumes[D] = fill(S(1), nsimplices)
-        for R in (D - 1):-1:0
-            dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D),
-                                              simplices[R], simplices[R + 1],
-                                              lookup[(R + 1, R)], coords[0],
-                                              volumes[R], dualcoords[R],
-                                              dualcoords[R + 1],
-                                              dualvolumes[R + 1])
+        if R == D
+            mfd.dualvolumes[D] = fill(S(1), nsimplices(mfd, D))
+        else
+            mfd.dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D),
+                                                  mfd.simplices[R],
+                                                  mfd.simplices[R + 1],
+                                                  mfd.lookup[(R + 1, R)],
+                                                  mfd.coords[0], mfd.volumes[R],
+                                                  dualcoords(mfd, R),
+                                                  dualcoords(mfd, R + 1),
+                                                  dualvolumes(mfd, R + 1))
         end
     else
         @assert false
     end
 
     # Ensure that all dual volumes are strictly positive
-    allpositive = true
-    for R in 0:D
-        allpositive &= all(>(0), dualvolumes[R])
-    end
+    allpositive = all(>(0), mfd.dualvolumes[R])
     if !allpositive
-        @warn "Not all dual volumes are strictly positive"
-        @show [count(≤(0), dualvolumes[d]) for d in 0:D]
-        @show [findmin(dualvolumes[d]) for d in 0:D]
-        @show [dualcoords[d][findmin(dualvolumes[d])[2]] for d in 0:D]
+        @warn "Not all dual $R-volumes are strictly positive"
+        @show count(≤(0), mfd.dualvolumes[R])
+        @show findmin(mfd.dualvolumes[R])
+        @show dualcoords(mfd, R)[findmin(mfd.dualvolumes[R])[2]]
     end
 
-    if D > 0
-        check_delaunay(simplices[D], lookup[(D - 1, D)], lookup[(D, D - 1)],
-                       coords[0], dualcoords[D])
-    end
-
-    # Create D-manifold
-    return Manifold(name, simplices, boundaries, isboundary, lookup, coords,
-                    volumes, weights, dualcoords, dualvolumes)
+    return nothing
 end
-
-################################################################################
 
 export simplex_tree
-@inline function simplex_tree(manifold::Manifold{D,C,S}) where {D,C,S}
-    manifold.simplex_tree === nothing && calc_simplex_tree!(manifold)
-    return manifold.simplex_tree::KDTree{SVector{C,S},Euclidean,S}
+@inline function simplex_tree(mfd::Manifold{D,C,S}) where {D,C,S}
+    mfd.simplex_tree === nothing && calc_simplex_tree!(mfd)
+    return mfd.simplex_tree::KDTree{SVector{C,S},Euclidean,S}
 end
 
-function calc_simplex_tree!(manifold::Manifold{D,C,S}) where {D,C,S}
-    @assert manifold.simplex_tree === nothing
-    manifold.simplex_tree = KDTree(manifold.coords[0])
+function calc_simplex_tree!(mfd::Manifold{D,C,S}) where {D,C,S}
+    @assert mfd.simplex_tree === nothing
+    mfd.simplex_tree = KDTree(mfd.coords[0])
     return nothing
 end
 

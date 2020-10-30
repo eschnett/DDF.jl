@@ -55,7 +55,7 @@ function Forms.hodge(::Val{Pr}, ::Val{R},
                      manifold::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
     vol = manifold.volumes[R]
-    dualvol = manifold.dualvolumes[R]
+    dualvol = dualvolumes(manifold, R)
     if isempty(vol)
         return zero(Op{D,Dl,R,Pr,R,S}, manifold)
     end
@@ -68,7 +68,7 @@ function Forms.invhodge(::Val{Dl}, ::Val{R},
     R::Int
     @assert 0 ≤ R ≤ D
     vol = manifold.volumes[R]
-    dualvol = manifold.dualvolumes[R]
+    dualvol = dualvolumes(manifold, R)
     if isempty(vol)
         return zero(Op{D,Pr,R,Dl,R,S}, manifold)
     end
