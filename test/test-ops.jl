@@ -106,6 +106,21 @@ R1 in 0:D
         @test (F * A) * f == F * (A * f)
     end
 
+    maxabs(f) = norm(f.values, Inf)
+
+    isgood = false
+    for iter in 1:3
+        # Add diagonal entries to help make F invertible
+        F = one(Op{D,P1,R1,P1,R1,T}, mfd) + rand(Op{D,P1,R1,P1,R1,T}, mfd)
+
+        # Note: \ converts rationals to Float64
+        g = F * (F \ f)
+        isgood = maxabs(g - f) ≤ 1.0e-12
+        isgood && break
+    end
+    @test isgood
+
+    isgood = false
     for iter in 1:3
         # Add diagonal entries to help make F and G invertible
         F = one(Op{D,P1,R1,P1,R1,T}, mfd) + rand(Op{D,P1,R1,P1,R1,T}, mfd)
@@ -114,12 +129,10 @@ R1 in 0:D
         # Note: \ converts rationals to Float64
         g1 = (G * F) \ f
         g2 = F \ (G \ f)
-        maxabs(f) = norm(f.values, Inf)
         gscale = max(1, maxabs(g1), maxabs(g2))
-        isgood = maxabs(g1 - g2) ≤ 1.0e-12 * gscale
-        if isgood || iter == 3
-            @test isgood
-            break
-        end
+        # isgood = maxabs(g1 - g2) ≤ 1.0e-12 * gscale
+        isgood = maxabs(g1 - g2) ≤ 1.0e-8 * gscale
+        isgood && break
     end
+    @test isgood
 end
