@@ -30,7 +30,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
         return Form{D,R,T}((y,))
     end
 
-    i, dist = nn(mfd.simplex_tree, x)
+    i, dist = nn(simplex_tree(mfd), x)
     # Search all neighbouring simplices to find containing simplex
     lookup_D = mfd.lookup[(D, 0)]::SparseOp{D,0,One}
     lookup_R = mfd.lookup[(R, D)]::SparseOp{R,D,One}

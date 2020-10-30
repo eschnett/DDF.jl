@@ -34,13 +34,15 @@ const use_weighted_duals = true
 
 ################################################################################
 
+const Maybe{T} = Union{Nothing,T}
+
 const OpDict{K,T} = Dict{K,SparseOp{<:Any,<:Any,T}} where {K,T}
 
 export Manifold
 """
 A discrete manifold 
 """
-struct Manifold{D,C,S}
+mutable struct Manifold{D,C,S}
     name::String
 
     # If `simplices[R][i,j]` is present, then vertex `i` is part of
@@ -77,7 +79,7 @@ struct Manifold{D,C,S}
     dualvolumes::Dict{Int,Vector{S}}
 
     # Nearest neighbour tree for simplex vertices
-    simplex_tree::KDTree{SVector{C,S},Euclidean,S}
+    simplex_tree::Maybe{KDTree{SVector{C,S},Euclidean,S}}
 
     function Manifold{D,C,S}(name::String, simplices::OpDict{Int,One},
                              boundaries::OpDict{Int,Int8},
@@ -86,15 +88,12 @@ struct Manifold{D,C,S}
                              coords::Dict{Int,Vector{SVector{C,S}}},
                              volumes::Dict{Int,Vector{S}}, weights::Vector{S},
                              dualcoords::Dict{Int,Vector{SVector{C,S}}},
-                             dualvolumes::Dict{Int,Vector{S}},
-                             simplex_tree::KDTree{SVector{C,S},Euclidean,S}) where {D,
-                                                                                    C,
-                                                                                    S}
+                             dualvolumes::Dict{Int,Vector{S}}) where {D,C,S}
         D::Int
         @assert 0 ≤ D ≤ C
         mfd = new{D,C,S}(name, simplices, boundaries, isboundary, lookup,
                          coords, volumes, weights, dualcoords, dualvolumes,
-                         simplex_tree)
+                         nothing)
         @assert invariant(mfd)
         return mfd
     end
@@ -104,13 +103,11 @@ struct Manifold{D,C,S}
                       coords::Dict{Int,Vector{SVector{C,S}}},
                       volumes::Dict{Int,Vector{S}}, weights::Vector{S},
                       dualcoords::Dict{Int,Vector{SVector{C,S}}},
-                      dualvolumes::Dict{Int,Vector{S}},
-                      simplex_tree::KDTree{SVector{C,S},Euclidean,S}) where {C,
-                                                                             S}
+                      dualvolumes::Dict{Int,Vector{S}}) where {C,S}
         D = maximum(keys(simplices))
         return Manifold{D,C,S}(name, simplices, boundaries, isboundary, lookup,
                                coords, volumes, weights, dualcoords,
-                               dualvolumes, simplex_tree)
+                               dualvolumes)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -525,11 +522,23 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
                        coords[0], dualcoords[D])
     end
 
-    simplex_tree = KDTree(coords[0])
-
     # Create D-manifold
     return Manifold(name, simplices, boundaries, isboundary, lookup, coords,
-                    volumes, weights, dualcoords, dualvolumes, simplex_tree)
+                    volumes, weights, dualcoords, dualvolumes)
+end
+
+################################################################################
+
+export simplex_tree
+@inline function simplex_tree(manifold::Manifold{D,C,S}) where {D,C,S}
+    manifold.simplex_tree === nothing && calc_simplex_tree!(manifold)
+    return manifold.simplex_tree::KDTree{SVector{C,S},Euclidean,S}
+end
+
+function calc_simplex_tree!(manifold::Manifold{D,C,S}) where {D,C,S}
+    @assert manifold.simplex_tree === nothing
+    manifold.simplex_tree = KDTree(manifold.coords[0])
+    return nothing
 end
 
 ################################################################################
