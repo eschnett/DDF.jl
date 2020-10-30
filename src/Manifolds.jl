@@ -25,13 +25,6 @@ Base.:!(P::PrimalDual) = PrimalDual(!(Bool(P)))
 export DualKind, BarycentricDuals, CircumcentricDuals
 @enum DualKind BarycentricDuals CircumcentricDuals
 
-# const dualkind = BarycentricDuals
-const dualkind = CircumcentricDuals
-
-# Weighted duals need to be circumcentric duals
-export use_weighted_duals
-const use_weighted_duals = true
-
 ################################################################################
 
 const Maybe{T} = Union{Nothing,T}
@@ -44,6 +37,9 @@ A discrete manifold
 """
 mutable struct Manifold{D,C,S}
     name::String
+
+    dualkind::DualKind
+    use_weighted_duals::Bool
 
     # If `simplices[R][i,j]` is present, then vertex `i` is part of
     # the `R`-simplex `j`. `R ∈ 0:D`. We could omit `R=0`.
@@ -81,7 +77,9 @@ mutable struct Manifold{D,C,S}
     # Nearest neighbour tree for simplex vertices
     simplex_tree::Maybe{KDTree{SVector{C,S},Euclidean,S}}
 
-    function Manifold{D,C,S}(name::String, simplices::OpDict{Int,One},
+    function Manifold{D,C,S}(name::String, dualkind::DualKind,
+                             use_weighted_duals::Bool,
+                             simplices::OpDict{Int,One},
                              boundaries::OpDict{Int,Int8},
                              isboundary::OpDict{Int,One},
                              lookup::OpDict{Tuple{Int,Int},One},
@@ -90,22 +88,24 @@ mutable struct Manifold{D,C,S}
                              weights::Vector{S}) where {D,C,S}
         D::Int
         @assert 0 ≤ D ≤ C
-        mfd = new{D,C,S}(name, simplices, boundaries, isboundary, lookup,
-                         coords, volumes, weights,
-                         Dict{Int,Vector{SVector{C,S}}}(),
+        mfd = new{D,C,S}(name, dualkind, use_weighted_duals, simplices,
+                         boundaries, isboundary, lookup, coords, volumes,
+                         weights, Dict{Int,Vector{SVector{C,S}}}(),
                          Dict{Int,AbstractVector{S}}(), nothing)
         @assert invariant(mfd)
         return mfd
     end
-    function Manifold(name::String, simplices::OpDict{Int,One},
+    function Manifold(name::String, dualkind::DualKind,
+                      use_weighted_duals::Bool, simplices::OpDict{Int,One},
                       boundaries::OpDict{Int,Int8}, isboundary::OpDict{Int,One},
                       lookup::OpDict{Tuple{Int,Int},One},
                       coords::Dict{Int,Vector{SVector{C,S}}},
                       volumes::Dict{Int,Vector{S}},
                       weights::Vector{S}) where {C,S}
         D = maximum(keys(simplices))
-        return Manifold{D,C,S}(name, simplices, boundaries, isboundary, lookup,
-                               coords, volumes, weights)
+        return Manifold{D,C,S}(name, dualkind, use_weighted_duals, simplices,
+                               boundaries, isboundary, lookup, coords, volumes,
+                               weights)
     end
 end
 # TODO: Implement also a "cube complex" representation
@@ -296,8 +296,9 @@ end
 # Outer constructor
 
 function Manifold(name::String, simplicesD::SparseOp{0,D,One},
-                  coords0::Vector{SVector{C,S}},
-                  weights::Vector{S}) where {D,C,S}
+                  coords0::Vector{SVector{C,S}}, weights::Vector{S};
+                  dualkind::DualKind=CircumcentricDuals,
+                  use_weighted_duals::Bool=true) where {D,C,S}
     @assert 0 ≤ D ≤ C
 
     nvertices, nsimplices = size(simplicesD)
@@ -478,59 +479,65 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     # end
 
     # Create D-manifold
-    return Manifold(name, simplices, boundaries, isboundary, lookup, coords,
-                    volumes, weights)
+    return Manifold(name, dualkind, use_weighted_duals, simplices, boundaries,
+                    isboundary, lookup, coords, volumes, weights)
 end
 
 ################################################################################
 
 export dualcoords
-@inline function dualcoords(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
+@inline function dualcoords(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
     !haskey(mfd.dualcoords, R) && calc_dualcoords!(mfd, R)
     return mfd.dualcoords[R]::Vector{SVector{C,S}}
+end
+@inline function dualcoords(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+    return dualcoords(Val(R), mfd)
 end
 
 function calc_dualcoords!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
     @assert !haskey(mfd.dualcoords, R)
-    if use_weighted_duals
-        mfd.dualcoords[R] = calc_dualcoords(Val(dualkind), mfd.simplices[R],
+    if mfd.use_weighted_duals
+        mfd.dualcoords[R] = calc_dualcoords(Val(mfd.dualkind), mfd.simplices[R],
                                             mfd.coords[0], mfd.weights)
     else
-        mfd.dualcoords[R] = calc_dualcoords(Val(dualkind), mfd.simplices[R],
+        mfd.dualcoords[R] = calc_dualcoords(Val(mfd.dualkind), mfd.simplices[R],
                                             mfd.coords[0])
     end
     return nothing
 end
 
 export dualvolumes
-@inline function dualvolumes(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
+@inline function dualvolumes(::Val{R}, mfd::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
     !haskey(mfd.dualvolumes, R) && calc_dualvolumes!(mfd, R)
     return mfd.dualvolumes[R]::Vector{S}
+end
+@inline function dualvolumes(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+    return dualvolumes(Val(R), mfd)
 end
 
 function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
     @assert !haskey(mfd.dualvolumes, R)
-    if dualkind == BarycentricDuals
-        mfd.dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D), Val(R),
+    if mfd.dualkind == BarycentricDuals
+        mfd.dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D), Val(R),
                                               mfd.simplices[R], mfd.lookup,
                                               mfd.coords[0], mfd.volumes[D])
         @assert all(x -> x != 0 && isfinite(x), mfd.dualvolumes[R])
-    elseif dualkind == CircumcentricDuals
+    elseif mfd.dualkind == CircumcentricDuals
         if R == D
             mfd.dualvolumes[D] = fill(S(1), nsimplices(mfd, D))
         else
-            mfd.dualvolumes[R] = calc_dualvolumes(Val(dualkind), Val(D),
+            mfd.dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
                                                   mfd.simplices[R],
                                                   mfd.simplices[R + 1],
                                                   mfd.lookup[(R + 1, R)],
                                                   mfd.coords[0], mfd.volumes[R],
-                                                  dualcoords(mfd, R),
-                                                  dualcoords(mfd, R + 1),
-                                                  dualvolumes(mfd, R + 1))
+                                                  dualcoords(R, mfd),
+                                                  dualcoords(R + 1, mfd),
+                                                  dualvolumes(R + 1, mfd))
         end
     else
         @assert false
@@ -542,7 +549,7 @@ function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
         @warn "Not all dual $R-volumes are strictly positive"
         @show count(≤(0), mfd.dualvolumes[R])
         @show findmin(mfd.dualvolumes[R])
-        @show dualcoords(mfd, R)[findmin(mfd.dualvolumes[R])[2]]
+        @show dualcoords(R, mfd)[findmin(mfd.dualvolumes[R])[2]]
     end
 
     return nothing

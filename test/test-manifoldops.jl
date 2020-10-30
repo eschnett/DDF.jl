@@ -82,7 +82,7 @@ mfd in manifolds[D]
     # coderivatives etc.
 
     # Only if completely well-centred [arXiv:0802.2108 [cs.CG]]
-    if Manifolds.dualkind == BarycentricDuals ||
+    if mfd.dualkind == BarycentricDuals ||
        mfd.name ∉ ["hypercube manifold", "delaunay hypercube manifold",
         "large delaunay hypercube manifold", "refined simplex manifold"]
 
