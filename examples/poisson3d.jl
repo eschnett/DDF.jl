@@ -1,13 +1,10 @@
 module Poisson3d
 
-# using Arpack
 using DDF
 using DifferentialForms
 using GLMakie
-# using IncompleteLU
 using IterativeSolvers
 using LinearAlgebra
-# using Preconditioners
 using SparseArrays
 using StaticArrays
 using WriteVTK
@@ -33,7 +30,7 @@ function main()
     T = Float64
 
     n = 64
-    mfd = large_delaunay_hypercube_manifold(Val(D), S, n)
+    mfd = large_delaunay_hypercube_manifold(Val(D), S, n; optimize_mesh=false)
 
     ############################################################################
 
@@ -103,13 +100,6 @@ function main()
     @assert issparse(B)
     @assert B * B == B
     c = [u₀.values; n1.values]
-
-    P = [N10.values E1.values; E0.values N01.values]
-
-    # A = P * A
-    # b = P * b
-    # B = P * B
-    # c = P * c
 
     A′ = (E - B) * A + B
     @assert issparse(A′)

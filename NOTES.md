@@ -34,3 +34,42 @@
 [Glitter](<https://en.wikipedia.org/wiki/Glitter>)
 
 ... and [Glitterati](https://songmeanings.com/songs/view/2890/).
+
+
+
+# DA
+
+```
+L u == ρ
+B d u == 0
+
+d u - f == 0
+δ f == ρ
+B f == 0
+```
+
+
+Can we rewrite this without δ or ⋆?
+
+- DA: need to remove harmonic forms from f: P(1-H) f. only for strong
+  form?
+
+- DA: R[u]=0: von Neumann bc
+      R[u]=D-1: Dirichlet bc
+
+- DA: mixed weak formulations have no hodge dual
+-     magnetic bc: R=1   (or R=2?)
+-     electric bc: R=2   (or R=1?)
+
+- DA: Hodge Laplacian is always well posed! choose complexes (and
+      respective basis functions), then solve in the discrete with the
+      same mixed weak formulation.
+
+- DA: trace is projection onto boundary; trace maps D-dim form onto
+      (D-1)-dim form
+
+- DA: 0-forms: naturally piecewise continuous (FE), polynomial
+      D-forms: naturally piecewise discontinuous (DG), polynomial
+      - DOFs need to be located on either of vertices, edges, faces,
+        etc.
+      - must be unisolvent (be a basis?)

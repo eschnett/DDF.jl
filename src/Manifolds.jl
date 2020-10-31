@@ -297,6 +297,7 @@ end
 function Manifold(name::String, simplicesD::SparseOp{0,D,One},
                   coords0::Vector{SVector{C,S}}, weights::Vector{S};
                   dualkind::DualKind=CircumcentricDuals,
+                  optimize_mesh::Bool=true,
                   use_weighted_duals::Bool=true) where {D,C,S}
     @assert 0 ≤ D ≤ C
 
@@ -326,7 +327,7 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
         @assert all(x -> x != 0 && isfinite(x), volumes[R])
     end
 
-    if use_weighted_duals
+    if optimize_mesh && use_weighted_duals
         @assert dualkind == CircumcentricDuals
         # Optimize weights
         # Calculate mask for boundary vertices (which must not be moved)

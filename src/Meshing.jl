@@ -29,11 +29,16 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
         # Use Delaunay.jl
 
         # Triangulate
+        println("[Calling Delaunay with $nvertices points...]")
+        t0 = time_ns()
         mesh = delaunay(S[coords[i][c] for i in 1:nvertices, c in 1:C])
         # [:Qbb, :Qc, :Qz, :Q12, :QJ]
+        t1 = time_ns()
+        tdelaunay = round((t1 - t0) / 1.0e9; sigdigits=3)
 
         # Convert to sparse matrix
         nsimplices = size(mesh.simplices, 1)
+        println("[Delaunay found $nsimplices simplices in $tdelaunay s]")
         @assert size(mesh.simplices, 2) == C + 1
         I = Int[]
         J = Int[]

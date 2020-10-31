@@ -29,9 +29,9 @@ function main()
     S = Float64
     T = Float64
 
-    mfd = simplex_manifold(Val(D), S)
+    mfd = simplex_manifold(Val(D), S; optimize_mesh=false)
     for level in 1:5
-        mfd = refined_manifold(mfd)
+        mfd = refined_manifold(mfd; optimize_mesh=false)
     end
 
     ############################################################################

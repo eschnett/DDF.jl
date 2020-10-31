@@ -27,7 +27,7 @@ export simplex_manifold
 """
 Manifold with one standard simplex
 """
-function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
+function simplex_manifold(::Val{D}, ::Type{S}; options...) where {D,S}
     nvertices = D + 1
     coords = regular_simplex(Val(D), S)
     weights = zeros(S, length(coords))
@@ -40,7 +40,7 @@ function simplex_manifold(::Val{D}, ::Type{S}) where {D,S}
         push!(V, One())
     end
     simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, 1))
-    return Manifold("simplex manifold", simplices, coords, weights)
+    return Manifold("simplex manifold", simplices, coords, weights; options...)
 end
 
 """
@@ -229,8 +229,8 @@ export large_delaunay_hypercube_manifold
 Delaunay triangulation of a large hypercube
 """
 function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
-                                           n::Union{Nothing,Int}=nothing) where {D,
-                                                                                 S}
+                                           n::Union{Nothing,Int}=nothing;
+                                           options...) where {D,S}
     @assert D ≥ 0
     N = D + 1
 
@@ -304,7 +304,7 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
     simplices = SparseOp{0,D,One}(simplices)
 
     return Manifold("large delaunay hypercube manifold", simplices, coords,
-                    weights)
+                    weights; options...)
 end
 
 ################################################################################
@@ -313,12 +313,13 @@ export refined_manifold
 """
 Refined manifold
 """
-function refined_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
+function refined_manifold(mfd0::Manifold{D,C,S}; options...) where {D,C,S}
     D == 0 && return mfd0
     coords = refine_coords(lookup(Val(0), Val(1), mfd0), mfd0.coords[0])
     weights = zeros(S, length(coords))
     simplices = SparseOp{0,D}(delaunay_mesh(coords))
-    mfd = Manifold("refined $(mfd0.name)", simplices, coords, weights)
+    mfd = Manifold("refined $(mfd0.name)", simplices, coords, weights;
+                   options...)
     return mfd
 end
 
