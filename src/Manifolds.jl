@@ -166,11 +166,13 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
         boundaries = mfd.boundaries[R]::SparseOp{R - 1,R,Int8}
         size(boundaries) == (nsimplices(mfd, R - 1), nsimplices(mfd, R)) ||
             (@assert false; return false)
+        simplicesR = mfd.simplices[R]::SparseOp{0,R,One}
+        simplicesR1 = mfd.simplices[R - 1]::SparseOp{0,R - 1,One}
         for j in 1:size(boundaries, 2) # R-simplex
-            vj = sparse_column_rows(mfd.simplices[R], j)
+            vj = sparse_column_rows(simplicesR, j)
             sj = sparse_column(boundaries, j)
             for (i, p) in sj    # (R-1)-simplex
-                si = sparse_column_rows(mfd.simplices[R - 1], i)
+                si = sparse_column_rows(simplicesR1, i)
                 for k in si     # vertices
                     k ∈ vj || (@assert false; return false)
                 end
