@@ -30,7 +30,8 @@ function main()
     T = Float64
 
     n = 64
-    mfd = large_delaunay_hypercube_manifold(Val(D), S, n; optimize_mesh=false)
+    nelts = Tuple(n for d in 1:D)
+    mfd = large_hypercube_manifold(Val(D), S; nelts=nelts, optimize_mesh=true)
 
     ############################################################################
 

@@ -123,13 +123,13 @@ export hypercube_manifold
 """
 Standard tesselation of a hypercube
 """
-function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
+function hypercube_manifold(::Val{D}, ::Type{S}; options...) where {D,S}
     @assert D ≥ 0
     N = D + 1
 
     # Find simplices
     simplices = SVector{N,Int}[]
-    corner = zeros(SVector{D,Bool})
+    corner = zero(SVector{D,Bool})
     vertices = [corner2vertex(corner)]
     next_corner!(simplices, vertices, corner)
     nsimplices = length(simplices)
@@ -158,11 +158,12 @@ function hypercube_manifold(::Val{D}, ::Type{S}) where {D,S}
     end
     simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, nsimplices))
 
-    return Manifold("hypercube manifold", simplices, coords, weights)
+    return Manifold("hypercube manifold", simplices, coords, weights;
+                    options...)
 end
 
 """
-- Accumulate the simplices ∈ `simplices`.
+- Accumulate the simplices in `simplices`.
 - `vertices` is the current set of vertices as we sweep from the
   origin to diagonally opposide vertex.
 - `corner` is the current corner.
@@ -193,6 +194,148 @@ end
 function corner2vertex(c::SVector{D,Bool})::Int where {D}
     D == 0 && return 1
     return 1 + sum(c[d] << (d - 1) for d in 1:D)
+end
+
+################################################################################
+
+export large_hypercube_manifold
+"""
+Triangulate a large hypercube by splitting it into smaller hypercubes
+"""
+function large_hypercube_manifold(::Val{D}, ::Type{S}; nelts::NTuple{D,Int},
+                                  options...) where {D,S}
+    @assert D ≥ 0
+    N = D + 1
+
+    @assert all(nelts .≥ 0)
+    # We could relax this
+    @assert all(nelts .% 2 .== 0)
+
+    symmetric_hypercube = create_hypercube(Val(D))
+    for dir in 1:D
+        append!(symmetric_hypercube, mirror_hypercube(symmetric_hypercube, dir))
+    end
+    @assert length(symmetric_hypercube) == factorial(D) * 2^D
+
+    stride = SVector{D,Int}(d == 1 ? 1 : prod(nelts[1:(d - 1)] .+ 1)
+                            for d in 1:D)
+    vertex2ind(i::SVector{D,Int}) = 1 + sum(i .* stride)
+
+    nsimplices = factorial(D) * (D == 0 ? 1 : prod(nelts))
+    simplices = Array{SVector{N,Int}}(undef, nsimplices)
+    i = 0
+    for elt in CartesianIndices(nelts .÷ 2)
+        offset = 2 * (SVector{D,Int}(elt.I) .- 1)
+        for s in symmetric_hypercube
+            simplices[i += 1] = map(v -> vertex2ind(v .+ offset), s)
+        end
+    end
+    @assert i == length(simplices)
+
+    nvertices = D == 0 ? 1 : prod(nelts .+ 1)
+    coords = Array{SVector{D,S}}(undef, nvertices)
+    i = 0
+    for elt in CartesianIndices(nelts .+ 1)
+        coords[i += 1] = (SVector{D,S}(elt.I) .- 1) ./ nelts
+    end
+    @assert i == length(coords)
+
+    weights = zeros(S, nvertices)
+
+    I = Int[]
+    J = Int[]
+    V = One[]
+    for (j, sj) in enumerate(simplices)
+        for i in sj
+            push!(I, i)
+            push!(J, j)
+            push!(V, One())
+        end
+    end
+    simplices = SparseOp{0,D,One}(sparse(I, J, V, nvertices, nsimplices))
+
+    return Manifold("large hypercube manifold", simplices, coords, weights;
+                    options...)
+end
+
+function create_hypercube(::Val{D}) where {D}
+    @assert D ≥ 0
+    N = D + 1
+
+    # Find simplices
+    simplices = SVector{N,SVector{D,Int}}[]
+    corner = zero(SVector{D,Bool})
+    vertices = SVector{D,Int}[corner]
+    next_corner!(simplices, vertices, corner)
+    nsimplices = length(simplices)
+    @assert nsimplices == factorial(D)
+
+    # Ensure we have all 2^D vertices
+    cvertices = SVector{D,Int}[]
+    for si in simplices
+        for j in si
+            push!(cvertices, j)
+        end
+    end
+    unique!(sort!(cvertices))
+    @assert length(cvertices) == 2^D
+
+    return simplices
+end
+
+"""
+- Accumulate the simplices in `simplices`.
+- `vertices` is the current set of vertices as we sweep from the
+  origin to diagonally opposide vertex.
+- `corner` is the current corner.
+"""
+function next_corner!(simplices::Vector{SVector{N,SVector{D,Int}}},
+                      vertices::Vector{SVector{D,Int}},
+                      corner::SVector{D,Bool}) where {N,D}
+    @assert N == D + 1
+    if D == 0
+        @assert length(vertices) == 1
+    end
+    @assert sum(corner) == length(vertices) - 1
+    if length(vertices) == D + 1
+        # We have all vertices; build the simplex
+        push!(simplices, SVector{N}(vertices))
+        return
+    end
+    # Loop over all neighbouring corners
+    for d in 1:D
+        if !corner[d]
+            new_corner = setindex(corner, true, d)
+            new_vertex = SVector{D,Int}(new_corner)
+            new_vertices = copy(vertices)
+            push!(new_vertices, new_vertex)
+            next_corner!(simplices, new_vertices, new_corner)
+        end
+    end
+    return
+end
+
+function mirror_hypercube(simplices::Vector{SVector{N,SVector{D,Int}}},
+                          dir::Int) where {D,N}
+    @assert D ≥ 0
+    @assert N == D + 1
+    @assert 1 ≤ dir ≤ D
+
+    flip = SVector{D,Int}(d == dir ? -1 : 1 for d in 1:D)
+    offset = SVector{D,Int}(d == dir ? 2 : 0 for d in 1:D)
+    simplices′ = map(s -> map(v -> flip .* v .+ offset, s), simplices)
+
+    return simplices′
+end
+
+function shift_hypercube(simplices::Vector{SVector{N,SVector{D,Int}}},
+                         offset::SVector{D,Int}) where {D,N}
+    @assert D ≥ 0
+    @assert N == D + 1
+
+    simplices′ = map(s -> map(v -> v .+ offset, s), simplices)
+
+    return simplices′
 end
 
 ################################################################################

@@ -373,8 +373,8 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
             dof = zeros(SMatrix{C,C,S}, length(coords[0]))
         end
         dof::Vector{SMatrix{C,C,S}}
-        coords0, weights = optimize_mesh(Val(dualkind), Val(D), simplices,
-                                         coords[0], dof, weights)
+        coords0, weights = optimize_mesh1(Val(dualkind), Val(D), simplices,
+                                          coords[0], dof, weights)
         # Re-calculate coordinates and volumes
         coords = Dict{Int,Vector{SVector{C,S}}}()
         volumes = Dict{Int,Vector{S}}()
@@ -641,10 +641,11 @@ end
 
 ################################################################################
 
-function optimize_mesh(::Val{CircumcentricDuals}, ::Val{D},
-                       simplices::OpDict{Int,One}, coords::Vector{SVector{C,S}},
-                       dof::Vector{SMatrix{C,C,S}},
-                       weights::Vector{S}) where {D,C,S}
+function optimize_mesh1(::Val{CircumcentricDuals}, ::Val{D},
+                        simplices::OpDict{Int,One},
+                        coords::Vector{SVector{C,S}},
+                        dof::Vector{SMatrix{C,C,S}},
+                        weights::Vector{S}) where {D,C,S}
     D::Int
     C::Int
     @assert 0 ≤ D ≤ C
