@@ -11,7 +11,7 @@ using LinearAlgebra
     end
     @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
-        @test isempty(mfd.volumes[R])
+        @test isempty(volumes(R, mfd))
         @test isempty(dualvolumes(R, mfd))
     end
 end
@@ -27,21 +27,21 @@ end
 
     N = D + 1
     for i in 1:N, j in (i + 1):N
-        @test norm(mfd.coords[0][i] - mfd.coords[0][j]) ≈ 1
+        @test norm(coords(mfd)[i] - coords(mfd)[j]) ≈ 1
     end
 
     for R in 0:D
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
         vol = sqrt(S(R + 1) / 2^R) / factorial(R)
-        @test all(≈(vol), mfd.volumes[R])
-        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        @test all(≈(vol), volumes(R, mfd))
+        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         @test all(>(0), dualvolumes(R, mfd))
         @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥ 0.01
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
-    @test all(==(1), mfd.volumes[0])
-    @test sum(mfd.volumes[D]) ≈ vol
+    @test all(==(1), volumes(0, mfd))
+    @test sum(volumes(D, mfd)) ≈ vol
     @test sum(dualvolumes(0, mfd)) ≈ vol
     @test all(==(1), dualvolumes(D, mfd))
 end
@@ -55,7 +55,7 @@ end
     end
     @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
-        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         if mfd.dualkind == BarycentricDuals || (D ≤ 2 &&
             mfd.dualkind == CircumcentricDuals &&
             mfd.use_weighted_duals)
@@ -67,8 +67,8 @@ end
 
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = S(1) / factorial(D)
-    @test all(==(1), mfd.volumes[0])
-    @test sum(mfd.volumes[D]) ≈ vol
+    @test all(==(1), volumes(0, mfd))
+    @test sum(volumes(D, mfd)) ≈ vol
     @test sum(dualvolumes(0, mfd)) ≈ vol
     @test all(==(1), dualvolumes(D, mfd))
 end
@@ -82,7 +82,7 @@ end
     # TODO: Find rule for other dimensions
     @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
-        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         if mfd.dualkind == BarycentricDuals ||
            (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
             @test all(>(0), dualvolumes(R, mfd))
@@ -92,8 +92,8 @@ end
     end
 
     vol = 1
-    @test all(==(1), mfd.volumes[0])
-    @test sum(mfd.volumes[D]) ≈ vol
+    @test all(==(1), volumes(0, mfd))
+    @test sum(volumes(D, mfd)) ≈ vol
     @test sum(dualvolumes(0, mfd)) ≈ vol
     @test all(==(1), dualvolumes(D, mfd))
 end
@@ -105,7 +105,7 @@ end
     @test nsimplices(mfd, 0) == 2^D
     @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
-        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         if mfd.dualkind == BarycentricDuals || (D ≤ 3 &&
             mfd.dualkind == CircumcentricDuals &&
             mfd.use_weighted_duals)
@@ -116,8 +116,8 @@ end
     end
 
     vol = 1
-    @test all(==(1), mfd.volumes[0])
-    @test sum(mfd.volumes[D]) ≈ vol
+    @test all(==(1), volumes(0, mfd))
+    @test sum(volumes(D, mfd)) ≈ vol
     @test sum(dualvolumes(0, mfd)) ≈ vol
     @test all(==(1), dualvolumes(D, mfd))
 end
@@ -131,7 +131,7 @@ end
     @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
     for R in 0:D
         if mfd.dualkind == BarycentricDuals || D ≤ 3
-            @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+            @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         end
         if mfd.dualkind == BarycentricDuals || (D ≤ 2 &&
             mfd.dualkind == CircumcentricDuals &&
@@ -143,8 +143,8 @@ end
     end
 
     vol = 1
-    @test all(==(1), mfd.volumes[0])
-    @test sum(mfd.volumes[D]) ≈ vol
+    @test all(==(1), volumes(0, mfd))
+    @test sum(volumes(D, mfd)) ≈ vol
     @test sum(dualvolumes(0, mfd)) ≈ vol
     @test all(==(1), dualvolumes(D, mfd))
 end
@@ -161,10 +161,10 @@ end
         if R == 0 || R == D
             # <https://en.wikipedia.org/wiki/Simplex#Volume>
             vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
-            @test all(≈(vol), mfd.volumes[R])
+            @test all(≈(vol), volumes(R, mfd))
         end
         if mfd.dualkind == BarycentricDuals || D ≤ 3
-            @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+            @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         end
         if mfd.dualkind == BarycentricDuals || (D ≤ 4 &&
             mfd.dualkind == CircumcentricDuals &&
@@ -178,8 +178,8 @@ end
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
-    @test all(==(1), mfd.volumes[0])
-    @test sum(mfd.volumes[D]) ≈ vol
+    @test all(==(1), volumes(0, mfd))
+    @test sum(volumes(D, mfd)) ≈ vol
     @test sum(dualvolumes(0, mfd)) ≈ vol
     @test all(==(1), dualvolumes(D, mfd))
 end
@@ -194,14 +194,14 @@ end
 
     N = D + 2
     for i in 1:N, j in (i + 1):N
-        @test norm(mfd.coords[0][i] - mfd.coords[0][j]) ≈ 1
+        @test norm(coords(mfd)[i] - coords(mfd)[j]) ≈ 1
     end
 
     for R in 0:D
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
         vol = sqrt(S(R + 1) / 2^R) / factorial(R)
-        @test all(≈(vol), mfd.volumes[R])
-        @test minimum(mfd.volumes[R]) / maximum(mfd.volumes[R]) ≥ 0.01
+        @test all(≈(vol), volumes(R, mfd))
+        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
         @test all(>(0), dualvolumes(R, mfd))
         @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥ 0.01
     end

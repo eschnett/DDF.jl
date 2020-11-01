@@ -191,7 +191,7 @@ Base.:|(f::Fun, g::Fun) = map(|, f, g)
 export id
 function id(::Type{<:Fun{D,P,0,C,S,SVector{C,S}}},
             manifold::Manifold{D,C,S}) where {D,P,C,S}
-    return Fun{D,P,0,C,S}(manifold, manifold.coords[0])
+    return Fun{D,P,0,C,S}(manifold, coords(manifold))
 end
 
 function Base.conj(f::Fun{D,P,R,C,S}) where {D,P,R,C,S}

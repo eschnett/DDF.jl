@@ -169,7 +169,7 @@ function main()
 
     println("Write result to file...")
 
-    points = [mfd.coords[0][i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
+    points = [coords(mfd)[i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
     cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE,
                       SVector{D + 1}(i
                                      for i in

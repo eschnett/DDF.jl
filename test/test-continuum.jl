@@ -16,55 +16,55 @@ R in 0:D
     S = Float64
     mfd = simplex_manifold(Val(D), S)
 
-    xs = SVector{D + 1,SVector{D,S}}(mfd.coords[0])
+    xs = SVector{D + 1,SVector{D,S}}(coords(mfd))
     x2λ = cartesian2barycentric_setup(xs)
     dλ2dx = Continuum.dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
     for n in 1:nsimplices(mfd, P == Pr ? R : D - R)
         for i in 1:nsimplices(mfd, 0)
-            x = mfd.coords[0][i]
+            x = coords(mfd)[i]
             bx = Continuum.basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
         end
 
         for i in 1:nsimplices(mfd, 0)
-            x = mfd.coords[0][i]
+            x = coords(mfd)[i]
             bx = Continuum.basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
             if R == 0
-                @test bx ≈ Form{D,R}((i == n ? mfd.volumes[R][n] : 0,))
+                @test bx ≈ Form{D,R}((i == n ? volumes(R, mfd)[n] : 0,))
             elseif R == D
-                @test bx ≈ Form{D,R}((mfd.volumes[R][n],))
+                @test bx ≈ Form{D,R}((volumes(R, mfd)[n],))
             elseif D == 1 && R == 1
-                @test bx ≈ Form{D,R}((mfd.volumes[R][n],))
+                @test bx ≈ Form{D,R}((volumes(R, mfd)[n],))
             elseif D == 2 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3)][n]
-                dx = mfd.coords[0][v2] - mfd.coords[0][v1]
+                dx = coords(mfd)[v2] - coords(mfd)[v1]
                 @test bx ≈ Form{D,R}((i in (v1, v2)) * dx)
             elseif D == 3 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3), (1, 4), (2, 4), (3, 4)][n]
-                dx = mfd.coords[0][v2] - mfd.coords[0][v1]
+                dx = coords(mfd)[v2] - coords(mfd)[v1]
                 @test bx ≈ Form{D,R}((i in (v1, v2)) * dx)
             elseif D == 4 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3), (1, 4), (2, 4), (3, 4),
                           (1, 5), (2, 5), (3, 5), (4, 5)][n]
-                dx = mfd.coords[0][v2] - mfd.coords[0][v1]
+                dx = coords(mfd)[v2] - coords(mfd)[v1]
                 @test bx ≈ Form{D,R}((i in (v1, v2)) * dx)
             elseif D == 5 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3), (1, 4), (2, 4), (3, 4),
                           (1, 5), (2, 5), (3, 5), (4, 5), (1, 6), (2, 6),
                           (3, 6), (4, 6), (5, 6)][n]
-                dx = Form{D,R}(mfd.coords[0][v2] - mfd.coords[0][v1])
+                dx = Form{D,R}(coords(mfd)[v2] - coords(mfd)[v1])
                 @test bx ≈ (i in (v1, v2)) * dx
             elseif D == 3 && R == 2
                 v1, v2, v3 = [(1, 2, 3), (1, 2, 4), (1, 3, 4), (2, 3, 4)][n]
-                dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
-                     Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) / 2
+                dx = Form{D,1}(coords(mfd)[v2] - coords(mfd)[v1]) ∧
+                     Form{D,1}(coords(mfd)[v3] - coords(mfd)[v1]) / 2
                 @test bx ≈ (i in (v1, v2, v3)) * dx
             elseif D == 4 && R == 2
                 v1, v2, v3 = [(1, 2, 3), (1, 2, 4), (1, 3, 4), (2, 3, 4),
                               (1, 2, 5), (1, 3, 5), (2, 3, 5), (1, 4, 5),
                               (2, 4, 5), (3, 4, 5)][n]
-                dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
-                     Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) / 2
+                dx = Form{D,1}(coords(mfd)[v2] - coords(mfd)[v1]) ∧
+                     Form{D,1}(coords(mfd)[v3] - coords(mfd)[v1]) / 2
                 @test bx ≈ (i in (v1, v2, v3)) * dx
             elseif D == 5 && R == 2
                 v1, v2, v3 = [(1, 2, 3), (1, 2, 4), (1, 3, 4), (2, 3, 4),
@@ -72,21 +72,21 @@ R in 0:D
                               (2, 4, 5), (3, 4, 5), (1, 2, 6), (1, 3, 6),
                               (2, 3, 6), (1, 4, 6), (2, 4, 6), (3, 4, 6),
                               (1, 5, 6), (2, 5, 6), (3, 5, 6), (4, 5, 6)][n]
-                dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
-                     Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) / 2
+                dx = Form{D,1}(coords(mfd)[v2] - coords(mfd)[v1]) ∧
+                     Form{D,1}(coords(mfd)[v3] - coords(mfd)[v1]) / 2
                 @test bx ≈ (i in (v1, v2, v3)) * dx
             elseif D == 4 && R == 3
                 v1, v2, v3, v4 = [(1, 2, 3, 4), (1, 2, 3, 5), (1, 2, 4, 5),
                                   (1, 3, 4, 5), (2, 3, 4, 5)][n]
-                dx = Form{D,1}(mfd.coords[0][v2] - mfd.coords[0][v1]) ∧
-                     Form{D,1}(mfd.coords[0][v3] - mfd.coords[0][v1]) ∧
-                     Form{D,1}(mfd.coords[0][v4] - mfd.coords[0][v1]) / 6
+                dx = Form{D,1}(coords(mfd)[v2] - coords(mfd)[v1]) ∧
+                     Form{D,1}(coords(mfd)[v3] - coords(mfd)[v1]) ∧
+                     Form{D,1}(coords(mfd)[v4] - coords(mfd)[v1]) / 6
                 @test bx ≈ (i in (v1, v2, v3, v4)) * dx
             end
         end
 
         #TODO for i  in  1:nsimplices(mfd, P == Pr ? R : D - R)
-        #TODO     x = mfd.coords[R][i]
+        #TODO     x = coords(Val(R),mfd)[i]
         #TODO     bx = Continuum.basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
         #TODO     @test bx ≈ Form{D,R}((n == i,))
         #TODO end
@@ -108,13 +108,13 @@ R in 0:D
     f0 = zero(Fun{D,P,R,D,S,T}, mfd)
     nvalues = nsimplices(mfd, P == Pr ? R : D - R)
     fi = Fun{D,P,R,D,S,T}(mfd, [T(i) for i in 1:nvalues])
-    fx = Fun{D,P,R,D,S,SVector{D,T}}(mfd, mfd.coords[R])
+    fx = Fun{D,P,R,D,S,SVector{D,T}}(mfd, coords(Val(R), mfd))
     f1 = Fun{D,P,R,D,S,T}(mfd, rand(T, nvalues))
     f2 = Fun{D,P,R,D,S,T}(mfd, rand(T, nvalues))
     a = rand(T)
 
     for i in 1:nsimplices(mfd, P == Pr ? R : D - R)
-        x = mfd.coords[R][i]
+        x = coords(Val(R), mfd)[i]
         if R == 0
             @test evaluate(fi, x) ≈ Form{D,R}((T(i),))
             @test evaluate(fx, x) ≈ Form{D,R}((x,))
@@ -164,7 +164,7 @@ R in 0:D
     f̃ = sample(Fun{D,P,R,D,S,T}, f, mfd)
 
     for i in 1:nsimplices(mfd, R)
-        x = mfd.coords[R][i]
+        x = coords(Val(R), mfd)[i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)::Form{D,R,T}
         Ex = norm(f̃x - fx)
@@ -230,7 +230,7 @@ R in 0:D
     # b2 - b3 = (1 + x) dx - (x+y) dy
 
     for i in 1:nsimplices(mfd, R)
-        x = mfd.coords[R][i]
+        x = coords(Val(R), mfd)[i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)::Form{D,R,T}
         Ex = norm(f̃x - fx)

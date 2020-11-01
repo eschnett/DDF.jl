@@ -38,7 +38,7 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
         sj = sparse_column_rows(mfd.simplices[D], j)
         sj = SVector{D + 1,Int}(sj[n] for n in 1:(D + 1))
         # Coordinates of simplex vertices
-        xs = SVector{D + 1,SVector{C,S}}(mfd.coords[0][k] for k in sj)
+        xs = SVector{D + 1,SVector{C,S}}(coords(mfd)[k] for k in sj)
         # Calculate barycentric coordinates
         x2λ = cartesian2barycentric_setup(xs)
         λ = cartesian2barycentric(x2λ, x)
@@ -86,14 +86,14 @@ function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
         j = sj[1]               # pick a simplex at random
         # Coordinates of simplex vertices
         sk = sparse_column_rows(simplices_D, j)
-        xs = SVector{D + 1,SVector{C,S}}(mfd.coords[0][k] for k in sk)
+        xs = SVector{D + 1,SVector{C,S}}(coords(mfd)[k] for k in sk)
         # Evaluate basis function
         x2λ = cartesian2barycentric_setup(xs)
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
         # sj = sparse_column_rows(simplices_R, i)
         # # Coordinates of simplex vertices
-        # xs = SVector{R + 1,SVector{C,S}}(mfd.coords[0][k] for k in sj)
+        # xs = SVector{R + 1,SVector{C,S}}(coords(mfd)[k] for k in sj)
         # # Evaluate basis function
         # x2λ = cartesian2barycentric_setup(xs)
         # dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
@@ -117,7 +117,7 @@ function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
         @assert count(bits) == R + 1
         n = DifferentialForms.Forms.bit2lin(Val(D + 1), Val(R + 1), bits)
 
-        x = mfd.coords[R][i]
+        x = coords(Val(R), mfd)[i]
         b = basis_x(Form{D,R}, x2λ, dλ2dx, n, x)::Form{D,R,S}
         y = f(x)::Form{D,R,T}
 
@@ -163,7 +163,7 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
         si = SVector{N,Int}(si[n] for n in 1:N)
 
         # Coordinates of simplex vertices
-        xs = SVector{N,SVector{C,S}}(mfd.coords[0][n] for n in si)
+        xs = SVector{N,SVector{C,S}}(coords(mfd)[n] for n in si)
         x2λ = cartesian2barycentric_setup(xs)
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
@@ -213,7 +213,7 @@ function basis_products(::Val{Pr}, ::Val{R},
         si = SVector{N,Int}(si[n] for n in 1:N)
 
         # Coordinates of simplex vertices
-        xs = SVector{N,SVector{C,S}}(mfd.coords[0][n] for n in si)
+        xs = SVector{N,SVector{C,S}}(coords(mfd)[n] for n in si)
         x2λ = cartesian2barycentric_setup(xs)
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 

@@ -17,8 +17,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     C::Int
     @assert 0 ≤ D ≤ C
 
-    xmin = SVector{D}(minimum(x -> x[d], mfd.coords[0]) for d in 1:D)
-    xmax = SVector{D}(maximum(x -> x[d], mfd.coords[0]) for d in 1:D)
+    xmin = SVector{D}(minimum(x -> x[d], coords(mfd)) for d in 1:D)
+    xmax = SVector{D}(maximum(x -> x[d], coords(mfd)) for d in 1:D)
     dx = xmax - xmin
     sz = norm(dx) / 100
 
@@ -41,8 +41,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     for i in 1:nsimplices(mfd, 1)
         sj = collect(sparse_column_rows(mfd.simplices[1], i))
         @assert length(sj) == 2
-        xs1 = mfd.coords[0][sj[1]]
-        xs2 = mfd.coords[0][sj[2]]
+        xs1 = coords(mfd)[sj[1]]
+        xs2 = coords(mfd)[sj[2]]
         if visible(xs1) && visible(xs2)
             push!(edges, xs1)
             push!(edges, xs2)
@@ -55,7 +55,7 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     for i in 1:nsimplices(mfd, 0)
         sj = collect(sparse_column_rows(mfd.simplices[0], i))
         @assert length(sj) == 1
-        xs1 = mfd.coords[0][sj[1]]
+        xs1 = coords(mfd)[sj[1]]
         if visible(xs1)
             push!(vertices, xs1)
         end
@@ -105,8 +105,8 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     @assert D ≥ 0
     C = 3
 
-    xmin = SVector{D}(minimum(x -> x[d], mfd.coords[0]) for d in 1:D)
-    xmax = SVector{D}(maximum(x -> x[d], mfd.coords[0]) for d in 1:D)
+    xmin = SVector{D}(minimum(x -> x[d], coords(mfd)) for d in 1:D)
+    xmax = SVector{D}(maximum(x -> x[d], coords(mfd)) for d in 1:D)
     dx = xmax - xmin
     sz = norm(dx) / 100
 
@@ -120,8 +120,8 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     for i in 1:nsimplices(mfd, 1)
         sj = collect(sparse_column_rows(mfd.simplices[1], i))
         @assert length(sj) == 2
-        xs1 = mfd.coords[0][sj[1]]
-        xs2 = mfd.coords[0][sj[2]]
+        xs1 = coords(mfd)[sj[1]]
+        xs2 = coords(mfd)[sj[2]]
         if visible(xs1) && visible(xs2)
             push!(edges, xs1)
             push!(edges, xs2)
@@ -134,7 +134,7 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     for i in 1:nsimplices(mfd, 0)
         sj = collect(sparse_column_rows(mfd.simplices[0], i))
         @assert length(sj) == 1
-        xs1 = mfd.coords[0][sj[1]]
+        xs1 = coords(mfd)[sj[1]]
         if visible(xs1)
             push!(vertices, xs1)
         end
@@ -183,8 +183,8 @@ function plot_function(fun::Fun{D,P,R,C,S,T},
     @assert 0 ≤ D ≤ C
 
     mfd = fun.manifold
-    xmin = SVector{D}(minimum(x -> x[d], mfd.coords[0]) for d in 1:D)
-    xmax = SVector{D}(maximum(x -> x[d], mfd.coords[0]) for d in 1:D)
+    xmin = SVector{D}(minimum(x -> x[d], coords(mfd)) for d in 1:D)
+    xmax = SVector{D}(maximum(x -> x[d], coords(mfd)) for d in 1:D)
     dx = xmax - xmin
     sz = norm(dx) / 100
 
@@ -203,7 +203,7 @@ function plot_function(fun::Fun{D,P,R,C,S,T},
     end
 
     @assert P == Pr && R == 0
-    coords = [mfd.coords[0][i][d] for i in 1:nsimplices(mfd, 0), d in 1:D]
+    coords = [coords(mfd)[i][d] for i in 1:nsimplices(mfd, 0), d in 1:D]
     connectivity = [SVector{D + 1}(i
                                    for i in
                                        sparse_column_rows(mfd.simplices[D], j))
@@ -222,8 +222,8 @@ function plot_function(fun::Fun{D,P,R,C,S,T},
         for i in 1:nsimplices(mfd, 1)
             sj = collect(sparse_column_rows(mfd.simplices[1], i))
             @assert length(sj) == 2
-            xs1 = mfd.coords[0][sj[1]]
-            xs2 = mfd.coords[0][sj[2]]
+            xs1 = coords(mfd)[sj[1]]
+            xs2 = coords(mfd)[sj[2]]
             # if visible(xs1) && visible(xs2)
             push!(edges, xs1)
             push!(edges, xs2)
@@ -236,7 +236,7 @@ function plot_function(fun::Fun{D,P,R,C,S,T},
         for i in 1:nsimplices(mfd, 0)
             sj = collect(sparse_column_rows(mfd.simplices[0], i))
             @assert length(sj) == 1
-            xs1 = mfd.coords[0][sj[1]]
+            xs1 = coords(mfd)[sj[1]]
             # if visible(xs1)
             push!(vertices, xs1)
             # end

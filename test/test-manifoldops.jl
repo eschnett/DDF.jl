@@ -21,8 +21,8 @@ P in (Pr, Dl),
 R in 0:D,
 mfd in manifolds[D]
 
-    C = length(eltype(mfd.coords[0]))
-    S = eltype(eltype(mfd.coords[0]))
+    C = length(eltype(coords(mfd)))
+    S = eltype(eltype(coords(mfd)))
     mfd::Manifold{D,C,S}
 
     funs = Fun{D,P,R,C,S}[]

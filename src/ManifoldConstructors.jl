@@ -458,11 +458,10 @@ Refined manifold
 """
 function refined_manifold(mfd0::Manifold{D,C,S}; options...) where {D,C,S}
     D == 0 && return mfd0
-    coords = refine_coords(lookup(Val(0), Val(1), mfd0), mfd0.coords[0])
-    weights = zeros(S, length(coords))
-    simplices = SparseOp{0,D}(delaunay_mesh(coords))
-    mfd = Manifold("refined $(mfd0.name)", simplices, coords, weights;
-                   options...)
+    xs = refine_coords(lookup(Val(0), Val(1), mfd0), coords(mfd0))
+    weights = zeros(S, length(xs))
+    simplices = SparseOp{0,D}(delaunay_mesh(xs))
+    mfd = Manifold("refined $(mfd0.name)", simplices, xs, weights; options...)
     return mfd
 end
 
@@ -534,9 +533,9 @@ function boundary_manifold(mfd0::Manifold{D,C,S}) where {D,C,S}
     end
     simplices = SparseOp{0,D - 1,One}(sparse(I, J, V, nvertices_new,
                                              nfaces_new))
-    coords = mfd0.coords[0][vertices_new2old]
-    weights = mfd0.weights[vertices_new2old]
-    mfd = Manifold(name, simplices, coords, weights)
+    xs = coords(mfd0)[vertices_new2old]
+    ws = weights(mfd0)[vertices_new2old]
+    mfd = Manifold(name, simplices, xs, ws)
     return mfd
 end
 

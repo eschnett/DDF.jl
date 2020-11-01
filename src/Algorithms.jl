@@ -99,14 +99,21 @@ export volume
 """
 Unsigned volume
 """
-function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
+function volume(xs::SVector{N,<:Form{D,1,T}}, signature::Int=1) where {N,D,T}
     D::Int
     @assert D ≥ 0
     N::Int
     @assert N ≥ 1
     @assert N ≤ D + 1
+    # TODO: add metric signatures to DifferentialForms.jl
+    # TODO: add outermorphisms to DifferentialForms.jl
+    # TODO: move Plotting into its own module; just provide functions
+    #       to obtain vertices, connectivity, etc.
     ys = map(x -> x - xs[1], deleteat(xs, 1))
-    vol0 = norm(∧(ys))
+    # vol0 = norm(∧(ys))
+    η = SVector{D,T}(a == 1 ? signature : 1 for a in 1:D)
+    zs = map(y -> Form{D,1,T}(η .* y.elts), ys)
+    vol0 = norm(∧(zs))
     if T <: Rational
         vol = rationalize(typeof(zero(T).den), vol0; tol=sqrt(eps(vol0)))
     else
@@ -116,8 +123,8 @@ function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     vol /= factorial(N - 1)
     return vol::T
 end
-function volume(xs::SVector{N,SVector{D,T}}) where {N,D,T}
-    return volume(SVector{N}(Form{D,1,T}(x) for x in xs))
+function volume(xs::SVector{N,SVector{D,T}}, signature=1) where {N,D,T}
+    return volume(SVector{N}(Form{D,1,T}(x) for x in xs), signature)
 end
 
 export signed_volume
