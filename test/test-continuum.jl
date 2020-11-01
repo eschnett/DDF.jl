@@ -30,11 +30,11 @@ R in 0:D
             x = coords(mfd)[i]
             bx = Continuum.basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
             if R == 0
-                @test bx ≈ Form{D,R}((i == n ? volumes(R, mfd)[n] : 0,))
+                @test bx ≈ Form{D,R}((i == n ? volumes(mfd, R)[n] : 0,))
             elseif R == D
-                @test bx ≈ Form{D,R}((volumes(R, mfd)[n],))
+                @test bx ≈ Form{D,R}((volumes(mfd, R)[n],))
             elseif D == 1 && R == 1
-                @test bx ≈ Form{D,R}((volumes(R, mfd)[n],))
+                @test bx ≈ Form{D,R}((volumes(mfd, R)[n],))
             elseif D == 2 && R == 1
                 v1, v2 = [(1, 2), (1, 3), (2, 3)][n]
                 dx = coords(mfd)[v2] - coords(mfd)[v1]
@@ -86,7 +86,7 @@ R in 0:D
         end
 
         #TODO for i  in  1:nsimplices(mfd, P == Pr ? R : D - R)
-        #TODO     x = coords(Val(R),mfd)[i]
+        #TODO     x = coords(mfd, R)[i]
         #TODO     bx = Continuum.basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
         #TODO     @test bx ≈ Form{D,R}((n == i,))
         #TODO end
@@ -108,13 +108,13 @@ R in 0:D
     f0 = zero(Fun{D,P,R,D,S,T}, mfd)
     nvalues = nsimplices(mfd, P == Pr ? R : D - R)
     fi = Fun{D,P,R,D,S,T}(mfd, [T(i) for i in 1:nvalues])
-    fx = Fun{D,P,R,D,S,SVector{D,T}}(mfd, coords(Val(R), mfd))
+    fx = Fun{D,P,R,D,S,SVector{D,T}}(mfd, coords(mfd, R))
     f1 = Fun{D,P,R,D,S,T}(mfd, rand(T, nvalues))
     f2 = Fun{D,P,R,D,S,T}(mfd, rand(T, nvalues))
     a = rand(T)
 
     for i in 1:nsimplices(mfd, P == Pr ? R : D - R)
-        x = coords(Val(R), mfd)[i]
+        x = coords(mfd, R)[i]
         if R == 0
             @test evaluate(fi, x) ≈ Form{D,R}((T(i),))
             @test evaluate(fx, x) ≈ Form{D,R}((x,))
@@ -164,7 +164,7 @@ R in 0:D
     f̃ = sample(Fun{D,P,R,D,S,T}, f, mfd)
 
     for i in 1:nsimplices(mfd, R)
-        x = coords(Val(R), mfd)[i]
+        x = coords(mfd, R)[i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)::Form{D,R,T}
         Ex = norm(f̃x - fx)
@@ -230,7 +230,7 @@ R in 0:D
     # b2 - b3 = (1 + x) dx - (x+y) dy
 
     for i in 1:nsimplices(mfd, R)
-        x = coords(Val(R), mfd)[i]
+        x = coords(mfd, R)[i]
         fx = f(x)::Form{D,R,T}
         f̃x = evaluate(f̃, x)::Form{D,R,T}
         Ex = norm(f̃x - fx)

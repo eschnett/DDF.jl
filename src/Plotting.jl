@@ -65,10 +65,10 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
     # Dual edges
     dualedges = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D - 1)
-        sj = collect(sparse_column_rows(lookup(Val(D), Val(D - 1), mfd), i))
+        sj = collect(sparse_column_rows(lookup(mfd, D, D - 1), i))
         for j in sj
-            xs1 = dualcoords(D - 1, mfd)[i]
-            xs2 = dualcoords(D, mfd)[j]
+            xs1 = dualcoords(mfd, D - 1)[i]
+            xs2 = dualcoords(mfd, D)[j]
             if visible(xs1) && visible(xs2)
                 push!(dualedges, xs1)
                 push!(dualedges, xs2)
@@ -144,10 +144,10 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     # Dual edges
     dualedges = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D - 1)
-        sj = collect(sparse_column_rows(lookup(Val(D), Val(D - 1), mfd), i))
+        sj = collect(sparse_column_rows(lookup(mfd, D, D - 1), i))
         for j in sj
-            xs1 = dualcoords(D - 1, mfd)[i]
-            xs2 = dualcoords(D, mfd)[j]
+            xs1 = dualcoords(mfd, D - 1)[i]
+            xs2 = dualcoords(mfd, D)[j]
             if visible(xs1) && visible(xs2)
                 push!(dualedges, xs1)
                 push!(dualedges, xs2)
@@ -159,7 +159,7 @@ function plot_manifold0(mfd::Manifold{D,3,S}, filename=nothing) where {D,S}
     # Dual vertices
     dualvertices = SVector{C,S}[]
     for i in 1:nsimplices(mfd, D)
-        xs1 = dualcoords(D, mfd)[i]
+        xs1 = dualcoords(mfd, D)[i]
         if visible(xs1)
             push!(dualvertices, xs1)
         end
@@ -203,7 +203,7 @@ function plot_function(fun::Fun{D,P,R,C,S,T},
     end
 
     @assert P == Pr && R == 0
-    coords = [coords(mfd)[i][d] for i in 1:nsimplices(mfd, 0), d in 1:D]
+    vertices = [coords(mfd)[i][d] for i in 1:nsimplices(mfd, 0), d in 1:D]
     connectivity = [SVector{D + 1}(i
                                    for i in
                                        sparse_column_rows(mfd.simplices[D], j))
@@ -213,7 +213,7 @@ function plot_function(fun::Fun{D,P,R,C,S,T},
     color = fun.values
 
     if C == 2
-        poly!(canvas, coords, connectivity, color=color,
+        poly!(canvas, vertices, connectivity, color=color,
               strokecolor=(:black, 0.6), strokewidth=4)
     elseif C == 3
 

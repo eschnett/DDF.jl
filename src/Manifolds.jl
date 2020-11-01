@@ -193,10 +193,10 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
     # # TODO: check content as well
 
     # # Check lookup tables
-    # Set(keys(mfd.lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
+    # Set(keys(mfd._lookup)) == Set((Ri, Rj) for Ri in 0:D for Rj in 0:D) ||
     #     (@assert false; return false)
     # for Ri in 0:D, Rj in 0:D
-    #     lookup = mfd.lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
+    #     lookup = mfd._lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
     #     size(lookup) == (nsimplices(mfd, Ri), nsimplices(mfd, Rj)) ||
     #         (@assert false; return false)
     #     if Rj ≥ Ri
@@ -213,7 +213,7 @@ function Defs.invariant(mfd::Manifold{D,C})::Bool where {D,C}
     #                 end
     #             end
     #         end
-    #         mfd.lookup[(Ri, Rj)] == mfd.lookup[(Rj, Ri)]' ||
+    #         mfd._lookup[(Ri, Rj)] == mfd._lookup[(Rj, Ri)]' ||
     #             (@assert false; return false)
     #     end
     # end
@@ -388,7 +388,7 @@ export lookup
     !haskey(mfd._lookup, (Ri, Rj)) && calc_lookup!(mfd, Ri, Rj)
     return mfd._lookup[(Ri, Rj)]::SparseOp{Ri,Rj,One}
 end
-@inline function lookup(Ri::Int, Rj::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+@inline function lookup(mfd::Manifold{D,C,S}, Ri::Int, Rj::Int) where {D,C,S}
     return lookup(Val(Ri), Val(Rj), mfd)
 end
 
@@ -414,11 +414,10 @@ function calc_lookup!(mfd::Manifold{D,C,S}, Ri::Int, Rj::Int) where {D,C,S}
         # Chain of two lookup tables
         Rk = Rj - 1
         mfd._lookup[(Ri, Rj)] = map(x -> One(x ≠ 0),
-                                    lookup(Val(Ri), Val(Rk), mfd) *
-                                    lookup(Val(Rk), Val(Rj), mfd))
+                                    lookup(mfd, Ri, Rk) * lookup(mfd, Rk, Rj))
     else
         # Transpose
-        mfd._lookup[(Ri, Rj)] = lookup(Val(Rj), Val(Ri), mfd)'
+        mfd._lookup[(Ri, Rj)] = lookup(mfd, Rj, Ri)'
     end
 
     return nothing
@@ -430,7 +429,7 @@ export isboundary
     !haskey(mfd._isboundary, R) && calc_isboundary!(mfd, R)
     return mfd._isboundary[R]::SparseOp{R,R,One}
 end
-@inline function isboundary(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+@inline function isboundary(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     return isboundary(Val(R), mfd)
 end
 
@@ -457,8 +456,8 @@ function calc_isboundary!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
             end
         end
     else
-        lup = lookup(Val(R), Val(D - 1), mfd)::SparseOp{R,D - 1,One}
-        for j in findnz(isboundary(D - 1, mfd).op)[1]
+        lup = lookup(mfd, R, D - 1)::SparseOp{R,D - 1,One}
+        for j in findnz(isboundary(mfd, D - 1).op)[1]
             for i in sparse_column_rows(lup, j)
                 push!(I, i)
                 push!(J, i)
@@ -478,7 +477,7 @@ export coords
     !haskey(mfd._coords, R) && calc_coords!(mfd, R)
     return mfd._coords[R]::Vector{SVector{C,S}}
 end
-@inline function coords(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+@inline function coords(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     return coords(Val(R), mfd)
 end
 
@@ -495,7 +494,7 @@ export volumes
     !haskey(mfd._volumes, R) && calc_volumes!(mfd, R)
     return mfd._volumes[R]::Vector{S}
 end
-@inline function volumes(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+@inline function volumes(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     return volumes(Val(R), mfd)
 end
 
@@ -510,7 +509,7 @@ function calc_volumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
         @warn "Not all  $R-volumes are strictly positive"
         @show count(≤(0), mfd._volumes[R])
         @show findmin(mfd._volumes[R])
-        @show coords(R, mfd)[findmin(mfd._volumes[R])[2]]
+        @show coords(mfd, R)[findmin(mfd._volumes[R])[2]]
     end
 
     return nothing
@@ -527,7 +526,7 @@ export dualcoords
     !haskey(mfd._dualcoords, R) && calc_dualcoords!(mfd, R)
     return mfd._dualcoords[R]::Vector{SVector{C,S}}
 end
-@inline function dualcoords(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+@inline function dualcoords(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     return dualcoords(Val(R), mfd)
 end
 
@@ -551,7 +550,7 @@ export dualvolumes
     !haskey(mfd._dualvolumes, R) && calc_dualvolumes!(mfd, R)
     return mfd._dualvolumes[R]::Vector{S}
 end
-@inline function dualvolumes(R::Int, mfd::Manifold{D,C,S}) where {D,C,S}
+@inline function dualvolumes(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     return dualvolumes(Val(R), mfd)
 end
 
@@ -562,7 +561,7 @@ function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
         mfd._dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
                                                Val(R), mfd.simplices[R],
                                                mfd.lookup, coords(mfd),
-                                               volumes(D, mfd))
+                                               volumes(mfd, D))
         @assert all(x -> x != 0 && isfinite(x), mfd.dualvolumes[R])
     elseif mfd.dualkind == CircumcentricDuals
         if R == D
@@ -571,11 +570,11 @@ function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
             mfd._dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
                                                    mfd.simplices[R],
                                                    mfd.simplices[R + 1],
-                                                   lookup(R + 1, R, mfd),
-                                                   coords(mfd), volumes(R, mfd),
-                                                   dualcoords(R, mfd),
-                                                   dualcoords(R + 1, mfd),
-                                                   dualvolumes(R + 1, mfd))
+                                                   lookup(mfd, R + 1, R),
+                                                   coords(mfd), volumes(mfd, R),
+                                                   dualcoords(mfd, R),
+                                                   dualcoords(mfd, R + 1),
+                                                   dualvolumes(mfd, R + 1))
         end
     else
         @assert false
@@ -587,7 +586,7 @@ function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
         @warn "Not all dual $R-volumes are strictly positive"
         @show count(≤(0), mfd._dualvolumes[R])
         @show findmin(mfd._dualvolumes[R])
-        @show dualcoords(R, mfd)[findmin(mfd._dualvolumes[R])[2]]
+        @show dualcoords(mfd, R)[findmin(mfd._dualvolumes[R])[2]]
     end
 
     return nothing

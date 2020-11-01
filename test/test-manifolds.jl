@@ -9,10 +9,10 @@ using LinearAlgebra
     for R in 0:D
         @test nsimplices(mfd, R) == 0
     end
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
     for R in 0:D
-        @test isempty(volumes(R, mfd))
-        @test isempty(dualvolumes(R, mfd))
+        @test isempty(volumes(mfd, R))
+        @test isempty(dualvolumes(mfd, R))
     end
 end
 
@@ -23,7 +23,7 @@ end
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
 
     N = D + 1
     for i in 1:N, j in (i + 1):N
@@ -33,17 +33,17 @@ end
     for R in 0:D
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
         vol = sqrt(S(R + 1) / 2^R) / factorial(R)
-        @test all(≈(vol), volumes(R, mfd))
-        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
-        @test all(>(0), dualvolumes(R, mfd))
-        @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥ 0.01
+        @test all(≈(vol), volumes(mfd, R))
+        @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
+        @test all(>(0), dualvolumes(mfd, R))
+        @test minimum(dualvolumes(mfd, R)) / maximum(dualvolumes(mfd, R)) ≥ 0.01
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
-    @test all(==(1), volumes(0, mfd))
-    @test sum(volumes(D, mfd)) ≈ vol
-    @test sum(dualvolumes(0, mfd)) ≈ vol
-    @test all(==(1), dualvolumes(D, mfd))
+    @test all(==(1), volumes(mfd, 0))
+    @test sum(volumes(mfd, D)) ≈ vol
+    @test sum(dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), dualvolumes(mfd, D))
 end
 
 @testset "Orthogonal simplex manifold D=$D" for D in 0:Dmax
@@ -53,24 +53,24 @@ end
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
     end
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
     for R in 0:D
-        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
+        @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
         if mfd.dualkind == BarycentricDuals || (D ≤ 2 &&
             mfd.dualkind == CircumcentricDuals &&
             mfd.use_weighted_duals)
-            @test all(>(0), dualvolumes(R, mfd))
-            @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥
+            @test all(>(0), dualvolumes(mfd, R))
+            @test minimum(dualvolumes(mfd, R)) / maximum(dualvolumes(mfd, R)) ≥
                   0.01
         end
     end
 
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = S(1) / factorial(D)
-    @test all(==(1), volumes(0, mfd))
-    @test sum(volumes(D, mfd)) ≈ vol
-    @test sum(dualvolumes(0, mfd)) ≈ vol
-    @test all(==(1), dualvolumes(D, mfd))
+    @test all(==(1), volumes(mfd, 0))
+    @test sum(volumes(mfd, D)) ≈ vol
+    @test sum(dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), dualvolumes(mfd, D))
 end
 
 @testset "Hypercube manifold D=$D" for D in 0:Dmax
@@ -80,22 +80,22 @@ end
     @test nsimplices(mfd, 0) == 2^D
     @test nsimplices(mfd, D) == factorial(D)
     # TODO: Find rule for other dimensions
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
     for R in 0:D
-        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
+        @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
         if mfd.dualkind == BarycentricDuals ||
            (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
-            @test all(>(0), dualvolumes(R, mfd))
-            @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥
+            @test all(>(0), dualvolumes(mfd, R))
+            @test minimum(dualvolumes(mfd, R)) / maximum(dualvolumes(mfd, R)) ≥
                   0.01
         end
     end
 
     vol = 1
-    @test all(==(1), volumes(0, mfd))
-    @test sum(volumes(D, mfd)) ≈ vol
-    @test sum(dualvolumes(0, mfd)) ≈ vol
-    @test all(==(1), dualvolumes(D, mfd))
+    @test all(==(1), volumes(mfd, 0))
+    @test sum(volumes(mfd, D)) ≈ vol
+    @test sum(dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), dualvolumes(mfd, D))
 end
 
 @testset "Delaunay hypercube manifold D=$D" for D in 0:Dmax
@@ -103,23 +103,23 @@ end
     mfd = delaunay_hypercube_manifold(Val(D), S)
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == 2^D
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
     for R in 0:D
-        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
+        @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
         if mfd.dualkind == BarycentricDuals || (D ≤ 3 &&
             mfd.dualkind == CircumcentricDuals &&
             mfd.use_weighted_duals)
-            @test all(>(0), dualvolumes(R, mfd))
-            @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥
+            @test all(>(0), dualvolumes(mfd, R))
+            @test minimum(dualvolumes(mfd, R)) / maximum(dualvolumes(mfd, R)) ≥
                   0.01
         end
     end
 
     vol = 1
-    @test all(==(1), volumes(0, mfd))
-    @test sum(volumes(D, mfd)) ≈ vol
-    @test sum(dualvolumes(0, mfd)) ≈ vol
-    @test all(==(1), dualvolumes(D, mfd))
+    @test all(==(1), volumes(mfd, 0))
+    @test sum(volumes(mfd, D)) ≈ vol
+    @test sum(dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), dualvolumes(mfd, D))
 end
 
 @testset "Large delaunay hypercube manifold D=$D" for D in 0:Dmax
@@ -128,25 +128,25 @@ end
     @test invariant(mfd)
     n = D == 0 ? 1 : round(Int, nsimplices(mfd, 0)^(1 / D)) - 1
     @test nsimplices(mfd, 0) == (n + 1)^D
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
     for R in 0:D
         if mfd.dualkind == BarycentricDuals || D ≤ 3
-            @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
+            @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
         end
         if mfd.dualkind == BarycentricDuals || (D ≤ 2 &&
             mfd.dualkind == CircumcentricDuals &&
             mfd.use_weighted_duals)
-            @test all(>(0), dualvolumes(R, mfd))
-            @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥
+            @test all(>(0), dualvolumes(mfd, R))
+            @test minimum(dualvolumes(mfd, R)) / maximum(dualvolumes(mfd, R)) ≥
                   0.01
         end
     end
 
     vol = 1
-    @test all(==(1), volumes(0, mfd))
-    @test sum(volumes(D, mfd)) ≈ vol
-    @test sum(dualvolumes(0, mfd)) ≈ vol
-    @test all(==(1), dualvolumes(D, mfd))
+    @test all(==(1), volumes(mfd, 0))
+    @test sum(volumes(mfd, D)) ≈ vol
+    @test sum(dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), dualvolumes(mfd, D))
 end
 
 @testset "Refined simplex manifold D=$D" for D in 0:Dmax
@@ -155,33 +155,33 @@ end
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == binomial(D + 1, 1) + binomial(D + 1, 2)
     @test nsimplices(mfd, D) == 2^D
-    @test lookup(Val(0), Val(D), mfd) ≡ mfd.simplices[D]
+    @test lookup(mfd, 0, D) ≡ mfd.simplices[D]
 
     for R in 0:D
         if R == 0 || R == D
             # <https://en.wikipedia.org/wiki/Simplex#Volume>
             vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
-            @test all(≈(vol), volumes(R, mfd))
+            @test all(≈(vol), volumes(mfd, R))
         end
         if mfd.dualkind == BarycentricDuals || D ≤ 3
-            @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
+            @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
         end
         if mfd.dualkind == BarycentricDuals || (D ≤ 4 &&
             mfd.dualkind == CircumcentricDuals &&
             mfd.use_weighted_duals)
-            @test all(>(0), dualvolumes(R, mfd))
+            @test all(>(0), dualvolumes(mfd, R))
             if D ≤ 3
-                @test minimum(dualvolumes(R, mfd)) /
-                      maximum(dualvolumes(R, mfd)) ≥ 0.01
+                @test minimum(dualvolumes(mfd, R)) /
+                      maximum(dualvolumes(mfd, R)) ≥ 0.01
             end
         end
     end
     # <https://en.wikipedia.org/wiki/Simplex#Volume>
     vol = sqrt(S(D + 1) / 2^D) / factorial(D)
-    @test all(==(1), volumes(0, mfd))
-    @test sum(volumes(D, mfd)) ≈ vol
-    @test sum(dualvolumes(0, mfd)) ≈ vol
-    @test all(==(1), dualvolumes(D, mfd))
+    @test all(==(1), volumes(mfd, 0))
+    @test sum(volumes(mfd, D)) ≈ vol
+    @test sum(dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), dualvolumes(mfd, D))
 end
 
 @testset "Boundary simplex manifold D=$D" for D in 0:Dmax
@@ -200,9 +200,9 @@ end
     for R in 0:D
         # <https://en.wikipedia.org/wiki/Simplex#Volume>
         vol = sqrt(S(R + 1) / 2^R) / factorial(R)
-        @test all(≈(vol), volumes(R, mfd))
-        @test minimum(volumes(R, mfd)) / maximum(volumes(R, mfd)) ≥ 0.01
-        @test all(>(0), dualvolumes(R, mfd))
-        @test minimum(dualvolumes(R, mfd)) / maximum(dualvolumes(R, mfd)) ≥ 0.01
+        @test all(≈(vol), volumes(mfd, R))
+        @test minimum(volumes(mfd, R)) / maximum(volumes(mfd, R)) ≥ 0.01
+        @test all(>(0), dualvolumes(mfd, R))
+        @test minimum(dualvolumes(mfd, R)) / maximum(dualvolumes(mfd, R)) ≥ 0.01
     end
 end
