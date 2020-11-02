@@ -11,6 +11,9 @@ using ..Manifolds
 
 # TODO: Add type `S` from `Manifold{D,S}`?
 export Op
+"""
+Operator acting on `Fun` functions
+"""
 struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
     manifold::Manifold{D}
     values::AbstractMatrix{T}
