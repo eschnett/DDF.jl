@@ -2,10 +2,12 @@
 
 A Julia package for discretizing functions via finite elements.
 
-* [Documenter](https://eschnett.github.io/DDF.jl/dev/): Documentation
+* [Documentation](https://eschnett.github.io/DDF.jl/dev/): Future
+  documentation
 * [GitHub](https://github.com/eschnett/DDF.jl): Source code repository
 * [![GitHub
   CI](https://github.com/eschnett/DDF.jl/workflows/CI/badge.svg)](https://github.com/eschnett/DDF.jl/actions)
+* [![Codecov](https://codecov.io/gh/eschnett/DDF.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/eschnett/DDF.jl)
 
 ## Overview
 
