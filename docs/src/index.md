@@ -1,4 +1,4 @@
-# DDF.jl: Discrete Differential Forms
+# [DDF.jl](https://github.com/eschnett/DDF.jl): Discrete Differential Forms
 
 **A Julia package for discretizing functions via finite elements.**
 
