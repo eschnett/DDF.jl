@@ -4,7 +4,7 @@ on:
   - pull_request
 jobs:
   test:
-    name: Julia ${{matrix.version}} - ${{matrix.os}} - ${{matrix.arch}}
+    name: Julia ${{matrix.version}} - ${{matrix.os}} - ${{matrix.arch}} - ${{github.event_name}}
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
@@ -36,11 +36,25 @@ jobs:
             version: "1.4"
     steps:
       - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@latest
+      - uses: julia-actions/setup-julia@v1
         with:
           version: ${{matrix.version}}
           arch: ${{matrix.arch}}
-      - uses: julia-actions/julia-buildpkg@latest
+      - uses: actions/cache@v1
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{runner.os}}-test-${{env.cache-name}}-${{hashFiles('**/Project.toml')}}
+          restore-keys: |
+            ${{runner.os}}-test-${{env.cache-name}}-
+            ${{runner.os}}-test-
+            ${{runner.os}}-
+      - uses: julia-actions/julia-buildpkg@v1
         env:
           PYTHON:
-      - uses: julia-actions/julia-runtest@latest
+      - uses: julia-actions/julia-runtest@v1
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v1
+        with:
+          file: lcov.info
