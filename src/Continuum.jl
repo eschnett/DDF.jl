@@ -26,31 +26,37 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
 
     # Find nearest vertex
     if D == 0
-        y = f.values[1]
+        y = first(f.values)
         return Form{D,R,T}((y,))
     end
 
-    i, dist = nn(simplex_tree(mfd), x)
-    # Search all neighbouring simplices to find containing simplex
-    lookup_D = lookup(mfd, D, 0)::SparseOp{D,0,One}
-    lookup_R = lookup(mfd, R, D)::SparseOp{R,D,One}
-    for j in sparse_column_rows(lookup_D, i)
-        sj = sparse_column_rows(mfd.simplices[D], j)
-        sj = SVector{D + 1,Int}(sj[n] for n in 1:(D + 1))
+    simplicesD = get_simplices(mfd, D)
+    simplicesD1 = get_simplices(mfd, D - 1)
+    lookupD1D = get_lookup(mfd, D - 1, D)
+    lookupDD1 = get_lookup(mfd, D, D - 1)
+    lookupR = get_lookup(mfd, R, D)
+    i, dist = nn(get_simplex_tree(mfd), x)
+    i = ID{D}(i)
+
+    found = false
+    while !found
+        # Simplex vertices
+        si = sparse_column_rows(simplicesD, i)
+        si = SVector{D + 1}(si[n] for n in 1:(D + 1))
         # Coordinates of simplex vertices
-        xs = SVector{D + 1,SVector{C,S}}(coords(mfd)[k] for k in sj)
+        xs = SVector{D + 1,SVector{C,S}}(get_coords(mfd)[j] for j in si)
         # Calculate barycentric coordinates
         x2λ = cartesian2barycentric_setup(xs)
         λ = cartesian2barycentric(x2λ, x)
         # delta = S(0)
         delta = 10 * eps(S)
-        if all(λi -> -delta ≤ λi ≤ 1 + delta, λ)
-            # Found simplex
 
+        if all(≥(-delta), λ)
+            # Found simplex
             @assert P == Pr
-            sk = sparse_column_rows(lookup_R, j)
+            sk = sparse_column_rows(lookupR, i)
             N = DifferentialForms.Forms.binomial(Val(D + 1), Val(R + 1))
-            sk = SVector{N,Int}(sk[n] for n in 1:N)
+            sk = SVector{N}(sk[n] for n in 1:N)
             # Values at `R`-simplices
             ys = f.values[sk]
 
@@ -62,67 +68,92 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
             end
             return y
         end
+
+        # Look for neighbouring simplex
+        n = argmin(λ)
+        n::Int
+        @assert 1 ≤ n ≤ D + 1
+        # Vertices of face in the direction we need to walk
+        si::SVector{D + 1,ID{0}}
+        sj = deleteat(si, n)
+        sj::SVector{D,ID{0}}
+        # All our faces
+        sk = sparse_column_rows(lookupD1D, i)
+        @assert length(sk) == D + 1
+        sk = SVector{D + 1}(sk[n] for n in 1:(D + 1))
+        sk::SVector{D + 1,ID{D - 1}}
+        # Find face
+        ik = findfirst(k -> sparse_column_rows(simplicesD1, k) == sj, sk)
+        @assert ik ≢ nothing
+        ik::Int
+        @assert 1 ≤ ik ≤ D + 1
+        k = sk[ik]
+        k::ID{D - 1}
+        # All the faces neighbouring simplices
+        sl = sparse_column_rows(lookupDD1, k)
+        @assert length(sl) ≤ 2   # There can be at most 2
+        sl = collect(sl)
+        sl::Vector{ID{D}}
+        @assert any(==(i), sl)   # This must be the current simplex's neighbour
+        il = findfirst(≠(i), sl)
+        @assert il ≢ nothing     # We ended up at a boundary
+        il::Int
+        @assert 1 ≤ il ≤ length(sl)
+        l = sl[il]
+        l::ID{D}
+        i = l
     end
-    return error("Coordinate $x not found ∈ manifold $(mfd.name)")
+
+    # Dummy return (unreachable)
+    return zero(Form{D,R,T})
 end
 
 ################################################################################
 
+# option 1: sample at vertices, then average
+# option 2: sample at centres, then solve
+
 export sample
 """
 Sample a function on a manifold
+
+Sample at the vertices, then average and project to the actual
+`R`-simplices.
 """
 function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
                 mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
     @assert P == Pr             # TODO
-    lookup_D = lookup(mfd, D, R)::SparseOp{D,R,One}
-    simplices_D = mfd.simplices[D]::SparseOp{0,D,One}
-    simplices_R = mfd.simplices[R]::SparseOp{0,R,One}
-    values = Array{T}(undef, nsimplices(mfd, R))
-    for i in 1:nsimplices(mfd, R)
-        @assert P == Pr
 
-        sj = sparse_column_rows(lookup_D, i)
-        j = sj[1]               # pick a simplex at random
-        # Coordinates of simplex vertices
-        sk = sparse_column_rows(simplices_D, j)
-        xs = SVector{D + 1,SVector{C,S}}(coords(mfd)[k] for k in sk)
-        # Evaluate basis function
-        x2λ = cartesian2barycentric_setup(xs)
-        dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+    coords0 = get_coords(mfd, 0)
+    values0 = IDVector{0}(Array{fulltype(Form{D,R,T})}(undef,
+                                                       nsimplices(mfd, 0)))
+    for i in axes(values0, 1)
+        values0[i] = f(coords0[i])::Form{D,R,T}
+    end
 
-        # sj = sparse_column_rows(simplices_R, i)
-        # # Coordinates of simplex vertices
-        # xs = SVector{R + 1,SVector{C,S}}(coords(mfd)[k] for k in sj)
-        # # Evaluate basis function
-        # x2λ = cartesian2barycentric_setup(xs)
-        # dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
+    if R == 0
+        values = map(v -> v[], values0)
+        return Fun{D,P,R,C,S,T}(mfd, values)
+    end
 
-        si = sparse_column_rows(simplices_R, i)
-        bits = zero(SVector{D + 1,Bool})
-        @assert length(sk) == D + 1
-        for i′ in si
-            # `findfirst` returns the key, i.e. the row number
-            # n = findfirst(==(i′), sk)
-            n = nothing
-            for (n′, k′) in enumerate(sk)
-                if k′ == i′
-                    n = n′
-                    break
-                end
-            end
-            @assert n ≢ nothing
-            bits = Base.setindex(bits, true, n)
-        end
-        @assert count(bits) == R + 1
-        n = DifferentialForms.Forms.bit2lin(Val(D + 1), Val(R + 1), bits)
+    simplicesR = get_simplices(mfd, R)
+    coordsR = get_coords(mfd, R)
+    values = IDVector{R}(Array{T}(undef, nsimplices(mfd, R)))
+    for i in axes(values, 1)
+        si = sparse_column_rows(simplicesR, i)
+        si = SVector{R + 1}(si[n] for n in 1:(R + 1))
+        xs = SVector{R + 1}(coords0[si[n]] for n in 1:(R + 1))
+        fs = SVector{R + 1}(values0[si[n]] for n in 1:(R + 1))
 
-        x = coords(mfd, R)[i]
-        b = basis_x(Form{D,R}, x2λ, dλ2dx, n, x)::Form{D,R,S}
-        y = f(x)::Form{D,R,T}
+        xc = coordsR[i]
+        λ = cartesian2barycentric(xs, xc)
+        valR = sum(λ .* fs)
 
-        values[i] = (b ⋅ y)[]::T / norm2(b)
-        @assert isfinite(values[i])
+        ys = map(y -> y - xs[1], popfirst(xs))
+        ys = map(y -> Form{D,1}(y), ys)
+        val = valR ⋅ ∧(ys)
+
+        values[i] = val[]
     end
     return Fun{D,P,R,C,S,T}(mfd, values)
 end
@@ -145,7 +176,7 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
 
     if D == 0
         value = f(SVector{C,S}())[]
-        return Fun{D,P,R,C,S,T}(mfd, T[value])
+        return Fun{D,P,R,C,S,T}(mfd, IDVector{R}(T[value]))
     end
 
     order = 4                   # Choice
@@ -155,20 +186,21 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
 
     f(zero(SVector{C,S}))::Form{D,R,T}
 
-    values = zeros(T, nsimplices(mfd, R))
+    values = IDVector{R}(zeros(T, nsimplices(mfd, R)))
     # Loop over all D-simplices
-    for i in 1:nsimplices(mfd, D)
-        si = sparse_column_rows(mfd.simplices[D]::SparseOp{0,D,One}, i)
+    simplicesD = get_simplices(mfd, D)
+    for i in axes(simplicesD, 2)
+        si = sparse_column_rows(simplicesD, i)
         @assert length(si) == N
-        si = SVector{N,Int}(si[n] for n in 1:N)
+        si = SVector{N}(si[n] for n in 1:N)
 
         # Coordinates of simplex vertices
-        xs = SVector{N,SVector{C,S}}(coords(mfd)[n] for n in si)
+        xs = SVector{N,SVector{C,S}}(get_coords(mfd)[n] for n in si)
         x2λ = cartesian2barycentric_setup(xs)
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
         # Loop over all contained R-simplices
-        lookup_RD = lookup(mfd, R, D)::SparseOp{R,D,One}
+        lookup_RD = get_lookup(mfd, R, D)
         iter = enumerate(sparse_column_rows(lookup_RD, i))
         for (nj, j) in iter
             function kernel(x::SVector{C,S})
@@ -202,23 +234,23 @@ function basis_products(::Val{Pr}, ::Val{R},
     scheme = integration_scheme(S, Val(D), Val(order))
 
     # Result: sparse matrix
-    I = Int[]
-    J = Int[]
-    V = S[]
+    n = nsimplices(mfd, R)
+    B = MakeSparse{S}(n, n)
 
     # Loop over all D-simplices
-    for i in 1:nsimplices(mfd, D)
-        si = sparse_column_rows(mfd.simplices[D]::SparseOp{0,D,One}, i)
+    simplicesD = get_simplices(mfd, D)
+    for i in axes(simplicesD, 2)
+        si = sparse_column_rows(simplicesD, i)
         @assert length(si) == N
-        si = SVector{N,Int}(si[n] for n in 1:N)
+        si = SVector{N}(si[n] for n in 1:N)
 
         # Coordinates of simplex vertices
-        xs = SVector{N,SVector{C,S}}(coords(mfd)[n] for n in si)
+        xs = SVector{N,SVector{C,S}}(get_coords(mfd)[n] for n in si)
         x2λ = cartesian2barycentric_setup(xs)
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
         # Double loop over all contained R-simplices
-        lookup_RD = lookup(mfd, R, D)::SparseOp{R,D,One}
+        lookup_RD = get_lookup(mfd, R, D)
         iter = enumerate(sparse_column_rows(lookup_RD, i))
         for (nj, j) in iter
             for (nk, k) in iter
@@ -228,16 +260,12 @@ function basis_products(::Val{Pr}, ::Val{R},
                     return (bj ⋅ bk)[]
                 end
                 b = integrate(kernel, scheme, xs)
-
-                push!(I, j)
-                push!(J, k)
-                push!(V, b)
+                B[Int(j), Int(k)] = b
             end
         end
     end
 
-    n = nsimplices(mfd, R)
-    return sparse(I, J, V, n, n)
+    return SparseOp{R,R}(sparse(B))
 end
 
 ################################################################################

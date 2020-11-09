@@ -8,6 +8,7 @@ using SparseArrays
 using ..Defs
 using ..Funs
 using ..Manifolds
+using ..SparseOps
 
 # TODO: Add type `S` from `Manifold{D,S}`?
 export Op
@@ -81,16 +82,16 @@ end
 # Comparison
 
 function Base.:(==)(A::M, B::M) where {M<:Op}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     A ≡ B && return true
     return A.values == B.values
 end
 function Base.:(<)(A::M, B::M) where {M<:Op}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return A.values < B.values
 end
 function Base.isequal(A::M, B::M) where {M<:Op}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return isequal(A.values, B.values)
 end
 function Base.hash(A::Op, h::UInt)
@@ -115,34 +116,34 @@ Base.length(A::Op) = length(A.values)
 
 # function Base.map(op, A::Op{D,P1,R1,P2,R2},
 #                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
-#     @assert all(A.manifold == B.manifold for B ∈ Bs)
+#     @assert all(A.manifold ≡ B.manifold for B ∈ Bs)
 #     return Fun{D,R}(A.manifold, map(op, A.values, (B.values for B ∈ Bs)...))
 # end
 function Base.map(op, A::Op{D,P1,R1,P2,R2},
                   Bs::Op{D,P1,R1,P2,R2}...) where {D,P1,R1,P2,R2}
-    @assert all(B.manifold == A.manifold for B in Bs)
+    @assert all(B.manifold ≡ A.manifold for B in Bs)
     U = typeof(op(zero(eltype(A)), (zero(eltype(B)) for B in Bs)...))
     return Op{D,P1,R1,P2,R2,U}(A.manifold,
                                map(op, A.values, (B.values for B in Bs)...))
 end
 function Base.reduce(op, A::Op{D,P1,R1,P2,R2}, Bs::Op{D,P1,R1,P2,R2}...;
                      kw...) where {D,P1,R1,P2,R2}
-    @assert all(B.manifold == A.manifold for B in Bs)
+    @assert all(B.manifold ≡ A.manifold for B in Bs)
     return reduce(op, A.values, (B.values for B in Bs)...; kw...)
 end
 
 # Operators are an abstract matrix
 
-Base.ndims(::Op) = 2
-Base.size(A::Op) = size(A.values)
-Base.size(A::Op, dims) = size(A.values, dims)
+Base.IndexStyle(::Type{<:Op}) = IndexStyle(Vector)
 Base.axes(A::Op) = axes(A.values)
 Base.axes(A::Op, dir) = axes(A.values, dir)
 Base.eachindex(A::Op) = eachindex(A.values)
-Base.IndexStyle(::Type{<:Op}) = IndexStyle(Vector)
+Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
+Base.ndims(::Op) = 2
+Base.size(A::Op) = size(A.values)
+Base.size(A::Op, dims) = size(A.values, dims)
 Base.stride(A::Op, k) = stride(A.values, k)
 Base.strides(A::Op) = strides(A.values)
-Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
 
 # Operators are a vector space
 
@@ -182,13 +183,13 @@ end
 
 function Base.:+(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return Op{D,P1,R1,P2,R2}(A.manifold, A.values + B.values)
 end
 
 function Base.:-(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P1,R1,P2,R2}) where {D,P1,R1,P2,R2}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return Op{D,P1,R1,P2,R2}(A.manifold, A.values - B.values)
 end
 
@@ -224,7 +225,7 @@ Base.isone(A::Op) = false
 
 function Base.:*(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P2,R2,P3,R3}) where {D,P1,R1,P2,R2,P3,R3}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return Op{D,P1,R1,P3,R3}(A.manifold, A.values * B.values)
 end
 
@@ -240,13 +241,13 @@ end
 
 function Base.:/(A::Op{D,P1,R1,P2,R2},
                  B::Op{D,P3,R3,P2,R2}) where {D,P1,R1,P2,R2,P3,R3}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return Op{D,P1,R1,P3,R3}(A.manifold, A.values / B.values)
 end
 
 function Base.:\(A::Op{D,P2,R2,P1,R1},
                  B::Op{D,P2,R2,P3,R3}) where {D,P1,R1,P2,R2,P3,R3}
-    @assert A.manifold == B.manifold
+    @assert A.manifold ≡ B.manifold
     return Op{D,P1,R1,P3,R3}(A.manifold, A.values \ B.values)
 end
 
@@ -268,14 +269,14 @@ end
 # Operators act on functions
 
 function Base.:*(A::Op{D,P1,R1,P2,R2}, f::Fun{D,P2,R2}) where {D,P1,R1,P2,R2}
-    @assert A.manifold == f.manifold
-    return Fun{D,P1,R1}(f.manifold, A.values * f.values)
+    @assert A.manifold ≡ f.manifold
+    return Fun{D,P1,R1}(f.manifold, IDVector{R1}(A.values * f.values.vec))
 end
 
 function Base.:\(A::Op{D,P1,R1,P2,R2}, f::Fun{D,P1,R1}) where {D,P1,R1,P2,R2}
-    @assert A.manifold == f.manifold
+    @assert A.manifold ≡ f.manifold
     # Note: \ converts rationals to Float64
-    return Fun{D,P2,R2}(f.manifold, A.values \ f.values)
+    return Fun{D,P2,R2}(f.manifold, IDVector{R2}(A.values \ f.values.vec))
 end
 
 end

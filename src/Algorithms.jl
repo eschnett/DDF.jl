@@ -99,21 +99,14 @@ export volume
 """
 Unsigned volume
 """
-function volume(xs::SVector{N,<:Form{D,1,T}}, signature::Int=1) where {N,D,T}
+function volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
     D::Int
     @assert D ≥ 0
     N::Int
     @assert N ≥ 1
     @assert N ≤ D + 1
-    # TODO: add metric signatures to DifferentialForms.jl
-    # TODO: add outermorphisms to DifferentialForms.jl
-    # TODO: move Plotting into its own module; just provide functions
-    #       to obtain vertices, connectivity, etc.
     ys = map(x -> x - xs[1], deleteat(xs, 1))
-    # vol0 = norm(∧(ys))
-    η = SVector{D,T}(a == 1 ? signature : 1 for a in 1:D)
-    zs = map(y -> Form{D,1,T}(η .* y.elts), ys)
-    vol0 = norm(∧(zs))
+    vol0 = norm(∧(ys))
     if T <: Rational
         vol = rationalize(typeof(zero(T).den), vol0; tol=sqrt(eps(vol0)))
     else
@@ -123,75 +116,34 @@ function volume(xs::SVector{N,<:Form{D,1,T}}, signature::Int=1) where {N,D,T}
     vol /= factorial(N - 1)
     return vol::T
 end
-function volume(xs::SVector{N,SVector{D,T}}, signature=1) where {N,D,T}
-    return volume(SVector{N}(Form{D,1,T}(x) for x in xs), signature)
+function volume(xs::SVector{N,SVector{D,T}}) where {N,D,T}
+    return volume(SVector{N}(Form{D,1,T}(x) for x in xs))
 end
 
 export signed_volume
 """
 Signed volume
 """
-function signed_volume(xs::SVector{N,<:Form{D,1,T}}) where {N,D,T}
+function signed_volume(xs::SVector{N,<:Form{D,1,T}},
+                       signature::Int=1) where {N,D,T}
     D::Int
     @assert D ≥ 0
     N::Int
     R = N - 1
     @assert 0 ≤ R ≤ D
+    # TODO: add metric signatures to DifferentialForms.jl
+    # TODO: add outermorphisms to DifferentialForms.jl
+    # TODO: move Plotting into its own module; just provide functions
+    #       to obtain vertices, connectivity, etc.
     ys = map(x -> x - xs[1], deleteat(xs, 1))
-    if isempty(ys)
-        vol = one(Form{D,0,T})  # 0
-    else
-        y = ∧(ys)               # R
-        ny = norm(y)
-        ny = ifelse(ny == 0, one(ny), ny)
-        n = y / ny              # R
-        vol = n ⋅ y             # 0
-    end
-    return vol[] / factorial(R)
+    η = SVector{D,T}(a == D ? signature : 1 for a in 1:D)
+    ys′ = map(y -> Form{D,1,T}(η .* y.elts), ys)
+    y = ∧(ys)
+    y′ = ∧(ys′)
+    v2 = (y′ ⋅ y)[]::T
+    sv2 = sign(v2)::T
+    v = (sv2 * sqrt(abs(v2)))::T
+    return v / factorial(R)
 end
-
-# export dualvolume
-# function dualvolume()
-#     # Calculate circumcentric dual volumes
-#     # [1198555.1198667, page 5]
-#     dualvolumes = Dict{Int,Fun{D,Dl,R,T} where {R}}()
-#     for R ∈ D:-1:0
-#         if R == D
-#             values = ones(T, size(R, topo))
-#         else
-#             bnds = topo.boundaries[R + 1]
-#             values = zeros(T, size(R, topo))
-#             sis = topo.simplices[R]::Vector{Simplex{R + 1,Int}}
-#             sjs = topo.simplices[R + 1]::Vector{Simplex{R + 2,Int}}
-#             for (i, si) ∈ enumerate(sis)
-#                 # TODO: This is expensive
-#                 js = findnz(bnds[i, :])[1]
-#                 for j ∈ js
-#                     sj = sjs[j]
-#                     b = dualvolumes[R + 1][j]
-#                     # TODO: Calculate lower-rank circumcentres as
-#                     # intersection between boundary and the line
-#                     # connecting two simplices?
-#                     # TODO: Cache circumcentres ahead of time
-#                     @assert length(si.vertices) == R + 1
-#                     @assert length(sj.vertices) == R + 2
-#                     xsi = coords[si.vertices]
-#                     cci = circumcentre(xsi)
-#                     xsj = coords[sj.vertices]
-#                     ccj = circumcentre(xsj)
-#                     # TODO: Handle case where the volume should be
-#                     # negative (i.e. when the volume circumcentre ccj
-#                     # is on the "other" side of the face circumcentre
-#                     # cci) (Is the previous statement correct?)
-#                     h = abs(cci - ccj)
-#                     values[i] += b * h / factorial(D - R)
-#                 end
-#             end
-#         end
-#         # @assert all(>(0), values)
-#         vols = Fun{D,Dl,R,T}(topo, values)
-#         dualvolumes[R] = vols
-#     end
-# end
 
 end

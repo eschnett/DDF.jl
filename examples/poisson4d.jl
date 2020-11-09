@@ -95,12 +95,12 @@ function main()
     # <https://github.com/JuliaLang/julia/issues/38209>
     A = [N0.values δ.values; -d.values sparse(E1.values)]
     @assert issparse(A)
-    b = [ρ.values; n1.values]
+    b = [ρ.values.vec; n1.values.vec]
 
     B = [B0.values N01.values; N10.values N1.values]
     @assert issparse(B)
     @assert B * B == B
-    c = [u₀.values; n1.values]
+    c = [u₀.values.vec; n1.values.vec]
 
     A′ = (E - B) * A + B
     @assert issparse(A′)
@@ -157,8 +157,8 @@ function main()
     println("Analyse solution...")
 
     uv, fv = vsplit(x, nsimplices(mfd, 0), nsimplices(mfd, 1))
-    u = Fun{D,Pr,0,D,S,T}(mfd, uv)
-    f = Fun{D,Pr,1,D,S,T}(mfd, fv)
+    u = Fun{D,Pr,0,D,S,T}(mfd, IDVector{0}(uv))
+    f = Fun{D,Pr,1,D,S,T}(mfd, IDVector{1}(fv))
 
     nsol = norm((E0 - B0) * (laplace(u) - ρ), Inf)
     nbnd = norm(B0 * u - u₀, Inf)

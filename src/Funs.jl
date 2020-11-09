@@ -7,6 +7,7 @@ using StaticArrays
 
 using ..Defs
 using ..Manifolds
+using ..SparseOps
 
 export Fun
 """
@@ -14,10 +15,10 @@ Function (aka Cochain)
 """
 struct Fun{D,P,R,C,S,T}         # <: AbstractVector{T}
     manifold::Manifold{D,C,S}
-    values::Vector{T}
+    values::IDVector{R,T}
 
     function Fun{D,P,R,C,S,T}(manifold::Manifold{D,C,S},
-                              values::AbstractVector{T}) where {D,P,R,C,S,T}
+                              values::IDVector{R,T}) where {D,P,R,C,S,T}
         D::Int
         @assert D ≥ 0
         P::PrimalDual
@@ -27,14 +28,15 @@ struct Fun{D,P,R,C,S,T}         # <: AbstractVector{T}
         @assert invariant(fun)
         return fun
     end
-    function Fun{D,P,R,C,S}(manifold::Manifold{D,C,S},
-                            values::AbstractVector{T}) where {D,P,R,C,S,T}
-        return Fun{D,P,R,C,S,T}(manifold, values)
-    end
-    function Fun{D,P,R}(manifold::Manifold{D,C,S},
-                        values::AbstractVector{T}) where {D,P,R,C,S,T}
-        return Fun{D,P,R,C,S,T}(manifold, values)
-    end
+end
+
+function Fun{D,P,R,C,S}(manifold::Manifold{D,C,S},
+                        values::IDVector{R,T}) where {D,P,R,C,S,T}
+    return Fun{D,P,R,C,S,T}(manifold, values)
+end
+function Fun{D,P,R}(manifold::Manifold{D,C,S},
+                    values::IDVector{R,T}) where {D,P,R,C,S,T}
+    return Fun{D,P,R,C,S,T}(manifold, values)
 end
 
 function Base.show(io::IO, fun::Fun{D,P,R,C,S,T}) where {D,P,R,C,S,T}
@@ -77,7 +79,8 @@ end
 # Random functions
 function Base.rand(::Type{Fun{D,P,R,C,S,T}},
                    manifold::Manifold{D,C,S}) where {D,P,R,C,S,T}
-    return Fun{D,P,R,C,S}(manifold, rand(T, nsimplices(manifold, R)))
+    return Fun{D,P,R,C,S}(manifold,
+                          IDVector{R}(rand(T, nsimplices(manifold, R))))
 end
 
 # Functions are a collection
@@ -111,23 +114,23 @@ end
 
 # Functions are an abstract vector
 
-Base.ndims(::Fun) = 1
-Base.size(f::Fun) = size(f.values)
-Base.size(f::Fun, dims) = size(f.values, dims)
+Base.IndexStyle(::Type{<:Fun}) = IndexStyle(Vector)
 Base.axes(f::Fun) = axes(f.values)
 Base.axes(f::Fun, dir) = axes(f.values, dir)
 Base.eachindex(f::Fun) = eachindex(f.values)
-Base.IndexStyle(::Type{<:Fun}) = IndexStyle(Vector)
+Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
+Base.ndims(::Fun) = 1
+Base.size(f::Fun) = size(f.values)
+Base.size(f::Fun, dims) = size(f.values, dims)
 Base.stride(f::Fun, k) = stride(f.values, k)
 Base.strides(f::Fun) = strides(f.values)
-Base.getindex(f::Fun, inds...) = getindex(f.values, inds...)
 
 # Functions are a vector space
 
 function Base.zero(::Type{Fun{D,P,R,C,S,T}},
                    manifold::Manifold{D,C,S}) where {D,P,R,C,S,T}
     nelts = nsimplices(manifold, R)
-    return Fun{D,P,R}(manifold, zeros(T, nelts))
+    return Fun{D,P,R}(manifold, IDVector{R}(zeros(T, nelts)))
 end
 function Base.zero(::Type{Fun{D,P,R,C,S}},
                    manifold::Manifold{D,C,S}) where {D,P,R,C,S,T}
@@ -145,7 +148,7 @@ function Forms.unit(::Type{Fun{D,P,R,C,S,T}}, manifold::Manifold{D,C,S},
     nelts = nsimplices(manifold, R)
     @assert 1 ≤ n ≤ nelts
     # return Fun{D,P,R,C,S}(manifold, sparsevec([n], [one(T)],nelts))
-    return Fun{D,P,R,C,S}(manifold, T[i == n for i in 1:nelts])
+    return Fun{D,P,R,C,S}(manifold, IDVector{R}(T[i == n for i in 1:nelts]))
 end
 
 function Base.:+(f::Fun{D,P,R,C,S}) where {D,P,R,C,S}
@@ -191,7 +194,7 @@ Base.:|(f::Fun, g::Fun) = map(|, f, g)
 export id
 function id(::Type{<:Fun{D,P,0,C,S,SVector{C,S}}},
             manifold::Manifold{D,C,S}) where {D,P,C,S}
-    return Fun{D,P,0,C,S}(manifold, coords(manifold))
+    return Fun{D,P,0,C,S}(manifold, get_coords(manifold))
 end
 
 function Base.conj(f::Fun{D,P,R,C,S}) where {D,P,R,C,S}

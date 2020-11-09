@@ -29,7 +29,7 @@ function main()
     S = Float64
     T = Float64
 
-    n = 64
+    n = 16 #TODO 64
     nelts = Tuple(n for d in 1:D)
     mfd = large_hypercube_manifold(Val(D), S; nelts=nelts, optimize_mesh=true)
 
@@ -95,12 +95,12 @@ function main()
     # <https://github.com/JuliaLang/julia/issues/38209>
     A = [N0.values δ.values; -d.values sparse(E1.values)]
     @assert issparse(A)
-    b = [ρ.values; n1.values]
+    b = [ρ.values.vec; n1.values.vec]
 
     B = [B0.values N01.values; N10.values N1.values]
     @assert issparse(B)
     @assert B * B == B
-    c = [u₀.values; n1.values]
+    c = [u₀.values.vec; n1.values.vec]
 
     A′ = (E - B) * A + B
     @assert issparse(A′)
@@ -157,8 +157,8 @@ function main()
     println("Analyse solution...")
 
     uv, fv = vsplit(x, nsimplices(mfd, 0), nsimplices(mfd, 1))
-    u = Fun{D,Pr,0,D,S,T}(mfd, uv)
-    f = Fun{D,Pr,1,D,S,T}(mfd, fv)
+    u = Fun{D,Pr,0,D,S,T}(mfd, IDVector{0}(uv))
+    f = Fun{D,Pr,1,D,S,T}(mfd, IDVector{1}(fv))
 
     nsol = norm((E0 - B0) * (laplace(u) - ρ), Inf)
     nbnd = norm(B0 * u - u₀, Inf)
@@ -181,18 +181,20 @@ function main()
 
     println("Write result to file...")
 
-    points = [coords(mfd)[i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
+    points = [get_coords(mfd)[i][d]
+              for d in 1:D, i in axes(get_simplices(mfd, D), 1)]
     cells = [MeshCell(VTKCellTypes.VTK_TETRA,
-                      SVector{D + 1}(i
+                      SVector{D + 1}(Int(i)
                                      for i in
-                                         sparse_column_rows(mfd.simplices[D],
+                                         sparse_column_rows(get_simplices(mfd,
+                                                                          D),
                                                             j)))
-             for j in 1:size(mfd.simplices[D], 2)]
+             for j in axes(get_simplices(mfd, D), 2)]
     vtkfile = vtk_grid("poisson3d.vtu", points, cells)
 
-    vtkfile["ρ", VTKPointData()] = ρ.values
-    vtkfile["u", VTKPointData()] = u.values
-    vtkfile["res", VTKPointData()] = res.values
+    vtkfile["ρ", VTKPointData()] = ρ.values.vec
+    vtkfile["u", VTKPointData()] = u.values.vec
+    vtkfile["res", VTKPointData()] = res.values.vec
 
     vtk_save(vtkfile)
 

@@ -6,6 +6,7 @@ using GLMakie
 using IterativeSolvers
 using LinearAlgebra
 using SparseArrays
+using SpecialFunctions
 using StaticArrays
 using WriteVTK
 
@@ -30,7 +31,7 @@ function main()
     T = Float64
 
     mfd = simplex_manifold(Val(D), S; optimize_mesh=false)
-    for level in 1:5
+    for level in 1:2
         mfd = refined_manifold(mfd; optimize_mesh=false)
     end
 
@@ -45,12 +46,27 @@ function main()
 
     println("Sample RHS...")
 
+    # ρ = exp(- r^2)
+    # u = - sqrt(π) / 4r erf(r)
+
+    # ρ = exp(- (x - x₀)^2 / W^2)
+    # r = |(x - x₀) / W|
+
     x₀ = zero(Form{D,1,S}) .+ S(0.1)
     W = S(0.1)
-    ρ₀(x) = Form{D,0}((exp(-norm2(x - x₀) / (2 * W^2)),))
+    function ρ₀(x)
+        local r2 = norm2(x - x₀) / W^2
+        local ρ = exp(-r2)
+        return Form{D,0}((ρ,))
+    end
+    function u₀(x)
+        local r = norm(x - x₀) / W
+        local u = -sqrt(S(π)) / 4r * erf(r)
+        return Form{D,0}((u,))
+    end
 
     ρ = sample(Fun{D,Pr,0,D,S,T}, ρ₀, mfd)
-    u₀ = zero(Fun{D,Pr,0,D,S,T}, mfd)
+    ∂u = sample(Fun{D,Pr,0,D,S,T}, u₀, mfd)
 
     ############################################################################
 
@@ -69,7 +85,10 @@ function main()
     N01 = zero(Op{D,Pr,0,Pr,1}, mfd)
     N10 = zero(Op{D,Pr,1,Pr,0}, mfd)
 
-    E = [E0.values N01.values; N10.values E1.values]
+    E = [
+        E0.values N01.values
+        N10.values E1.values
+    ]
     @assert issparse(E)
     @assert E * E == E
 
@@ -94,14 +113,20 @@ function main()
 
     # The call to `sparse` is necessary for efficiency
     # <https://github.com/JuliaLang/julia/issues/38209>
-    A = [N0.values δ.values; -d.values sparse(E1.values)]
+    A = [
+        N0.values δ.values
+        -d.values sparse(E1.values)
+    ]
     @assert issparse(A)
-    b = [ρ.values; n1.values]
+    b = [ρ.values.vec; n1.values.vec]
 
-    B = [B0.values N01.values; N10.values N1.values]
+    B = [
+        B0.values N01.values
+        N10.values N1.values
+    ]
     @assert issparse(B)
     @assert B * B == B
-    c = [u₀.values; n1.values]
+    c = [∂u.values.vec; n1.values.vec]
 
     A′ = (E - B) * A + B
     @assert issparse(A′)
@@ -145,42 +170,55 @@ function main()
     println("Analyse solution...")
 
     uv, fv = vsplit(x, nsimplices(mfd, 0), nsimplices(mfd, 1))
-    u = Fun{D,Pr,0,D,S,T}(mfd, uv)
-    f = Fun{D,Pr,1,D,S,T}(mfd, fv)
+    u = Fun{D,Pr,0,D,S,T}(mfd, IDVector{0}(uv))
+    f = Fun{D,Pr,1,D,S,T}(mfd, IDVector{1}(fv))
 
     nsol = norm((E0 - B0) * (laplace(u) - ρ), Inf)
-    nbnd = norm(B0 * u - u₀, Inf)
+    nbnd = norm(B0 * (u - ∂u), Inf)
     println("    ‖residual[sol]‖∞=$nsol")
     println("    ‖residual[bnd]‖∞=$nbnd")
 
-    res = (E0 - B0) * (laplace(u) - ρ) + B0 * u - u₀
+    res = (E0 - B0) * (laplace(u) - ρ) + B0 * (u - ∂u)
     nres = norm(res)
     println("    ‖residual‖₂=$nres")
+
+    err = u - ∂u
+    nerr = norm(err)
+    println("    ‖error‖₂=$nerr")
 
     ############################################################################
 
     if nsimplices(mfd, 0) ≤ 10000
         println("Plot result...")
-        # Can plot ρ, u, res
+        # Can plot ρ, u, ∂u, res, err
         plot_function(u, "poisson2d.png")
+        plot_function(ρ, "poisson2d-ρ.png")
+        plot_function(u, "poisson2d-u.png")
+        plot_function(∂u, "poisson2-∂u.png")
+        plot_function(res, "poisson2d-res.png")
+        plot_function(err, "poisson2d-err.png")
     end
 
     ############################################################################
 
     println("Write result to file...")
 
-    points = [coords(mfd)[i][d] for d in 1:D, i in 1:nsimplices(mfd, 0)]
+    points = [get_coords(mfd)[i][d]
+              for d in 1:D, i in axes(get_simplices(mfd, D), 1)]
     cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE,
-                      SVector{D + 1}(i
+                      SVector{D + 1}(Int(i)
                                      for i in
-                                         sparse_column_rows(mfd.simplices[D],
+                                         sparse_column_rows(get_simplices(mfd,
+                                                                          D),
                                                             j)))
-             for j in 1:size(mfd.simplices[D], 2)]
+             for j in axes(get_simplices(mfd, D), 2)]
     vtkfile = vtk_grid("poisson2d.vtu", points, cells)
 
-    vtkfile["ρ", VTKPointData()] = ρ.values
-    vtkfile["u", VTKPointData()] = u.values
-    vtkfile["res", VTKPointData()] = res.values
+    vtkfile["ρ", VTKPointData()] = ρ.values.vec
+    vtkfile["∂u", VTKPointData()] = ∂u.values.vec
+    vtkfile["u", VTKPointData()] = u.values.vec
+    vtkfile["res", VTKPointData()] = res.values.vec
+    vtkfile["err", VTKPointData()] = err.values.vec
 
     vtk_save(vtkfile)
 

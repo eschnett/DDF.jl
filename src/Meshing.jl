@@ -16,12 +16,12 @@ export delaunay_mesh
 """
 Find the Delaunay triangulation for a set of points
 """
-function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
+function delaunay_mesh(coords::IDVector{0,SVector{C,S}}) where {C,S}
     nvertices = length(coords)
 
     if C == 0
         @assert nvertices == 1
-        simplices = sparse([1], [1], [One()], 1, 1)
+        simplices = SparseOp{0,C}(sparse([1], [1], [One()], 1, 1))
         return simplices
     end
 
@@ -31,7 +31,7 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
         # Triangulate
         println("[Calling Delaunay with $nvertices points...]")
         t0 = time_ns()
-        mesh = delaunay(S[coords[i][c] for i in 1:nvertices, c in 1:C])
+        mesh = delaunay(S[coords[i][c] for i in axes(coords, 1), c in 1:C])
         # [:Qbb, :Qc, :Qz, :Q12, :QJ]
         t1 = time_ns()
         tdelaunay = round((t1 - t0) / 1.0e9; sigdigits=3)
@@ -40,43 +40,33 @@ function delaunay_mesh(coords::Vector{SVector{C,S}}) where {C,S}
         nsimplices = size(mesh.simplices, 1)
         println("[Delaunay found $nsimplices simplices in $tdelaunay s]")
         @assert size(mesh.simplices, 2) == C + 1
-        I = Int[]
-        J = Int[]
-        V = One[]
+        simplices = MakeSparse{One}(nvertices, nsimplices)
         for j in 1:nsimplices
             for i in @view mesh.simplices[j, :]
-                push!(I, i)
-                push!(J, j)
-                push!(V, One())
+                simplices[i, j] = One()
             end
         end
-        # @assert all(i -> 1 ≤ i ≤ nvertices, I)
-        # @assert all(j -> 1 ≤ j ≤ nsimplices, J)
-        simplices = sparse(I, J, V, nvertices, nsimplices)
+        simplices = SparseOp{0,C}(sparse(simplices))
 
     else
         # Use MiniQhull.jl
 
         # Triangulate
-        mesh = delaunay(S[coords[i][c] for c in 1:C, i in 1:nvertices],
+        mesh = delaunay(S[coords[i][c] for c in 1:C, i in axes(coords, 1)],
                         "qhull d Qt Qbb Qc Qz")
 
         # Convert to sparse matrix
         nsimplices = size(mesh, 2)
         @assert size(mesh, 1) == C + 1
-        I = Int[]
-        J = Int[]
-        V = One[]
+        simplices = MakeSparse{One}(nvertices, nsimplices)
         for j in 1:nsimplices
             for i in @view mesh[:, j]
-                push!(I, i)
-                push!(J, j)
-                push!(V, One())
+                simplices[i, j] = One()
             end
         end
         # @assert all(i -> 1 ≤ i ≤ nvertices, I)
         # @assert all(j -> 1 ≤ j ≤ nsimplices, J)
-        simplices = sparse(I, J, V, nvertices, nsimplices)
+        simplices = SparseOp{0,C}(sparse(simplices))
     end
 
     return simplices
@@ -135,13 +125,13 @@ export refine_coords
 Refine a mesh
 """
 function refine_coords(oldedges::SparseOp{0,1,One},
-                       oldcoords::Vector{SVector{C,S}}) where {C,S}
+                       oldcoords::IDVector{0,SVector{C,S}}) where {C,S}
     noldvertices, noldedges = size(oldedges)
     @assert length(oldcoords) == noldvertices
     nvertices = noldvertices + noldedges
     coords = copy(oldcoords)
     # Loop over all old edges
-    for i in 1:noldedges
+    for i in axes(oldedges, 2)
         si = sparse_column_rows(oldedges, i)
         @assert length(si) == 2
         x = sum(coords[j] for j in si) / length(si)
@@ -162,15 +152,15 @@ export improve_mesh
 Improve the mesh by moving the circumcentres towards the barycentres
 """
 function improve_mesh(simplices::SparseOp{0,R,One},
-                      coords::Vector{SVector{C,S}},
-                      weights::Vector{S}) where {D,R,C,S}
+                      coords::IDVector{0,SVector{C,S}},
+                      weights::IDVector{0,S}) where {D,R,C,S}
     C::Int
     @assert 0 ≤ C
 
-    shift_coords = zeros(SVector{C,S}, length(coords))
-    shift_weights = zeros(S, length(weights))
+    shift_coords = IDVector{0}(zeros(SVector{C,S}, length(coords)))
+    shift_weights = IDVector{0}(zeros(S, length(weights)))
     count = 0
-    for j in 1:size(simplices, 2)
+    for j in axes(simplices, 2)
         si = sparse_column_rows(simplices, j)
         si = SVector{R + 1}(i for i in si)
         xs = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
@@ -189,8 +179,12 @@ function improve_mesh(simplices::SparseOp{0,R,One},
         count += 1
     end
     α = length(shift_weights) / (S(R + 1) * count)
-    shift_coords .*= α
-    shift_weights .*= α
+    for i in axes(shift_coords, 1)
+        shift_coords[i] *= α
+    end
+    for i in axes(shift_weights, 1)
+        shift_weights[i] *= α
+    end
 
     return shift_coords, shift_weights
 end
