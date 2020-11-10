@@ -29,7 +29,7 @@ function delaunay_mesh(coords::IDVector{0,SVector{C,S}}) where {C,S}
         # Use Delaunay.jl
 
         # Triangulate
-        println("[Calling Delaunay with $nvertices points...]")
+        # println("[Calling Delaunay with $nvertices points...]")
         t0 = time_ns()
         mesh = delaunay(S[coords[i][c] for i in axes(coords, 1), c in 1:C])
         # [:Qbb, :Qc, :Qz, :Q12, :QJ]
@@ -38,7 +38,7 @@ function delaunay_mesh(coords::IDVector{0,SVector{C,S}}) where {C,S}
 
         # Convert to sparse matrix
         nsimplices = size(mesh.simplices, 1)
-        println("[Delaunay found $nsimplices simplices in $tdelaunay s]")
+        # println("[Delaunay found $nsimplices simplices in $tdelaunay s]")
         @assert size(mesh.simplices, 2) == C + 1
         simplices = MakeSparse{One}(nvertices, nsimplices)
         for j in 1:nsimplices
