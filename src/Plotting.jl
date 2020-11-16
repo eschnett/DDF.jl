@@ -39,8 +39,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
 
     # Edges
     edges = SVector{C,S}[]
-    for i in 1:nsimplices(mfd, 1)
-        sj = sparse_column_rows(mfd.simplices[1], i)
+    for i in axes(get_simplices(mfd, 1), 2)
+        sj = sparse_column_rows(get_simplices(mfd, 1), i)
         @assert length(sj) == 2
         xs1 = get_coords(mfd)[sj[1]]
         xs2 = get_coords(mfd)[sj[2]]
@@ -53,8 +53,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
 
     # Vertices
     vertices = SVector{C,S}[]
-    for i in 1:nsimplices(mfd, 0)
-        sj = sparse_column_rows(mfd.simplices[0], i)
+    for i in axes(get_simplices(mfd, 0), 2)
+        sj = sparse_column_rows(get_simplices(mfd, 0), i)
         @assert length(sj) == 1
         xs1 = get_coords(mfd)[sj[1]]
         if visible(xs1)
@@ -65,8 +65,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
 
     # Dual edges
     dualedges = SVector{C,S}[]
-    for i in 1:nsimplices(mfd, D - 1)
-        sj = sparse_column_rows(lookup(mfd, D, D - 1), i)
+    for i in axes(get_lookup(mfd, D, D - 1), 2)
+        sj = sparse_column_rows(get_lookup(mfd, D, D - 1), i)
         for j in sj
             xs1 = get_dualcoords(mfd, D - 1)[i]
             xs2 = get_dualcoords(mfd, D)[j]
@@ -80,8 +80,8 @@ function plot_manifold(mfd::Manifold{D,C,S}, filename=nothing) where {D,C,S}
 
     # Dual vertices
     dualvertices = SVector{C,S}[]
-    for i in 1:nsimplices(mfd, D)
-        xs1 = get_dualcoords(D, mfd)[i]
+    for i in axes(get_dualcoords(mfd, D), 1)
+        xs1 = get_dualcoords(mfd, D)[i]
         if visible(xs1)
             push!(dualvertices, xs1)
         end

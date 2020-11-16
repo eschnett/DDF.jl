@@ -113,11 +113,12 @@ coderiv(f::Fun{D,P,R}) where {D,P,R} = coderiv(Val(P), Val(R), f.manifold) * f
 
 # Δ
 export laplace
+# TODO: memoise laplace operator (and hodge, coderiv, etc.)
 function laplace(::Val{P}, ::Val{R},
                  manifold::Manifold{D,C,S}) where {P,R,D,C,S}
     P::PrimalDual
-    dR = P == Pr ? +1 : -1
     @assert 0 ≤ R ≤ D
+    dR = P == Pr ? +1 : -1
     op = zero(Op{D,P,R,P,R,S}, manifold)
     if 0 ≤ R - dR ≤ D
         op += deriv(Val(P), Val(R - dR), manifold) *
@@ -134,7 +135,23 @@ laplace(f::Fun{D,P,R}) where {D,P,R} = laplace(Val(P), Val(R), f.manifold) * f
 
 # ∫
 export integral
-integral(f::Fun{D,Pr,D,C,S,T}) where {D,C,S,T} = sum(f.values)
-integral(f::Fun{D,Dl,0,C,S,T}) where {D,C,S,T} = sum(f.values)
+integral(f::Fun{D,Pr,D}) where {D} = sum(f.values)
+integral(f::Fun{D,Dl,0}) where {D} = sum(f.values)
+
+# ⋅
+export dot
+function LinearAlgebra.dot(f::Fun{D,Pr,D}, g::Fun{D,Pr,D}) where {D}
+    @assert f.manifold ≡ g.manifold
+    vol = get_volumes(f.manifold, D)
+    return dot(f.values, Diagonal(1 ./ vol), g.values)
+end
+function LinearAlgebra.dot(f::Fun{D,Dl,0}, g::Fun{D,Dl,0}) where {D}
+    @assert f.manifold ≡ g.manifold
+    dualvol = get_dualvolumes(f.manifold, 0)
+    return dot(f.values, Diagonal(1 ./ dualvol), g.values)
+end
+
+# LinearAlgebra.norm(f::Fun) = norm(f.values)
+# LinearAlgebra.norm(f::Fun, p::Real) = norm(f.values, p)
 
 end

@@ -1,6 +1,7 @@
 using DDF
 
 using LinearAlgebra
+using StaticArrays
 
 @testset "Empty manifold D=$D" for D in 0:Dmax
     S = Float64
@@ -99,6 +100,60 @@ end
     @test all(==(1), get_dualvolumes(mfd, D))
 end
 
+@testset "Large hypercube manifold D=$D" for D in 0:min(3, Dmax)
+    S = Float64
+    mfd = large_hypercube_manifold(Val(D), S; nelts=ntuple(d -> 2, D))
+    @test invariant(mfd)
+    @test nsimplices(mfd, 0) == 3^D
+    @test nsimplices(mfd, D) == 2^D * factorial(D)
+    # TODO: Find rule for other dimensions
+    @test get_lookup(mfd, 0, D) ≡ get_simplices(mfd, D)
+    for R in 0:D
+        @test minimum(get_volumes(mfd, R)) / maximum(get_volumes(mfd, R)) ≥ 0.01
+        if mfd.dualkind == BarycentricDuals ||
+           (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
+            @test all(>(0), get_dualvolumes(mfd, R))
+            @test minimum(get_dualvolumes(mfd, R)) /
+                  maximum(get_dualvolumes(mfd, R)) ≥ 0.01
+        end
+    end
+
+    vol = 1
+    @test all(==(1), get_volumes(mfd, 0))
+    @test sum(get_volumes(mfd, D)) ≈ vol
+    if !(sum(get_dualvolumes(mfd, 0)) ≈ vol)
+        @show D extrema(get_dualvolumes(mfd, 0))
+    end
+    @test sum(get_dualvolumes(mfd, 0)) ≈ vol
+    @test all(==(1), get_dualvolumes(mfd, D))
+end
+
+# @testset "Large hypertorus manifold D=$D" for D in 0:Dmax
+#     S = Float64
+#     mfd = large_hypercube_manifold(Val(D), S; nelts=ntuple(d -> 2, D),
+#                                    torus=true)
+#     @test invariant(mfd)
+#     @test nsimplices(mfd, 0) == 2^D
+#     @test nsimplices(mfd, D) == 2^D * factorial(D)
+#     # TODO: Find rule for other dimensions
+#     @test get_lookup(mfd, 0, D) ≡ get_simplices(mfd, D)
+#     for R in 0:D
+#         @test minimum(get_volumes(mfd, R)) / maximum(get_volumes(mfd, R)) ≥ 0.01
+#         if mfd.dualkind == BarycentricDuals ||
+#            (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
+#             @test all(>(0), get_dualvolumes(mfd, R))
+#             @test minimum(get_dualvolumes(mfd, R)) /
+#                   maximum(get_dualvolumes(mfd, R)) ≥ 0.01
+#         end
+#     end
+# 
+#     vol = 1
+#     @test all(==(1), get_volumes(mfd, 0))
+#     @test sum(get_volumes(mfd, D)) ≈ vol
+#     @test sum(get_dualvolumes(mfd, 0)) ≈ vol
+#     @test all(==(1), get_dualvolumes(mfd, D))
+# end
+
 @testset "Delaunay hypercube manifold D=$D" for D in 0:Dmax
     S = Float64
     mfd = delaunay_hypercube_manifold(Val(D), S)
@@ -151,6 +206,35 @@ end
     @test all(==(1), get_dualvolumes(mfd, D))
 end
 
+# @testset "Random hypercube manifold D=$D" for D in 0:Dmax
+#     S = Float64
+#     xmin = SVector{D,S}(0 for d in 1:D)
+#     xmax = SVector{D,S}(1 for d in 1:D)
+#     n = 4
+#     mfd = random_hypercube_manifold(xmin, xmax, n)
+#     @test invariant(mfd)
+#     @test nsimplices(mfd, 0) == (n + 2)^D
+#     @test get_lookup(mfd, 0, D) ≡ get_simplices(mfd, D)
+#     for R in 0:D
+#         @test minimum(get_volumes(mfd, R)) / maximum(get_volumes(mfd, R)) ≥ 0.01
+#         if mfd.dualkind == BarycentricDuals ||
+#            (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
+#             @test all(>(0), get_dualvolumes(mfd, R))
+#             @test minimum(get_dualvolumes(mfd, R)) /
+#                   maximum(get_dualvolumes(mfd, R)) ≥ 0.01
+#         end
+#     end
+# 
+#     vol = 1
+#     @test all(==(1), get_volumes(mfd, 0))
+#     @test sum(get_volumes(mfd, D)) ≈ vol
+#     if !(sum(get_dualvolumes(mfd, 0)) ≈ vol)
+#         @show extrema(get_dualvolumes(mfd, 0))
+#     end
+#     @test sum(get_dualvolumes(mfd, 0)) ≈ vol
+#     @test all(==(1), get_dualvolumes(mfd, D))
+# end
+
 @testset "Refined simplex manifold D=$D" for D in 0:Dmax
     S = Float64
     mfd = refined_simplex_manifold(Val(D), S)
@@ -162,7 +246,7 @@ end
     for R in 0:D
         if R == 0 || R == D
             # <https://en.wikipedia.org/wiki/Simplex#Volume>
-            vol = sqrt(S(R + 1) / 2^R) / factorial(R) / 2^R
+            vol = sqrt(S(R + 1) / 2^R) / (factorial(R) * 2^R)
             @test all(≈(vol), get_volumes(mfd, R))
         end
         if mfd.dualkind == BarycentricDuals || D ≤ 3

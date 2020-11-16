@@ -94,7 +94,7 @@ mutable struct Manifold{D,C,S}
                          VecDict{Int,SVector{C,S}}(0 => coords0),
                          VecDict{Int,S}(), weights, VecDict{Int,SVector{C,S}}(),
                          VecDict{Int,S}(), nothing)
-        @assert invariant(mfd)
+        #TODO @assert invariant(mfd)
         return mfd
     end
 end

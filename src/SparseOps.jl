@@ -83,7 +83,7 @@ function Base.setindex!(xs::IDVector{Tag}, val, i::ID{Tag}) where {Tag}
     return setindex!(xs.vec, val, i.id)
 end
 Base.size(xs::IDVector) = (length(xs),)
-Base.size(xs::IDVector, d) = length(xs)
+Base.size(xs::IDVector, d) = d == 1 ? length(xs) : 1
 
 Base.pop!(xs::IDVector) = pop!(xs.vec)
 Base.popfirst!(xs::IDVector) = popfirst!(xs.vec)

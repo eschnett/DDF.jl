@@ -25,7 +25,7 @@ struct Fun{D,P,R,C,S,T}         # <: AbstractVector{T}
         R::Int
         @assert 0 ≤ R ≤ D
         fun = new{D,P,R,C,S,T}(manifold, values)
-        @assert invariant(fun)
+        #TODO @assert invariant(fun)
         return fun
     end
 end
@@ -139,8 +139,8 @@ end
 Base.zero(f::Fun) = zero(typeof(f), f.manifold)
 Base.iszero(f::Fun) = iszero(f.values)
 
-LinearAlgebra.norm(f::Fun) = norm(f.values)
-LinearAlgebra.norm(f::Fun, p::Real) = norm(f.values, p)
+# LinearAlgebra.norm(f::Fun) = norm(f.values)
+# LinearAlgebra.norm(f::Fun, p::Real) = norm(f.values, p)
 
 export unit
 function Forms.unit(::Type{Fun{D,P,R,C,S,T}}, manifold::Manifold{D,C,S},

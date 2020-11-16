@@ -196,7 +196,7 @@ export large_hypercube_manifold
 Triangulate a large hypercube by splitting it into smaller hypercubes
 """
 function large_hypercube_manifold(::Val{D}, ::Type{S}; nelts::NTuple{D,Int},
-                                  options...) where {D,S}
+                                  torus::Bool=false, options...) where {D,S}
     @assert D ≥ 0
     N = D + 1
 
@@ -212,7 +212,13 @@ function large_hypercube_manifold(::Val{D}, ::Type{S}; nelts::NTuple{D,Int},
 
     stride = SVector{D,Int}(d == 1 ? 1 : prod(nelts[1:(d - 1)] .+ 1)
                             for d in 1:D)
-    vertex2ind(i::SVector{D,Int}) = 1 + sum(i .* stride)
+    function vertex2ind(i::SVector{D,Int})
+        if !torus
+            return 1 + sum(i .* stride)
+        else
+            return 1 + sum(i .% nelts .* stride)
+        end
+    end
 
     nsimplices = factorial(D) * (D == 0 ? 1 : prod(nelts))
     simplices = Array{SVector{N,Int}}(undef, nsimplices)
@@ -442,6 +448,42 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
 
     return Manifold("large delaunay hypercube manifold", simplices, coords,
                     weights; options...)
+end
+
+################################################################################
+
+export random_hypercube_manifold
+"""
+Hypercube manifold with random vertices
+"""
+function random_hypercube_manifold(xmin::SVector{D,S}, xmax::SVector{D,S},
+                                   npoints_per_dim::Int; options...) where {D,S}
+    rng = MersenneTwister(1)
+
+    function coord(f, d)
+        f == -1 && return xmin[d]
+        f == +1 && return xmax[d]
+        local n = 2^20
+        local i = rand(rng, 1:(n - 1))
+        local x = (n - i) / S(n) * xmin[d] + i / S(n) * xmax[d]
+        return x
+    end
+
+    coords = IDVector{0}(Vector{SVector{D,S}}())
+    for face in
+        CartesianIndex(ntuple(d -> -1, D)):CartesianIndex(ntuple(d -> 1, D))
+        dim = count(==(0), face[d] for d in 1:D)
+        for i in 1:(npoints_per_dim^dim)
+            x = SVector{D,S}(coord(face[d], d) for d in 1:D)
+            push!(coords, x)
+        end
+    end
+    weights = IDVector{0}(zeros(S, length(coords)))
+
+    simplices = delaunay_mesh(coords)
+
+    return Manifold("random hypercube manifold", simplices, coords, weights;
+                    options...)
 end
 
 ################################################################################

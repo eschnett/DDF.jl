@@ -1,8 +1,8 @@
 module Poisson
 
+using CairoMakie
 using DDF
 using DifferentialForms
-using GLMakie
 using IterativeSolvers
 using LinearAlgebra
 using SparseArrays
@@ -23,7 +23,7 @@ end
 
 ################################################################################
 
-function poisson(::Val{D}) where {D}
+function poisson(::Val{D}, levels::Int) where {D}
     D::Int
     S = Float64
     T = Float64
@@ -32,15 +32,11 @@ function poisson(::Val{D}) where {D}
 
     if D ≤ 2
         mfd = simplex_manifold(Val(D), S; optimize_mesh=false)
-        for level in 1:5
+        for level in 1:levels
             mfd = refined_manifold(mfd; optimize_mesh=false)
         end
     else
-        if D == 3
-            n = 16 #TODO 64
-        else
-            n = 8
-        end
+        n = 2^levels
         nelts = Tuple(n for d in 1:D)
         mfd = large_hypercube_manifold(Val(D), S; nelts=nelts,
                                        optimize_mesh=true)
@@ -48,54 +44,76 @@ function poisson(::Val{D}) where {D}
 
     ############################################################################
 
-    # L u == ρ
-    # B d u == 0
-    # 
-    # d u - f == 0
-    # δ f == ρ
-    # B f == 0
+    # DA:
+    #     ⟨σ|τ⟩ - ⟨u|dτ⟩ = 0
+    #     ⟨dσ|v⟩ + ⟨du|dv⟩ + ⟨p|v⟩ = ⟨f|v⟩
+    #     ⟨u|q⟩ = 0
+    #
+    #     ⟨σ|τ⟩ - [u|τ] + ⟨δu|τ⟩ = 0
+    #     ⟨dσ|v⟩ + [du|v] - ⟨δdu|v⟩ + ⟨p|v⟩ = ⟨f|v⟩
+    #     ⟨u|q⟩ = 0
+    #
+    #     σ - [u] + δu = 0
+    #     dσ + [du] - δdu + p = f
+    #     u = 0
+    #
+    #     σ + δu = 0
+    #     dσ + p = f
 
-    # L u == ρ
-    # B u == 0
-    # 
-    # d u - f == 0
-    # δ f == ρ
-    # B u == 0
+    # BH:
+    #     -⋆f + dp = 0
+    #     df       = 0
+
+    # With von Neumann boundary conditions:
+    #     L u == ρ
+    #     B d u == 0
+    #     
+    #     d u - f == 0
+    #     δ f == ρ
+    #     B f == 0
+
+    # With Dirichlet boundary conditions:
+    #     L u == ρ
+    #     B u == 0
+    #     
+    #     d u - f == 0
+    #     δ f == ρ
+    #     B u == 0
 
     println("Sample RHS...")
 
     x₀ = zero(Form{D,1,S}) .+ S(0.1)
     σ = S(0.2)
     function ρ⁼(x)
-        local r2 = norm2(x - x₀)
-        local ρ = 1 / sqrt(2 * S(π) * σ^2)^D * exp(-r2 / (2 * σ^2))
+        local r = norm(x - x₀)
+        local r′ = r / (sqrt(S(2)) * σ)
+        local ρ = 1 / sqrt(2 * S(π) * σ^2)^D * exp(-r′^2)
         return Form{D,0}((ρ,))
     end
     function u⁼(x)
         local r = norm(x - x₀)
+        local r′ = r / (sqrt(S(2)) * σ)
         if D == 1
-            local u = σ / sqrt(2 * S(π)) * (exp(-r^2 / (2 * σ^2)) - 1) +
-                      r / 2 * erf(r / sqrt(2 * σ^2))
+            local u = σ / sqrt(2 * S(π)) * (exp(-r′^2) - 1) + r / 2 * erf(r′)
         elseif D == 2
             if r^8 ≤ eps(S)
-                local u = 1 / (8 * S(π) * σ^2) * r^2 -
-                          1 / (64 * S(π) * σ^4) * r^4 +
-                          1 / (576 * S(π) * σ^6) * r^6
+                local u = 1 / (4 * S(π)) * r′^2 - 1 / (16 * S(π)) * r′^4 +
+                          1 / (72 * S(π)) * r′^6
             else
                 local u = -1 / (4 * S(π)) * (-MathConstants.eulergamma +
-                           expinti(-r^2 / (2 * σ^2)) +
-                           log(2 * σ^2 / r^2))
+                           expinti(-r′^2) +
+                           log(1 / r′^2))
             end
         elseif D == 3
-            local u = -1 / (4 * S(π) * r) * erf(r / sqrt(2 * σ^2))
+            local u = -1 / (4 * S(π) * r) * erf(r′)
         elseif D == 4
             if r^8 ≤ eps(S)
                 local u = -1 / (8 * S(π)^2 * σ^2) +
-                          1 / (32 * S(π)^2 * σ^4) * r^2 -
-                          1 / (192 * S(π)^2 * σ^6) * r^4 +
-                          1 / (1536 * S(π)^2 * σ^8) * r^6
+                          1 / (16 * S(π)^2 * σ^2) * r′^2 -
+                          1 / (48 * S(π)^2 * σ^2) * r′^4 +
+                          1 / (192 * S(π)^2 * σ^2) * r′^6
             else
-                local u = 1 / (4 * S(π) * r^2) * (exp(-r^2 / (2 * σ^2)) - 1)
+                local u = 1 / (4 * S(π) * r^2) * (exp(-r′^2) - 1)
             end
         else
             @assert false
@@ -219,29 +237,30 @@ function poisson(::Val{D}) where {D}
     # println("    ‖residual[int]‖∞=$nint")
     # println("    ‖residual[bnd]‖∞=$nbnd")
 
-    res = (E0 - B0) * (laplace(u) - ρ) + B0 * (u - u₀)
-    nres = sqrt(norm(res)^2 / length(res))
-    println("    ‖residual‖₂=$nres")
+    r = (E0 - B0) * (laplace(u) - ρ) + B0 * (u - u₀)
+    nr = sqrt(norm(r)^2 / length(r))
+    println("    ‖residual‖₂=$nr")
 
-    err = u - u₀
-    nerr = norm(err, 1) / length(err)
-    println("    ‖error‖₁=$nerr")
-    nerr = sqrt(norm(err)^2 / length(err))
-    println("    ‖error‖₂=$nerr")
-    nerr = norm(err, Inf)
-    println("    ‖error‖∞=$nerr")
+    e = u - u₀
+    ne = norm(e, 1) / length(e)
+    println("    ‖e‖₁=$ne")
+    ne = sqrt(norm(e)^2 / length(e))
+    println("    ‖e‖₂=$ne")
+    ne = norm(e, Inf)
+    println("    ‖e‖∞=$ne")
 
     ############################################################################
 
     if D ≤ 3
         if nsimplices(mfd, 0) ≤ 10000
             println("Plot result...")
-            # Can plot ρ, u, u₀, res, err
-            plot_function(ρ, "poisson$(D)d-ρ.png")
-            plot_function(u₀, "poisson$(D)d-u₀.png")
-            plot_function(u, "poisson$(D)d-u.png")
-            plot_function(res, "poisson$(D)d-res.png")
-            plot_function(err, "poisson$(D)d-err.png")
+            mkpath("poisson")
+            # Can plot ρ, u, u₀, r, e
+            plot_function(ρ, "poisson/poisson$(D)d-ρ.png")
+            plot_function(u₀, "poisson/poisson$(D)d-u₀.png")
+            plot_function(u, "poisson/poisson$(D)d-u.png")
+            plot_function(r, "poisson/poisson$(D)d-r.png")
+            plot_function(e, "poisson/poisson$(D)d-e.png")
         end
     end
 
@@ -263,13 +282,14 @@ function poisson(::Val{D}) where {D}
                                                                 j)))
                  for j in axes(get_simplices(mfd, D), 2)]
 
-        #  append=false, ascii=true
-        vtk_grid("poisson$(D)d", points, cells) do vtkfile
+        mkpath("poisson")
+        # append=false, ascii=true
+        vtk_grid("poisson/poisson$(D)d", points, cells) do vtkfile
             vtkfile["ρ", VTKPointData()] = ρ.values.vec
             vtkfile["u₀", VTKPointData()] = u₀.values.vec
             vtkfile["u", VTKPointData()] = u.values.vec
-            vtkfile["res", VTKPointData()] = res.values.vec
-            vtkfile["err", VTKPointData()] = err.values.vec
+            vtkfile["r", VTKPointData()] = r.values.vec
+            vtkfile["e", VTKPointData()] = e.values.vec
             return nothing
         end
     end
@@ -281,6 +301,12 @@ function poisson(::Val{D}) where {D}
     return nothing
 end
 
+poisson(::Val{1}) = poisson(Val(1), 5)
+poisson(::Val{2}) = poisson(Val(2), 5)
+poisson(::Val{3}) = poisson(Val(3), 6)
+poisson(::Val{4}) = poisson(Val(4), 4)
+
 poisson(D::Int) = poisson(Val(D))
+poisson(D::Int, levels::Int) = poisson(Val(D), levels)
 
 end

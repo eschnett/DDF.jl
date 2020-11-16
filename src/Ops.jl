@@ -23,7 +23,7 @@ struct Op{D,P1,R1,P2,R2,T} # <: AbstractMatrix{T}
                                  values::AbstractMatrix{T}) where {D,P1,R1,P2,
                                                                    R2,T}
         op = new{D,P1,R1,P2,R2,T}(manifold, dnz(values))
-        @assert invariant(op)
+        #TODO @assert invariant(op)
         return op
     end
     function Op{D,P1,R1,P2,R2}(manifold::Manifold{D},
