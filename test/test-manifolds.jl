@@ -102,11 +102,12 @@ end
 
 @testset "Large hypercube manifold D=$D" for D in 0:Dmax
     S = Float64
-    mfd = large_hypercube_manifold(Val(D), S; nelts=ntuple(d -> 2, D),
+    n = 4
+    mfd = large_hypercube_manifold(Val(D), S; nelts=ntuple(d -> n, D),
                                    optimize_mesh=false)
     @test invariant(mfd)
-    @test nsimplices(mfd, 0) == 3^D
-    @test nsimplices(mfd, D) == 2^D * factorial(D)
+    @test nsimplices(mfd, 0) == (n + 1)^D
+    @test nsimplices(mfd, D) == n^D * factorial(D)
     # TODO: Find rule for other dimensions
     @test get_lookup(mfd, 0, D) ≡ get_simplices(mfd, D)
     for R in 0:D
@@ -115,7 +116,8 @@ end
            (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
             @test all(>(0), get_dualvolumes(mfd, R))
             @test minimum(get_dualvolumes(mfd, R)) /
-                  maximum(get_dualvolumes(mfd, R)) ≥ (D ≤ 3 ? 0.01 : 0.001)
+                  maximum(get_dualvolumes(mfd, R)) ≥
+                  (D ≤ 3 ? 0.01 : D ≤ 4 ? 0.001 : 0.0001)
         end
     end
 

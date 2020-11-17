@@ -55,7 +55,7 @@ function chop(f::Complex{T}) where {T<:AbstractFloat}
 end
 
 eps34sq(::Type{T}) where {T} = sqrt(eps(T)^3)::T
-eps34(::Type{T}) where {T} = sqrt(eps34(T))::T
+eps34(::Type{T}) where {T} = sqrt(eps34sq(T))::T
 
 function Base.show(io::IO, op::Op{D,P1,R1,P2,R2,T}) where {D,P1,R1,P2,R2,T}
     println(io)

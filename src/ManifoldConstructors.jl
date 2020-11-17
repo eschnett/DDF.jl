@@ -31,11 +31,11 @@ function simplex_manifold(::Val{D}, ::Type{S}; options...) where {D,S}
     nvertices = D + 1
     coords = IDVector{0}(regular_simplex(Val(D), S))
     weights = IDVector{0}(zeros(S, length(coords)))
-    simplices = MakeSparse{One}(nvertices, 1)
+    simplices0 = MakeSparse{One}(nvertices, 1)
     for i in 1:nvertices
-        simplices[i, 1] = One()
+        simplices0[i, 1] = One()
     end
-    simplices = SparseOp{0,D,One}(sparse(simplices))
+    simplices = SparseOp{0,D,One}(sparse(simplices0))
     return Manifold("simplex manifold", simplices, coords, weights; options...)
 end
 
@@ -85,11 +85,11 @@ function orthogonal_simplex_manifold(::Val{D}, ::Type{S};
     coords, weights = orthogonal_simplex(Val(D), S)
     coords = IDVector{0}(coords)
     weights = IDVector{0}(weights)
-    simplices = MakeSparse{One}(N, 1)
+    simplices0 = MakeSparse{One}(N, 1)
     for i in 1:N
-        simplices[i, 1] = One()
+        simplices0[i, 1] = One()
     end
-    simplices = SparseOp{0,D,One}(sparse(simplices))
+    simplices = SparseOp{0,D,One}(sparse(simplices0))
     return Manifold("orthogonal simplex manifold", simplices, coords, weights;
                     options...)
 end
@@ -147,9 +147,9 @@ function hypercube_manifold(::Val{D}, ::Type{S}; options...) where {D,S}
             simplices′[Int(i), Int(j)] = One()
         end
     end
-    simplices = SparseOp{0,D,One}(sparse(simplices′))
+    simplices″ = SparseOp{0,D,One}(sparse(simplices′))
 
-    return Manifold("hypercube manifold", simplices, coords, weights;
+    return Manifold("hypercube manifold", simplices″, coords, weights;
                     options...)
 end
 
@@ -235,13 +235,13 @@ function large_hypercube_manifold(::Val{D}, ::Type{S};
     @assert i == length(simplices)
 
     nvertices = D == 0 ? 1 : prod(nelts .+ 1)
-    coords = Array{SVector{D,S}}(undef, nvertices)
+    coords0 = Array{SVector{D,S}}(undef, nvertices)
     i = 0
     for elt in CartesianIndices(nelts .+ 1)
-        coords[i += 1] = (SVector{D,S}(elt.I) .- 1) ./ nelts
+        coords0[i += 1] = (SVector{D,S}(elt.I) .- 1) ./ nelts
     end
-    @assert i == length(coords)
-    coords = IDVector{0}(coords)
+    @assert i == length(coords0)
+    coords = IDVector{0}(coords0)
 
     # fact = SVector{D,S}(a == D ? 1 / S(2) : 1 for a in 1:D)
     # map!(x -> fact .* x, coords, coords)
@@ -258,10 +258,14 @@ function large_hypercube_manifold(::Val{D}, ::Type{S};
                        D == 5 ?
                        S[0, -S(2) / 15, -S(1) / 5, -S(1) / 5, -S(2) / 15, 0] :
                        nothing
+        if D > 0
+            @assert all(==(nelts[1]), nelts)
+            levelweights ./= nelts[1]^2
+        end
 
         weights = IDVector{0}(Vector{S}(undef, nvertices))
-        for v in CartesianIndex(ntuple(d -> 0, D)):CartesianIndex(nelts)
-            v = SVector{D,Int}(Tuple(v))
+        for vi in CartesianIndex(ntuple(d -> 0, D)):CartesianIndex(nelts)
+            v = SVector{D,Int}(vi.I)
             l = D == 0 ? 0 : sum(v[d] % 2 for d in 1:D)
             weights[ID{0}(vertex2ind(v))] = levelweights[l + 1]
         end
@@ -273,9 +277,9 @@ function large_hypercube_manifold(::Val{D}, ::Type{S};
             simplices′[Int(i), Int(j)] = One()
         end
     end
-    simplices = SparseOp{0,D,One}(sparse(simplices′))
+    simplices″ = SparseOp{0,D,One}(sparse(simplices′))
 
-    return Manifold("large hypercube manifold", simplices, coords, weights;
+    return Manifold("large hypercube manifold", simplices″, coords, weights;
                     options...)
 end
 
@@ -578,18 +582,18 @@ function boundary_manifold(mfd0::Manifold{D,C,S}; options...) where {D,C,S}
     nvertices_new = length(vertices_new2old)
     # Define new manifold
     name = "boundary $(mfd0.name)"
-    simplices = MakeSparse{One}(nvertices_new, nfaces_new)
+    simplices′ = MakeSparse{One}(nvertices_new, nfaces_new)
     for jnew in axes(faces_new2old, 1)
         jold = faces_new2old[jnew]
         for iold in sparse_column_rows(F, jold)
             inew = vertices_old2new[iold]
-            simplices[Int(inew), Int(jnew)] = One()
+            simplices′[Int(inew), Int(jnew)] = One()
         end
     end
-    simplices = SparseOp{0,D - 1,One}(sparse(simplices))
+    simplices″ = SparseOp{0,D - 1,One}(sparse(simplices′))
     coords = get_coords(mfd0)[vertices_new2old]
     weights = get_weights(mfd0)[vertices_new2old]
-    mfd = Manifold(name, simplices, coords, weights; options...)
+    mfd = Manifold(name, simplices″, coords, weights; options...)
     return mfd
 end
 

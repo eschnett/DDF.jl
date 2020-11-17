@@ -16,10 +16,12 @@ using ..Ops
 export boundary
 function boundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 < R ≤ D
+    # println("[boundary(D=$D, P=Pr, R=$R)]")
     return Op{D,Pr,R - 1,Pr,R}(manifold, get_boundaries(manifold, R).op)
 end
 function boundary(::Val{Dl}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 ≤ R < D
+    # println("[boundary(D=$D, P=Dl, R=$R)]")
     return Op{D,Dl,R + 1,Dl,R}(manifold, get_boundaries(manifold, R + 1).op')
 end
 
@@ -28,6 +30,7 @@ boundary(f::Fun{D,P,R}) where {D,P,R} = boundary(Val(P), Val(R), f.manifold) * f
 export isboundary
 function isboundary(::Val{Pr}, ::Val{R}, manifold::Manifold{D}) where {R,D}
     @assert 0 ≤ R < D
+    # println("[isboundary(D=$D, P=Pr, R=$R)]")
     return Op{D,Pr,R,Pr,R}(manifold, map(Bool, get_isboundary(manifold, R)).op)
 end
 
@@ -39,6 +42,7 @@ function deriv(::Val{P}, ::Val{R}, manifold::Manifold{D}) where {P,R,D}
     s = P == Pr ? +1 : -1
     @assert 0 ≤ R ≤ D
     @assert 0 ≤ R + s ≤ D
+    # println("[deriv(D=$D, P=$P, R=$R)]")
     return adjoint(boundary(Val(P), Val(R + s), manifold))::Op{D,P,R + s,P,R}
 end
 
@@ -54,6 +58,7 @@ export hodge, ⋆
 function Forms.hodge(::Val{Pr}, ::Val{R},
                      manifold::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
+    # println("[hodge(D=$D, P=Pr, R=$R)]")
     vol = get_volumes(manifold, R)
     dualvol = get_dualvolumes(manifold, R)
     if isempty(vol)
@@ -67,6 +72,7 @@ function Forms.invhodge(::Val{Dl}, ::Val{R},
                         manifold::Manifold{D,C,S}) where {P,R,D,C,S}
     R::Int
     @assert 0 ≤ R ≤ D
+    # println("[invhodge(D=$D, P=Dl, R=$R)]")
     vol = get_volumes(manifold, R)
     dualvol = get_dualvolumes(manifold, R)
     if isempty(vol)
@@ -103,6 +109,7 @@ function coderiv(::Val{P}, ::Val{R},
     dR = P == Pr ? +1 : -1
     @assert 0 ≤ R ≤ D
     @assert 0 ≤ R - dR ≤ D
+    # println("[coderiv(D=$D, P=$P, R=$R)]")
     return (bitsign(R) *
             hodge(Val(!P), Val(R - dR), manifold) *
             deriv(Val(!P), Val(R), manifold) *
@@ -119,6 +126,7 @@ function laplace(::Val{P}, ::Val{R},
     P::PrimalDual
     @assert 0 ≤ R ≤ D
     dR = P == Pr ? +1 : -1
+    # println("[laplace(D=$D, P=$P, R=$R)]")
     op = zero(Op{D,P,R,P,R,S}, manifold)
     if 0 ≤ R - dR ≤ D
         op += deriv(Val(P), Val(R - dR), manifold) *

@@ -435,6 +435,8 @@ function calc_lookup!(mfd::Manifold{D,C,S}, Ri::Int, Rj::Int) where {D,C,S}
     @assert 0 ≤ Ri ≤ D
     @assert !haskey(mfd._lookup, (Ri, Rj))
 
+    # println("[begin calc_lookup!(D=$D, Ri=$Ri, Rj=$Rj)]")
+
     sizei = nsimplices(mfd, Ri)
     sizej = nsimplices(mfd, Rj)
 
@@ -459,6 +461,7 @@ function calc_lookup!(mfd::Manifold{D,C,S}, Ri::Int, Rj::Int) where {D,C,S}
         mfd._lookup[(Ri, Rj)] = get_lookup(mfd, Rj, Ri)'
     end
 
+    # println("[end calc_lookup!(D=$D, Ri=$Ri, Rj=$Rj)]")
     return nothing
 end
 
@@ -475,6 +478,8 @@ end
 function calc_isboundary!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R < D
     @assert !haskey(mfd._isboundary, R)
+
+    # println("[begin calc_isboundary!(D=$D, R=$R)]")
 
     I = Int[]
     J = Int[]
@@ -508,6 +513,7 @@ function calc_isboundary!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     end
     mfd._isboundary[R] = SparseOp{R,R}(sparse(I, J, V, nelts, nelts, max))
 
+    # println("[end calc_isboundary!(D=$D, R=$R)]")
     return nothing
 end
 
@@ -525,7 +531,9 @@ end
 function calc_coords!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
     @assert !haskey(mfd._coords, R)
+    # println("[begin calc_coords!(D=$D, R=$R)]")
     mfd._coords[R] = calc_coords(get_simplices(mfd, R), get_coords(mfd))
+    # println("[end calc_coords!(D=$D, R=$R)]")
     return nothing
 end
 
@@ -542,6 +550,7 @@ end
 function calc_volumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
     @assert !haskey(mfd._volumes, R)
+    # println("[begin calc_volumes!(D=$D, R=$R)]")
     mfd._volumes[R] = calc_volumes(get_simplices(mfd, R), get_coords(mfd),
                                    mfd.signature)
 
@@ -554,6 +563,7 @@ function calc_volumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
         @show get_coords(mfd, R)[ID{R}(findmin(mfd._volumes[R])[2])]
     end
 
+    # println("[end calc_volumes!(D=$D, R=$R)]")
     return nothing
 end
 
@@ -575,6 +585,7 @@ end
 function calc_dualcoords!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
     @assert !haskey(mfd._dualcoords, R)
+    # println("[begin calc_dualcoords!(D=$D, R=$R)]")
     if mfd.use_weighted_duals
         mfd._dualcoords[R] = calc_dualcoords(Val(mfd.dualkind),
                                              get_simplices(mfd, R),
@@ -584,6 +595,7 @@ function calc_dualcoords!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
                                              get_simplices(mfd, R),
                                              get_coords(mfd))
     end
+    # println("[end calc_dualcoords!(D=$D, R=$R)]")
     return nothing
 end
 
@@ -600,6 +612,7 @@ end
 function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
     @assert 0 ≤ R ≤ D
     @assert !haskey(mfd._dualvolumes, R)
+    # println("[begin calc_dualvolumes!(D=$D, R=$R)]")
     if mfd.dualkind == BarycentricDuals
         mfd._dualvolumes[R] = calc_dualvolumes(Val(mfd.dualkind), Val(D),
                                                Val(R), get_simplices(mfd, R),
@@ -640,6 +653,7 @@ function calc_dualvolumes!(mfd::Manifold{D,C,S}, R::Int) where {D,C,S}
         @show get_dualcoords(mfd, R)[ID{R}(findmin(mfd._dualvolumes[R])[2])]
     end
 
+    # println("[end calc_dualvolumes!(D=$D, R=$R)]")
     return nothing
 end
 
@@ -651,7 +665,9 @@ end
 
 function calc_simplex_tree!(mfd::Manifold{D,C,S}) where {D,C,S}
     @assert mfd._simplex_tree === nothing
+    # println("[begin calc_simplex_tree!(D=$D)]")
     mfd._simplex_tree = KDTree(get_coords(mfd, D).vec)
+    # println("[end calc_simplex_tree!(D=$D)]")
     return nothing
 end
 
@@ -772,8 +788,8 @@ function calc_coords(simplices::SparseOp{0,D,One},
     D == 0 && return coords0
     coords = IDVector{D}(Array{SVector{C,S}}(undef, nsimplices))
     @inbounds for i in axes(coords, 1)
-        si = sparse_column_rows(simplices, i)
-        si = SVector{D + 1}(si[n] for n in 1:(D + 1))
+        si0 = sparse_column_rows(simplices, i)
+        si = SVector{D + 1}(si0[n] for n in 1:(D + 1))
         xs = SVector{D + 1}(coords0[i] for i in si)
         coords[i] = barycentre(xs)
     end
@@ -790,8 +806,8 @@ function calc_volumes(simplices::SparseOp{0,D,One},
     D == 0 && return IDVector{D}(fill(one(S), nvertices))
     volumes = IDVector{D}(Array{S}(undef, nsimplices))
     @inbounds for i in axes(volumes, 1)
-        si = sparse_column_rows(simplices, i)
-        si = SVector{D + 1}(si[n] for n in 1:(D + 1))
+        si0 = sparse_column_rows(simplices, i)
+        si = SVector{D + 1}(si0[n] for n in 1:(D + 1))
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         # volumes[i] = volume(xs)
         vol = volume(xs)
@@ -815,8 +831,8 @@ function calc_dualcoords(::Val{BarycentricDuals}, simplices::SparseOp{0,D,One},
     nsimplices = size(simplices, 2)
     dualcoords = IDVector{D}(Array{SVector{C,S}}(undef, nsimplices))
     @inbounds for i in axes(dualcoords, 1)
-        si = sparse_column_rows(simplices, i)
-        si = SVector{D + 1}(si[n] for n in 1:(D + 1))
+        si0 = sparse_column_rows(simplices, i)
+        si = SVector{D + 1}(si0[n] for n in 1:(D + 1))
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         dualcoords[i] = barycentre(xs)
     end
@@ -834,8 +850,8 @@ function calc_dualcoords(::Val{CircumcentricDuals},
     D == 0 && return coords
     dualcoords = IDVector{D}(Array{SVector{C,S}}(undef, nsimplices))
     @inbounds for i in axes(dualcoords, 1)
-        si = sparse_column_rows(simplices, i)
-        si = SVector{D + 1}(si[n] for n in 1:(D + 1))
+        si0 = sparse_column_rows(simplices, i)
+        si = SVector{D + 1}(si0[n] for n in 1:(D + 1))
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         dualcoords[i] = circumcentre(xs)
     end
@@ -855,8 +871,8 @@ function calc_dualcoords(::Val{CircumcentricDuals},
     D == 0 && return coords
     dualcoords = IDVector{D}(Array{SVector{C,S}}(undef, nsimplices))
     @inbounds for i in axes(dualcoords, 1)
-        si = sparse_column_rows(simplices, i)
-        si = SVector{D + 1}(si[n] for n in 1:(D + 1))
+        si0 = sparse_column_rows(simplices, i)
+        si = SVector{D + 1}(si0[n] for n in 1:(D + 1))
         xs = SVector{D + 1}(Form{C,1}(coords[i]) for i in si)
         ws = SVector{D + 1}(Form{C,0}((weights[i],)) for i in si)
         dualcoords[i] = circumcentre(xs, ws)
@@ -1117,7 +1133,7 @@ function calc_dualvolumes(::Val{CircumcentricDuals}, ::Val{D},
                           dualcoords::IDVector{R,SVector{C,S}},
                           dualcoords1::IDVector{R1,SVector{C,S}},
                           dualvolumes1::IDVector{R1,S},
-                          signature::Int=1) where {dualkind,D,R,R1,C,S}
+                          signature::Int=1) where {D,R,R1,C,S}
     R::Int
     R1::Int
     C::Int
@@ -1127,21 +1143,21 @@ function calc_dualvolumes(::Val{CircumcentricDuals}, ::Val{D},
     dualvolumes = IDVector{R}(Array{S}(undef, nsimplices))
     # Loop over all `R`-simplices
     @inbounds for i in axes(dualvolumes, 1)
-        si = sparse_column_rows(simplices, i)
-        @assert length(si) == R + 1
-        si = SVector{R + 1}(si[n] for n in 1:(R + 1))
-        xsi = SVector{R + 1}(Form{C,1}(coords[i]) for i in si)
-        bci = barycentre(xsi)::Form{C,1,S}
+        si0 = sparse_column_rows(simplices, i)
+        @assert length(si0) == R + 1
+        si = SVector{R + 1,ID{0}}(si0[n] for n in 1:(R + 1))
+        xsi = SVector{R + 1}(Form{C,1,S}(coords[i]) for i in si)
+        # bci = barycentre(xsi)::Form{C,1,S}
         cci = Form{C,1,S}(dualcoords[i])
 
         voli = zero(S)
         # Loop over all neighbouring `R+1`-simplices
         for j in sparse_column_rows(parents, i)
-            sj = sparse_column_rows(simplices1, j)
-            @assert length(sj) == R + 2
-            sj = SVector{R + 2}(sj[n] for n in 1:(R + 2))
+            sj0 = sparse_column_rows(simplices1, j)
+            @assert length(sj0) == R + 2
+            sj = SVector{R + 2,ID{0}}(sj0[n] for n in 1:(R + 2))
 
-            xsj = SVector{R + 2}(Form{C,1}(coords[j]) for j in sj)
+            xsj = SVector{R + 2}(Form{C,1,S}(coords[j]) for j in sj)
             bcj = barycentre(xsj)::Form{C,1,S}
             ccj = Form{C,1,S}(dualcoords1[j])
 
