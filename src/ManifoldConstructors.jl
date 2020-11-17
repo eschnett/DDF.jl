@@ -83,8 +83,6 @@ function orthogonal_simplex_manifold(::Val{D}, ::Type{S};
                                      options...) where {D,S}
     N = D + 1
     coords, weights = orthogonal_simplex(Val(D), S)
-    # Ignore the suggested weights (why?)
-    weights = zeros(S, length(coords))
     coords = IDVector{0}(coords)
     weights = IDVector{0}(weights)
     simplices = MakeSparse{One}(N, 1)
@@ -195,10 +193,15 @@ export large_hypercube_manifold
 """
 Triangulate a large hypercube by splitting it into smaller hypercubes
 """
-function large_hypercube_manifold(::Val{D}, ::Type{S}; nelts::NTuple{D,Int},
+function large_hypercube_manifold(::Val{D}, ::Type{S};
+                                  nelts::Union{Nothing,NTuple{D,Int}}=nothing,
                                   torus::Bool=false, options...) where {D,S}
     @assert D ≥ 0
     N = D + 1
+
+    if nelts ≡ nothing
+        nelts = ntuple(d -> 2, D)
+    end
 
     @assert all(nelts .≥ 0)
     # We could relax this
@@ -243,7 +246,26 @@ function large_hypercube_manifold(::Val{D}, ::Type{S}; nelts::NTuple{D,Int},
     # fact = SVector{D,S}(a == D ? 1 / S(2) : 1 for a in 1:D)
     # map!(x -> fact .* x, coords, coords)
 
-    weights = IDVector{0}(zeros(S, nvertices))
+    if false
+        weights = IDVector{0}(zeros(S, nvertices))
+    else
+        # These weights put the weighted circumcentre onto the barycentre
+        levelweights = D == 0 ? S[0] :
+                       D == 1 ? S[0, 0] :
+                       D == 2 ? S[0, -S(1) / 6, 0] :
+                       D == 3 ? S[0, -S(1) / 6, -S(1) / 6, 0] :
+                       D == 4 ? S[0, -S(3) / 20, -S(1) / 5, -S(3) / 20, 0] :
+                       D == 5 ?
+                       S[0, -S(2) / 15, -S(1) / 5, -S(1) / 5, -S(2) / 15, 0] :
+                       nothing
+
+        weights = IDVector{0}(Vector{S}(undef, nvertices))
+        for v in CartesianIndex(ntuple(d -> 0, D)):CartesianIndex(nelts)
+            v = SVector{D,Int}(Tuple(v))
+            l = D == 0 ? 0 : sum(v[d] % 2 for d in 1:D)
+            weights[ID{0}(vertex2ind(v))] = levelweights[l + 1]
+        end
+    end
 
     simplices′ = MakeSparse{One}(nvertices, nsimplices)
     for (j, sj) in enumerate(simplices)
@@ -372,18 +394,18 @@ export large_delaunay_hypercube_manifold
 """
 Delaunay triangulation of a large hypercube
 """
-function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
-                                           n::Union{Nothing,Int}=nothing;
+function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S};
+                                           nelts::Union{Nothing,Int}=nothing,
                                            options...) where {D,S}
     @assert D ≥ 0
     N = D + 1
 
-    if n ≡ nothing
+    if nelts ≡ nothing
         ns = Dict{Int,Int}(0 => 1, 1 => 1024, 2 => 32, 3 => 16, 4 => 4, 5 => 2)
-        n = ns[D]
+        nelts = ns[D]
     end
     # All n should be powers of 2 to avoid round-off below
-    @assert ispow2(n)
+    @assert ispow2(nelts)
 
     rng = MersenneTwister(1)
 
@@ -391,7 +413,7 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
     coords = IDVector{0,SVector{D,S}}()
     # coords′ = SVector{D,S}[]
     imin = CartesianIndex(ntuple(d -> 0, D))
-    imax = CartesianIndex(ntuple(d -> n, D))
+    imax = CartesianIndex(ntuple(d -> nelts, D))
     for i in imin:imax
 
         # # We also set up slightly different coordinates to help the
@@ -423,15 +445,15 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
         # # push!(coords′, x′)
 
         # Stagger every second point, except boundary points
-        x = SVector{D,S}(i[d] for d in 1:D) / n
+        x = SVector{D,S}(i[d] for d in 1:D) / nelts
         for d in 1:D
             for d′ in 1:(d - 1)
-                i[d′] ∈ (0, n) && continue
+                i[d′] ∈ (0, nelts) && continue
                 di = (S(1) / 2) / sqrt(S(d - 1))
                 x1 = x[d′]
-                x1 = x1 * n / (n + di)
+                x1 = x1 * nelts / (nelts + di)
                 if isodd(i[d])
-                    x1 = x1 + di / (n + di)
+                    x1 = x1 + di / (nelts + di)
                 end
                 x = Base.setindex(x, x1, d′)
             end
@@ -441,7 +463,7 @@ function large_delaunay_hypercube_manifold(::Val{D}, ::Type{S},
     end
     # @assert length(coords′) == length(coords)
     nvertices = length(coords)
-    @assert nvertices == (n + 1)^D
+    @assert nvertices == (nelts + 1)^D
     weights = IDVector{0}(zeros(S, length(coords)))
 
     simplices = delaunay_mesh(coords)

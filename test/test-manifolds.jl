@@ -5,7 +5,7 @@ using StaticArrays
 
 @testset "Empty manifold D=$D" for D in 0:Dmax
     S = Float64
-    mfd = empty_manifold(Val(D), S)
+    mfd = empty_manifold(Val(D), S; optimize_mesh=false)
     @test invariant(mfd)
     for R in 0:D
         @test nsimplices(mfd, R) == 0
@@ -19,7 +19,7 @@ end
 
 @testset "Simplex manifold D=$D" for D in 0:Dmax
     S = Float64
-    mfd = simplex_manifold(Val(D), S)
+    mfd = simplex_manifold(Val(D), S; optimize_mesh=false)
     @test invariant(mfd)
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
@@ -50,7 +50,7 @@ end
 
 @testset "Orthogonal simplex manifold D=$D" for D in 0:Dmax
     S = Float64
-    mfd = orthogonal_simplex_manifold(Val(D), S)
+    mfd = orthogonal_simplex_manifold(Val(D), S; optimize_mesh=false)
     @test invariant(mfd)
     for R in 0:D
         @test nsimplices(mfd, R) == binomial(D + 1, R + 1)
@@ -100,9 +100,10 @@ end
     @test all(==(1), get_dualvolumes(mfd, D))
 end
 
-@testset "Large hypercube manifold D=$D" for D in 0:min(3, Dmax)
+@testset "Large hypercube manifold D=$D" for D in 0:Dmax
     S = Float64
-    mfd = large_hypercube_manifold(Val(D), S; nelts=ntuple(d -> 2, D))
+    mfd = large_hypercube_manifold(Val(D), S; nelts=ntuple(d -> 2, D),
+                                   optimize_mesh=false)
     @test invariant(mfd)
     @test nsimplices(mfd, 0) == 3^D
     @test nsimplices(mfd, D) == 2^D * factorial(D)
@@ -114,7 +115,7 @@ end
            (mfd.dualkind == CircumcentricDuals && mfd.use_weighted_duals)
             @test all(>(0), get_dualvolumes(mfd, R))
             @test minimum(get_dualvolumes(mfd, R)) /
-                  maximum(get_dualvolumes(mfd, R)) ≥ 0.01
+                  maximum(get_dualvolumes(mfd, R)) ≥ (D ≤ 3 ? 0.01 : 0.001)
         end
     end
 

@@ -138,7 +138,9 @@ Base.IndexStyle(::Type{<:Op}) = IndexStyle(Vector)
 Base.axes(A::Op) = axes(A.values)
 Base.axes(A::Op, dir) = axes(A.values, dir)
 Base.eachindex(A::Op) = eachindex(A.values)
-Base.getindex(A::Op, inds...) = getindex(A.values, inds...)
+Base.@propagate_inbounds function Base.getindex(A::Op, inds...)
+    return getindex(A.values, inds...)
+end
 Base.ndims(::Op) = 2
 Base.size(A::Op) = size(A.values)
 Base.size(A::Op, dims) = size(A.values, dims)

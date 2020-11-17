@@ -64,14 +64,18 @@ Base.axes(xs::IDVector{Tag}, d) where {Tag} = ID{Tag}(1):ID{Tag}(length(xs))
 Base.axes(xs::IDVector) = (axes(xs, 1),)
 Base.eltype(::Type{<:IDVector{<:Any,T}}) where {T} = T
 Base.first(xs::IDVector) = first(xs.vec)
-function Base.getindex(xs::IDVector{Tag}, i::ID{Tag}) where {Tag}
+Base.@propagate_inbounds function Base.getindex(xs::IDVector{Tag},
+                                                i::ID{Tag}) where {Tag}
     return getindex(xs.vec, i.id)
 end
-function Base.getindex(xs::IDVector{Tag2},
-                       is::IDVector{Tag1,ID{Tag2}}) where {Tag1,Tag2}
+Base.@propagate_inbounds function Base.getindex(xs::IDVector{Tag2},
+                                                is::IDVector{Tag1,ID{Tag2}}) where {Tag1,
+                                                                                    Tag2}
     return IDVector{Tag1}([xs[i] for i in is])
 end
-function Base.getindex(xs::IDVector{Tag}, is::SVector{N,ID{Tag}}) where {N,Tag}
+Base.@propagate_inbounds function Base.getindex(xs::IDVector{Tag},
+                                                is::SVector{N,ID{Tag}}) where {N,
+                                                                               Tag}
     return SVector{N}(xs[i] for i in is)
 end
 Base.keys(xs::IDVector) = axes(xs, 1)
@@ -79,7 +83,8 @@ Base.last(xs::IDVector) = last(xs.vec)
 Base.length(xs::IDVector) = length(xs.vec)
 Base.ndims(::IDVector) = 1
 Base.ndims(::Type{<:IDVector}) = 1
-function Base.setindex!(xs::IDVector{Tag}, val, i::ID{Tag}) where {Tag}
+Base.@propagate_inbounds function Base.setindex!(xs::IDVector{Tag}, val,
+                                                 i::ID{Tag}) where {Tag}
     return setindex!(xs.vec, val, i.id)
 end
 Base.size(xs::IDVector) = (length(xs),)
@@ -141,7 +146,8 @@ end
 
 Base.size(ms::MakeSparse) = (ms.m, ms.n)
 
-function Base.setindex!(ms::MakeSparse, v, i::Integer, j::Integer)
+Base.@propagate_inbounds function Base.setindex!(ms::MakeSparse, v, i::Integer,
+                                                 j::Integer)
     @assert 1 ≤ i ≤ ms.m
     @assert 1 ≤ j ≤ ms.n
     push!(ms.I, i)
@@ -204,7 +210,9 @@ end
 Base.eltype(::SparseMatrixCSCColumn{Val{:Row},Idx,T,I}) where {Idx,T,I} = Idx
 Base.eltype(::SparseMatrixCSCColumn{Val{:Val},Idx,T}) where {Idx,T} = T
 Base.first(iter::SparseMatrixCSCColumn) = process(iter, first(iter.nzrange))
-Base.getindex(iter::SparseMatrixCSCColumn, i) = process(iter, iter.nzrange[i])
+Base.@propagate_inbounds function Base.getindex(iter::SparseMatrixCSCColumn, i)
+    return process(iter, iter.nzrange[i])
+end
 Base.keys(iter::SparseMatrixCSCColumn) = iter.nzrange
 Base.last(iter::SparseMatrixCSCColumn) = process(iter, last(iter.nzrange))
 Base.length(iter::SparseMatrixCSCColumn) = length(iter.nzrange)
@@ -351,9 +359,12 @@ Base.axes(A::SparseOp) = ntuple(dir -> axes(A.op, dir), ndims(A))
     return throw(DimensionMismatch())
 end
 Base.eachindex(A::SparseOp) = CartesianIndices(axes(A))
-Base.getindex(A::SparseOp, inds...) = throw(ArgumentError())
-function Base.getindex(A::SparseOp{Tag1,Tag2}, i::ID{Tag1},
-                       j::ID{Tag2}) where {Tag1,Tag2}
+Base.@propagate_inbounds function Base.getindex(A::SparseOp, inds...)
+    return throw(ArgumentError())
+end
+Base.@propagate_inbounds function Base.getindex(A::SparseOp{Tag1,Tag2},
+                                                i::ID{Tag1},
+                                                j::ID{Tag2}) where {Tag1,Tag2}
     return getindex(A.op, i.id, j.id)
 end
 Base.ndims(::SparseOp) = 2

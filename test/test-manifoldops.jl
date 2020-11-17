@@ -11,6 +11,7 @@ const manifolds = Dict{Any,Any}()
     manifolds[D] = [empty_manifold(Val(D), S), simplex_manifold(Val(D), S),
                     hypercube_manifold(Val(D), S),
                     delaunay_hypercube_manifold(Val(D), S),
+                    large_hypercube_manifold(Val(D), S; optimize_mesh=false),
                     large_delaunay_hypercube_manifold(Val(D), S),
                     refined_simplex_manifold(Val(D), S),
                     boundary_simplex_manifold(Val(D), S)]

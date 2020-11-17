@@ -84,7 +84,7 @@ function wave(::Val{D}, levels::Int) where {D}
 
     n = 2^levels
     nelts = Tuple(n for d in 1:D)
-    mfd = large_hypercube_manifold(Val(D), S; nelts=nelts, optimize_mesh=true)
+    mfd = large_hypercube_manifold(Val(D), S; nelts=nelts, optimize_mesh=false)
 
     ############################################################################
 
