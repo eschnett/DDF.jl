@@ -39,7 +39,7 @@ function wave(::Val{D}, levels::Int) where {D}
 
     # TODO: use first-order formulation
 
-    k = SVector{D}(1 for d in 1:D)
+    k = SVector{D,S}(1 for d in 1:D)
     ω = norm(k)
     function u⁼(t, x)
         local u = cospi(ω * t) * prod(sinpi(k[d] * x[d]) for d in 1:D)
