@@ -1,7 +1,8 @@
-module Wave
+module WaveGPU
 
 # using CairoMakie
 # using GLMakie
+using ArrayFire: AFArray, allowslow, swap!
 using DDF
 using DiffEqCallbacks
 using DifferentialForms
@@ -18,14 +19,28 @@ using TerminalLoggers: TerminalLogger
 
 walltime() = time_ns() / 1.0e+9
 
+function Base.copyto!(y::AFArray, x::AFArray)
+    @assert length(y) == length(x)
+    z = copy(x)
+    swap!(y, z)
+    finalize(z)
+    return y
+end
+function LinearAlgebra.mul!(y::AFArray, A::AFArray, x::AFArray)
+    z = A * x
+    swap!(y, z)
+    finalize(z)
+    return y
+end
+
 global_logger(TerminalLogger())
 
 ################################################################################
 
-function wave(::Val{D}, levels::Int) where {D}
+function wave(::Val{D}, levels::Int; gpu::Bool=false) where {D}
     D::Int
-    S = Float64
-    T = Float64
+    S = Float32 #Float64
+    T = Float32 #Float64
 
     println("Create manifold...")
 
@@ -39,7 +54,7 @@ function wave(::Val{D}, levels::Int) where {D}
 
     # TODO: use first-order formulation
 
-    k = SVector{D}(1 for d in 1:D)
+    k = SVector{D,S}(1 for d in 1:D)
     ω = norm(k)
     function u⁼(t, x)
         local u = cospi(ω * t) * prod(sinpi(k[d] * x[d]) for d in 1:D)
@@ -101,6 +116,17 @@ function wave(::Val{D}, levels::Int) where {D}
 
     ############################################################################
 
+    println("Set up GPU...")
+
+    if gpu
+        allowslow(AFArray, false)
+        # copy data to GPU
+        U₀ = AFArray(U₀)
+        F = AFArray(F)
+    end
+
+    ############################################################################
+
     println("Solve...")
 
     Δx = minimum(get_volumes(mfd, 1))
@@ -132,6 +158,8 @@ function wave(::Val{D}, levels::Int) where {D}
         end
 
         sol = solve(prob, Tsit5(); adaptive=false, dt=dt, alias_u0=true,
+                    internalnorm=(u, t) -> S(0),
+                    # unstable_check=(dt,u,p,t)->false,
                     callback=FunctionCallingCallback(progress))
     end
 
@@ -156,6 +184,10 @@ function wave(::Val{D}, levels::Int) where {D}
     i = last(axes(sol.t, 1))
     t = sol.t[i]
     U = sol[i]
+    if gpu
+        # copy data from GPU
+        U = Array(U)
+    end
     u, ∂ₜu = split(U)
     uₜ = sample(Fun{D,Pr,0,D,S,T}, x -> u⁼(t, x), mfd)
     e = u - uₜ
