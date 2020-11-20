@@ -326,6 +326,37 @@ function Manifold(name::String, simplicesD::SparseOp{0,D,One},
     @assert length(coords0) == nvertices
     @assert length(weights) == nvertices
 
+    if false && D > 0 && nvertices > 0
+        # Sort vertices by Morton order
+        # (Currently disabled since it doesn't seem to improve speed)
+        elmin(x, y) = min.(x, y)
+        elmax(x, y) = max.(x, y)
+        xmin = reduce(elmin, coords0)
+        xmax = reduce(elmax, coords0)
+        mvals = [morton(c0, xmin, xmax) for c0 in coords0]
+        perm = sortperm(mvals)
+        invperm = Array{Int}(undef, nvertices)
+        invperm[perm] = 1:nvertices
+        simplicesD_array = Array{SVector{D + 1,Int}}(undef, nsimplices)
+        for j in axes(simplicesD, 2)
+            si0 = sparse_column_rows(simplicesD, j)
+            @assert length(si0) == D + 1
+            si = SVector{D + 1,Int}(Int(si0[d]) for d in 1:(D + 1))
+            simplicesD_array[Int(j)] = invperm[si]
+        end
+        coords0 = IDVector{0}(coords0.vec[perm])
+        weights = IDVector{0}(weights.vec[perm])
+        # Sort simplices by first vertex
+        sort!(simplicesD_array)
+        make_simplicesD = MakeSparse{One}(nvertices, nsimplices)
+        for (j, si) in enumerate(simplicesD_array)
+            for i in si
+                make_simplicesD[i, j] = One()
+            end
+        end
+        simplicesD = SparseOp{0,D,One}(sparse(make_simplicesD))
+    end
+
     # Calculate lower-Dimensional simplices
     simplices = OpDict{Int,One}(D => simplicesD)
     boundaries = OpDict{Int,Int8}()

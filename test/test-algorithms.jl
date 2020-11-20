@@ -93,3 +93,33 @@ end
 end
 
 #TODO @testset "Dual volume" begin end
+
+@testset "Morton ordering D=$D" for D in 1:Dmax
+    # nbits = 10 ÷ D
+    nbits = 2 ÷ D
+    imax = (1 << nbits) - 1
+    found = falses(1 << (D * nbits))
+    for i in
+        CartesianIndex(ntuple(d -> 0, D)):CartesianIndex(ntuple(d -> imax, D))
+        u = SVector{D,UInt64}(i.I)
+        m = morton(u)
+        @test !found[m + 1]
+        found[m + 1] = true
+    end
+
+    T = Float64
+    xmin = SVector{D,T}(-1 for d in 1:D)
+    xmax = SVector{D,T}(+1 for d in 1:D)
+    dx = (xmax - xmin) / (imax .+ 1)
+    ifound = UInt64[]
+    for i in
+        CartesianIndex(ntuple(d -> 0, D)):CartesianIndex(ntuple(d -> imax, D))
+        u = SVector{D,UInt64}(i.I)
+        # x = xmin + u .* dx + (T(0.01) .+ T(0.98) * rand(SVector{D,T}) .* dx)
+        x = xmin + (u + rand(SVector{D,T})) .* dx
+        @assert all(xmin .≤ x .≤ xmax)
+        m = morton(x, xmin, xmax)
+        push!(ifound, m)
+    end
+    @test allunique(sort!(ifound))
+end
