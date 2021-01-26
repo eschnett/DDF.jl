@@ -73,10 +73,11 @@ Base.@propagate_inbounds function Base.getindex(xs::IDVector{Tag2},
                                                                                     Tag2}
     return IDVector{Tag1}([xs[i] for i in is])
 end
-Base.@propagate_inbounds function Base.getindex(xs::IDVector{Tag},
-                                                is::SVector{N,ID{Tag}}) where {N,
+Base.@propagate_inbounds function Base.getindex(xs::IDVector{Tag,T},
+                                                is::SVector{N,ID{Tag}}) where {T,
+                                                                               N,
                                                                                Tag}
-    return SVector{N}(xs[i] for i in is)
+    return SVector{N,T}(Tuple(xs[i] for i in is))
 end
 Base.keys(xs::IDVector) = axes(xs, 1)
 Base.last(xs::IDVector) = last(xs.vec)

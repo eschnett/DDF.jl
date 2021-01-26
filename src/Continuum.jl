@@ -6,6 +6,7 @@ using ComputedFieldTypes
 using DifferentialForms
 using GrundmannMoeller
 using NearestNeighbors
+using SimplexPoly
 using SparseArrays
 using StaticArrays
 
@@ -59,12 +60,16 @@ function evaluate(f::Fun{D,P,R,C,S,T}, x::SVector{C,S}) where {D,P,R,C,S,T}
             sk = SVector{N}(sk[n] for n in 1:N)
             # Values at `R`-simplices
             ys = f.values[sk]
+            # @show D P R x sk ys
 
             # Evaluate basis functions
             dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
             y = zero(Form{D,R,T})
             for n in 1:N
-                y += map(b -> ys[n] * b, basis_x(Form{D,R}, x2λ, dλ2dx, n, x))
+                bx = basis_x(Form{D,R}, x2λ, dλ2dx, n, x)
+                # @show bx
+                # y += map(b -> ys[n] * b, bx)
+                y += ys[n] * bx
             end
             return y
         end
@@ -110,48 +115,42 @@ end
 
 ################################################################################
 
-# option 1: sample at vertices, then average
-# option 2: sample at centres, then solve
-
 export sample
 """
 Sample a function on a manifold
 
-Sample at the vertices, then average and project to the actual
-`R`-simplices.
+Sample the tangential component at the centre of the `R` simplices.
 """
 function sample(::Type{<:Fun{D,P,R,C,S,T}}, f,
                 mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
     @assert P == Pr             # TODO
 
+    # TODO: R > 0 requires a global solve
+    @assert R == 0
+
+    simplices = get_simplices(mfd, R)
+    coords = get_coords(mfd, R)
     coords0 = get_coords(mfd, 0)
-    values0 = IDVector{0}(Array{fulltype(Form{D,R,T})}(undef,
-                                                       nsimplices(mfd, 0)))
-    for i in axes(values0, 1)
-        values0[i] = f(coords0[i])::Form{D,R,T}
-    end
-
-    if R == 0
-        values = map(v -> v[], values0)
-        return Fun{D,P,R,C,S,T}(mfd, values)
-    end
-
-    simplicesR = get_simplices(mfd, R)
-    coordsR = get_coords(mfd, R)
-    values = IDVector{R}(Array{T}(undef, nsimplices(mfd, R)))
+    values = IDVector{R}(Array{T}(undef, length(coords)))
     for i in axes(values, 1)
-        si = sparse_column_rows(simplicesR, i)
+        xs = coords[i]::SVector{C,S}
+        fx = f(xs)::Form{D,R}
+
+        si = sparse_column_rows(simplices, i)
         si = SVector{R + 1}(si[n] for n in 1:(R + 1))
-        xs = SVector{R + 1}(coords0[si[n]] for n in 1:(R + 1))
-        fs = SVector{R + 1}(values0[si[n]] for n in 1:(R + 1))
-
-        xc = coordsR[i]
-        λ = cartesian2barycentric(xs, xc)
-        valR = sum(λ .* fs)
-
-        ys = map(y -> y - xs[1], popfirst(xs))
-        ys = map(y -> Form{D,1}(y), ys)
-        val = valR ⋅ ∧(ys)
+        if C == 0
+            t = one(Form{D,R,S})
+        else
+            xsi = map(x -> Form{C,1,S}(x),
+                      coords0[si])::SVector{R + 1,<:Form{C,1,S}}
+            ysi = map(x -> x - xsi[1], popfirst(xsi))::SVector{R,<:Form{C,1,S}}
+            if isempty(ysi)
+                t = one(Form{D,R,S})
+            else
+                t = ∧(ysi...)::Form{D,R,S}
+            end
+        end
+        val = ((t ⋅ fx) / norm2(t))::Form{D,0}
 
         values[i] = val[]
     end
@@ -163,6 +162,19 @@ end
 export project
 """
 Project a function onto a manifold
+
+    f̃(x) = cⁱ bᵢ(x)
+
+    bⱼ(x) ⋅ f̃(x) = cⁱ bⱼ(x) ⋅ bᵢ(x)
+    cⁱ = [bⱼ(x) ⋅ bᵢ(x)]⁻¹ bⱼ(x) ⋅ f̃(x)
+
+
+
+    f̃^a(x) = c^i b^a_i(x)
+
+    # tracing over x and over a:
+    b_a^j(x) f̃^a(x) = c^i b_a^j(x) b^a_i(x)
+    c^i = [b_a^j(x) b^a_i(x)]⁻¹ b_a^j(x) f̃^a(x)
 """
 function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
                  mfd::Manifold{D,C,S}) where {D,P,R,C,S,T}
@@ -182,8 +194,6 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
     order = 4                   # Choice
     scheme = integration_scheme(S, Val(D), Val(order))
 
-    B = basis_products(Val(P), Val(R), mfd)
-
     f(zero(SVector{C,S}))::Form{D,R,T}
 
     values = IDVector{R}(zeros(T, nsimplices(mfd, R)))
@@ -200,6 +210,8 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
         dλ2dx = dbarycentric2dcartesian_setup(Form{D,R}, xs)
 
         # Loop over all contained R-simplices
+        # TODO: Move this loop inside the integration kernel; return
+        # an SVector instead of a scalar
         lookup_RD = get_lookup(mfd, R, D)
         iter = enumerate(sparse_column_rows(lookup_RD, i))
         for (nj, j) in iter
@@ -212,7 +224,14 @@ function project(::Type{<:Fun{D,P,R,C,S,T}}, f,
         end
     end
 
+    # TODO: memoize this matrix
+    # TODO: can we pre-calculate it with barycentric coordinates and
+    # then transform it?
+    B = basis_products(Val(P), Val(R), mfd)
+    @show B
+    @show values
     values′ = B \ values
+    @show values′
 
     return Fun{D,P,R,C,S,T}(mfd, values′)
 end
@@ -260,6 +279,10 @@ function basis_products(::Val{Pr}, ::Val{R},
                     return (bj ⋅ bk)[]
                 end
                 b = integrate(kernel, scheme, xs)
+                # Note: This inserts contributions for the same basis
+                # function multiple times, each time for a different
+                # simplex. The sparse matrix constructor will then sum
+                # these contributions.
                 B[Int(j), Int(k)] = b
             end
         end
@@ -286,8 +309,8 @@ end
 # Numerica 15, 1-155 (2006), DOI:10.1017/S0962492906210018, section
 # 3.3
 #
-# P-(r) Λ(k): reduced space of polynomial `k`-forms with order up to `r`
-# P-(r) Λ(k) = P(r-1) Λ(k) ⊕ κ H(r-1) Λ(k+1)
+# P⁻(r) Λ(k): reduced space of polynomial `k`-forms with order up to `r`
+# P⁻(r) Λ(k) = P(r-1) Λ(k) ⊕ κ H(r-1) Λ(k+1)
 
 # D     R     [n]
 # 2     0     1   x   y
@@ -356,6 +379,114 @@ end
 
 ################################################################################
 
+# WE THINK THESE ARE CORRECT, BUT ARE IN THE WRONG ORDER
+
+# julia> tpc = trimmed_polynomial_complex(Val(2), Int, 1);
+# 
+# julia> whitney(Basis{3,0,Int})
+# Basis{3,0,Int64}[
+#     ⟦(1 * [0, 0, 1])⟧,
+#     ⟦(1 * [0, 1, 0])⟧,
+#     ⟦(1 * [1, 0, 0])⟧]
+# 
+# julia> whitney(Basis{3,1,Int})
+# Basis{3,1,Int64}[
+#     ⟦(), (-1 * [0, 0, 1]), (1 * [0, 1, 0])⟧,
+#     ⟦(-1 * [0, 0, 1]), (), (1 * [1, 0, 0])⟧,
+#     ⟦(-1 * [0, 1, 0]), (1 * [1, 0, 0]), ()⟧]
+# 
+# julia> whitney(Basis{3,2,Int})
+# Basis{3,2,Int64}[
+#     ⟦(1 * [0, 0, 1]), (-1 * [0, 1, 0]), (1 * [1, 0, 0])⟧]
+
+# b(D=2, R=0, n=1) = λ1
+# b(D=2, R=0, n=2) = λ2
+# b(D=2, R=0, n=3) = λ3
+
+# b(D=2, R=1, n=1) = - λ3 dλ2 + λ2 dλ3
+# b(D=2, R=1, n=2) = - λ3 dλ1 + λ1 dλ3
+# b(D=2, R=1, n=3) = - λ2 dλ1 + λ1 dλ2
+
+# b(D=2, R=2, n=1) = λ3 dλ12 - λ2 dλ13 + λ1 dλ2λ3
+
+################################################################################
+
+# WE THINK THESE ARE CORRECT
+
+# Whitney forms:
+#     ϕᵢ = Σₖ (-1)ᵏ⁺¹ λᵢₖ dλᵢ₁ ∧ [dλᵢₖ] ∧ dλᵢₙ
+
+# D = 0:
+
+#     λ₁ = 1
+#     
+#     dλ₁ = 0
+
+#     D=0, R=0:
+#         ϕ₁ = λ₁
+
+#     D=0, R=0:
+#         ϕ₁ = 1
+
+# D = 1:
+
+#     λ₁ = 1 - x
+#     λ₂ = x
+#     
+#     dλ₁ = - dx
+#     dλ₂ = dx
+
+#     D=1, R=0:
+#         ϕ₁ = λ₁
+#         ϕ₂ = λ₂
+#     D=1, R=1:
+#         ϕ₁₂ = λ₁ dλ₂ - λ₂ dλ₁
+
+#     D=1, R=0:
+#         ϕ₁ = 1 - x
+#         ϕ₂ = x
+#     D=1, R=1:
+#         ϕ₁₂ = (1 - x) dx - x (- dx)
+#             = dx
+
+# D = 2:
+
+#     λ₁ = 1 - x - y
+#     λ₂ = x
+#     λ₃ = y
+#     
+#     dλ₁ = - dx - dy
+#     dλ₂ = dx
+#     dλ₃ = dy
+
+#     D=2, R=0:
+#         ϕ₁ = λ₁
+#         ϕ₂ = λ₂
+#         ϕ₃ = λ₃
+#     D=2, R=1:
+#         ϕ₁₂ = λ₁ dλ₂ - λ₂ dλ₁
+#         ϕ₁₃ = λ₁ dλ₃ - λ₃ dλ₁
+#         ϕ₂₃ = λ₂ dλ₃ - λ₃ dλ₂
+#     D=2, R=2:
+#         ϕ₁₂₃ = λ₁ dλ₂ ∧ dλ₃ - λ₂ dλ₁ ∧ dλ₃ + λ₃ dλ₁ ∧ dλ₂
+
+#     D=2, R=0:
+#         ϕ₁ = 1 - x - y
+#         ϕ₂ = x
+#         ϕ₃ = y
+#     D=2, R=1:
+#         ϕ₁₂ = (1 - x - y) dx - x (- dx - dy)
+#             = - (y - 1) dx + x dy
+#         ϕ₁₃ = (1 - x - y) dy - y (- dx - dy)
+#             = y dx - (x - 1) dy
+#         ϕ₂₃ = x dy - y dx
+#             = - y dx + x dy
+#     D=2, R=2:
+#         ϕ₁₂₃ = (1 - x - y) dx ∧ dy - x (- dx - dy) ∧ dy + y (- dx - dy) ∧ dx
+#              = dx ∧ dy
+
+################################################################################
+
 function basis_x(::Type{<:Form{D,R}}, x2λ, dλ2dx, n::Int,
                  x::SVector{C,T}) where {D,R,C,T}
     λ = cartesian2barycentric(x2λ, x)
@@ -395,10 +526,24 @@ function dbarycentric2dcartesian_setup(::Type{<:Form{D,R}},
     # Number of physical form elements
     Nx = length(Form{D,R})
 
+    # Σₙ λⁿ = 1
+    # Σₙ dλⁿ = 0
+
+    # (x,1)ⁱ = (x,1)ₙⁱ λⁿ
+    # (dx,0)ⁱ = (x,1)ₙⁱ dλⁿ
+
+    # λⁿ = (x,1)ⁿᵢ (x,1)ⁱ
+    # dλⁿ = (x,1)ⁿᵢ (dx,0)ⁱ
+
+    setup = cartesian2barycentric_setup(xs)
+    dλ2dx = setup.invA::SMatrix{N,N}
+
     r = zero(SMatrix{Nx,Nλ,T})
     for nx in 1:Nx, nλ in 1:Nλ
         lstx = DifferentialForms.Forms.lin2lst(Val(D), Val(R), nx)
         lstλ = DifferentialForms.Forms.lin2lst(Val(D + 1), Val(R), nλ)
+        @assert length(lstx) == length(lstλ)
+
         relt = zero(T)
         lstλs = permutations(lstλ)
         for lstλ′ in lstλs
@@ -406,17 +551,20 @@ function dbarycentric2dcartesian_setup(::Type{<:Form{D,R}},
             _, p = sort_perm(lstλ′)
             rterm *= bitsign(p)
             for (lx, lλ) in zip(lstx, lstλ′)
-                rterm *= xs[lλ][lx]
+                rterm *= dλ2dx[lλ, lx]
             end
             relt += rterm
         end
+
         r = setindex(r, relt, nx, nλ)
     end
+
     return r
 end
 
 #TODO @fastmath
-function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,T}
+function basis_λ_old(::Type{<:Form{D,R}}, i::Int,
+                     λ::SVector{N,T}) where {D,R,C,N,T}
     D::Int
     R::Int
     @assert 0 ≤ R ≤ D
@@ -446,6 +594,35 @@ function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,
     end
 
     return Form{D + 1,R}(relts) / factorial(R)
+end
+
+#TODO @fastmath
+function basis_λ(::Type{<:Form{D,R}}, i::Int, λ::SVector{N,T}) where {D,R,C,N,T}
+    D::Int
+    R::Int
+    @assert 0 ≤ R ≤ D
+    # Number of barycentric coordinates
+    @assert N == D + 1
+    # Number of barycentric form elements
+    Nλ = length(Form{D + 1,R})
+    # Number of basis functions
+    I = DifferentialForms.binomial(Val(D + 1), Val(R + 1))
+    @assert 1 ≤ i ≤ I
+
+    ϕ = whitney(Basis{D + 1,R,Int})::Basis{D + 1,R,Int}
+    @assert length(ϕ.forms) == I
+    ϕi = ϕ.forms[i]::Form{D + 1,R,Poly{D + 1,Int}}
+
+    belts = map(poly -> evalpoly(poly, λ), ϕi.elts)::SVector{Nλ,T}
+    return Form{D + 1,R}(belts)
+end
+
+function evalpoly(poly::Poly{D}, x::SVector{D,T}) where {D,T}
+    r = zero(T)
+    for term in poly.terms
+        r += term.coeff * prod(x .^ term.powers)
+    end
+    return r::T
 end
 
 @generated function integration_scheme(::Type{T}, ::Val{D},

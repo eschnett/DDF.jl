@@ -84,14 +84,18 @@ end
 function Forms.hodge(::Val{Dl}, ::Val{R},
                      manifold::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
+    # TODO: sign of metric
     s = bitsign(R * (D - R))
+    # s = bitsign(iseven(D) ? 0 : iodd(R))
     return s * invhodge(Val(Dl), Val(R), manifold)
 end
 
 function Forms.invhodge(::Val{Pr}, ::Val{R},
                         manifold::Manifold{D,C,S}) where {R,D,C,S}
     @assert 0 ≤ R ≤ D
+    # TODO: sign of metric
     s = bitsign(R * (D - R))
+    # s = bitsign(iseven(D) ? 0 : iodd(R))
     return s * hodge(Val(Pr), Val(R), manifold)
 end
 
@@ -111,7 +115,7 @@ function coderiv(::Val{P}, ::Val{R},
     @assert 0 ≤ R - dR ≤ D
     # println("[coderiv(D=$D, P=$P, R=$R)]")
     return (bitsign(R) *
-            hodge(Val(!P), Val(R - dR), manifold) *
+            invhodge(Val(!P), Val(R - dR), manifold) *
             deriv(Val(!P), Val(R), manifold) *
             hodge(Val(P), Val(R), manifold))::Op{D,P,R - dR,P,R,S}
 end

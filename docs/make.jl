@@ -6,5 +6,5 @@ using Documenter
 
 using DDF
 
-makedocs(sitename="DDF"; format=Documenter.HTML(prettyurls=false))
-deploydocs(repo="github.com/eschnett/DDF.jl")
+makedocs(; sitename="DDF", format=Documenter.HTML(; prettyurls=false))
+deploydocs(; repo="github.com/eschnett/DDF.jl")

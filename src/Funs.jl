@@ -42,7 +42,7 @@ end
 function Base.show(io::IO, fun::Fun{D,P,R,C,S,T}) where {D,P,R,C,S,T}
     println(io)
     println(io, "Fun{$D,$P,$R,$S,$T}(")
-    println(io, "    manifold=$(fun.manifold.name)")
+    println(io, "    manifold=\"$(fun.manifold.name)\"")
     println(io, "    values=$(fun.values)")
     return print(io, ")")
 end

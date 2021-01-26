@@ -46,6 +46,7 @@ mutable struct Manifold{D,C,S}
 
     # If `simplices[R][i,j]` is present, then vertex `i` is part of
     # the `R`-simplex `j`. `R ∈ 0:D`. We could omit `R=0`.
+    # TODO: Replace this by Vector{SVector{R+1,Int}}
     _simplices::OpDict{Int,One}
     # simplices::Dict{Int,Array{Int,2}}
 
